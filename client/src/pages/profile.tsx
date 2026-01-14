@@ -557,10 +557,10 @@ export default function Profile() {
 
       <div className={`${isSticky ? 'sticky top-16 z-40 bg-background/95 backdrop-blur-sm border-b border-white/10 -mx-4 md:-mx-6 px-4 md:px-6' : ''}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start bg-transparent border-b border-white/10 rounded-none h-auto p-0 gap-0">
+          <TabsList className="w-full justify-start bg-transparent border-b border-white/10 rounded-none h-auto p-0 gap-0 overflow-x-auto flex-nowrap">
             <TabsTrigger 
               value="posts" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
               data-testid="tab-posts"
             >
               <MessageSquare className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
@@ -568,7 +568,7 @@ export default function Profile() {
             </TabsTrigger>
             <TabsTrigger 
               value="replies" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
               data-testid="tab-replies"
             >
               <Reply className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
@@ -576,7 +576,7 @@ export default function Profile() {
             </TabsTrigger>
             <TabsTrigger 
               value="favorites" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
               data-testid="tab-favorites"
             >
               <Heart className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
@@ -587,7 +587,7 @@ export default function Profile() {
             </TabsTrigger>
             <TabsTrigger 
               value="files" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
               data-testid="tab-files"
             >
               <FileText className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
@@ -595,7 +595,7 @@ export default function Profile() {
             </TabsTrigger>
             <TabsTrigger 
               value="interests" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
               data-testid="tab-interests"
             >
               <Hash className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
