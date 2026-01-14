@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,11 @@ export default function Login() {
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // If already logged in, redirect handled in App.tsx but safety check here
-  if (user) {
-    setLocation("/feed");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      setLocation("/feed");
+    }
+  }, [user, setLocation]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
