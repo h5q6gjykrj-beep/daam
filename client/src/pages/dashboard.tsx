@@ -164,7 +164,11 @@ export default function Dashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
               >
-                <Card className={`border-white/5 ${stat.bgColor} hover:scale-105 transition-transform`} data-testid={`quick-stat-${index}`}>
+                <Card 
+                  className={`border-white/5 ${stat.bgColor} hover:scale-105 transition-transform cursor-pointer`} 
+                  data-testid={`quick-stat-${index}`}
+                  onClick={() => setLocation('/feed')}
+                >
                   <CardContent className="p-3 sm:p-4 text-center">
                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br ${stat.color} flex items-center justify-center mx-auto mb-2 shadow-lg`}>
                       <stat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
