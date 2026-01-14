@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
@@ -59,6 +60,8 @@ export default function Feed() {
   const [editContent, setEditContent] = useState("");
   const [editPostType, setEditPostType] = useState<PostType>('discussion');
   const [editSubject, setEditSubject] = useState<string>('');
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerContent, setViewerContent] = useState<{ url: string; name: string; type: 'pdf' | 'image' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -167,17 +170,12 @@ export default function Feed() {
     const isImage = attachment.type === 'image';
     
     if (isPdf || isImage) {
-      const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
-      if (blob) {
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-      } else {
-        toast({
-          title: lang === 'ar' ? 'خطأ' : 'Error',
-          description: lang === 'ar' ? 'تعذر فتح الملف' : 'Could not open file',
-          variant: 'destructive'
-        });
-      }
+      setViewerContent({
+        url: attachment.url,
+        name: attachment.name,
+        type: isPdf ? 'pdf' : 'image'
+      });
+      setViewerOpen(true);
     } else {
       downloadAttachment(attachment);
     }
@@ -1018,6 +1016,53 @@ export default function Feed() {
           ))
         )}
       </div>
+
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="truncate pe-8">
+              {viewerContent?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4 bg-muted/30">
+            {viewerContent?.type === 'pdf' ? (
+              <iframe
+                src={viewerContent.url}
+                className="w-full h-[70vh] border-0 rounded"
+                title={viewerContent.name}
+              />
+            ) : viewerContent?.type === 'image' ? (
+              <img
+                src={viewerContent.url}
+                alt={viewerContent.name}
+                className="max-w-full max-h-[70vh] mx-auto object-contain rounded"
+              />
+            ) : null}
+          </div>
+          <div className="p-4 border-t flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (viewerContent) {
+                  downloadAttachment({ 
+                    url: viewerContent.url, 
+                    name: viewerContent.name, 
+                    type: viewerContent.type === 'image' ? 'image' : 'file',
+                    size: 0 
+                  });
+                }
+              }}
+              data-testid="button-viewer-download"
+            >
+              <Download className="w-4 h-4 me-2" />
+              {lang === 'ar' ? 'تحميل' : 'Download'}
+            </Button>
+            <Button onClick={() => setViewerOpen(false)} data-testid="button-viewer-close">
+              {lang === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
