@@ -84,20 +84,26 @@ export default function Profile() {
     if (profileEmail) {
       const p = getProfile(profileEmail);
       setProfile(p || null);
-      if (p) {
-        setEditForm({
-          name: p.name || '',
-          major: p.major || '',
-          university: p.university || '',
-          level: p.level || '',
-          bio: p.bio || '',
-          interests: p.interests || [],
-          showFavorites: p.showFavorites !== false,
-          showInterests: p.showInterests !== false
-        });
-      }
     }
   }, [profileEmail, getProfile]);
+
+  // Reset edit form when profile changes or when entering edit mode
+  useEffect(() => {
+    if (profile && isEditing) {
+      setEditForm({
+        name: profile.name || '',
+        major: profile.major || '',
+        university: profile.university || '',
+        level: profile.level || '',
+        bio: profile.bio || '',
+        interests: profile.interests || [],
+        showFavorites: profile.showFavorites !== false,
+        showInterests: profile.showInterests !== false
+      });
+      setTempCover(null);
+      setTempAvatar(null);
+    }
+  }, [isEditing]);
 
   useEffect(() => {
     const handleScroll = () => {

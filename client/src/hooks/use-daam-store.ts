@@ -190,9 +190,9 @@ export function useDaamStore() {
     setUser({ ...user, profile: newProfile });
   };
 
-  const getProfile = (email: string): UserProfile | undefined => {
+  const getProfile = useCallback((email: string): UserProfile | undefined => {
     return profiles[email];
-  };
+  }, [profiles]);
 
   const toggleSave = (postId: string) => {
     if (!user) return;
