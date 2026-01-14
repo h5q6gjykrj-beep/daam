@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Globe, Shield, Home, MessageSquare, User } from "lucide-react";
+import { LogOut, Bot, Shield, Home, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
@@ -17,97 +17,68 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
   if (!user) return <>{children}</>;
 
+  const tr = {
+    home: lang === 'ar' ? 'الرئيسية' : 'Home',
+    feed: lang === 'ar' ? 'الساحة' : 'Feed',
+    tutor: lang === 'ar' ? 'المساعد' : 'AI',
+    profile: lang === 'ar' ? 'الملف' : 'Profile',
+    admin: lang === 'ar' ? 'مشرف' : 'Admin',
+  };
+
+  const navItems = [
+    { path: '/dashboard', label: tr.home, icon: Home },
+    { path: '/feed', label: tr.feed, icon: MessageSquare },
+    { path: '/tutor', label: tr.tutor, icon: Bot },
+    { path: '/profile', label: tr.profile, icon: User },
+  ];
+
+  const isActive = (path: string) => {
+    if (path === '/profile') return location.startsWith('/profile');
+    return location === path;
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Navbar */}
       <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <div 
-            className="flex items-center gap-2 cursor-pointer" 
+            className="flex items-center gap-3 cursor-pointer" 
             onClick={() => setLocation('/dashboard')}
             data-testid="link-logo-home"
           >
             <img 
               src={daamLogo} 
               alt="DAAM Logo" 
-              className="h-10"
+              className="h-9"
               data-testid="img-logo-header"
             />
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Nav Items */}
-            <div className="hidden md:flex items-center gap-2 mr-2 rtl:mr-0 rtl:ml-2">
-              {user.isAdmin && (
-                <Badge variant="secondary" className="text-xs bg-primary/20 text-primary border-primary/30">
-                  <Shield className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
-                  {lang === 'ar' ? 'مشرف' : 'Admin'}
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full border border-white/5">
-                {user.email}
-              </span>
-            </div>
-
-            <Button
-              variant={location === '/dashboard' ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLocation('/dashboard')}
-              className={location === '/dashboard' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
-              data-testid="nav-dashboard"
-            >
-              <Home className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              <span className="hidden sm:inline">{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
-            </Button>
-
-            <Button
-              variant={location === '/feed' ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLocation('/feed')}
-              className={location === '/feed' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
-              data-testid="nav-feed"
-            >
-              <MessageSquare className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              <span className="hidden sm:inline">{lang === 'ar' ? 'المنتدى' : 'Feed'}</span>
-            </Button>
-
-            <Button
-              variant={location === '/tutor' ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLocation('/tutor')}
-              className={location === '/tutor' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
-              data-testid="nav-tutor"
-            >
-              <Bot className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              <span className="hidden sm:inline">{t.tutorBtn}</span>
-            </Button>
-
-            <Button
-              variant={location.startsWith('/profile') ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLocation('/profile')}
-              className={location.startsWith('/profile') ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
-              data-testid="nav-profile"
-            >
-              <User className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              <span className="hidden sm:inline">{lang === 'ar' ? 'الملف' : 'Profile'}</span>
-            </Button>
-
+          <div className="flex items-center gap-2">
+            {user.isAdmin && (
+              <Badge variant="secondary" className="text-[10px] bg-primary/20 text-primary border-primary/30 hidden sm:flex">
+                <Shield className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                {tr.admin}
+              </Badge>
+            )}
+            
             <Button
               variant="outline"
               size="icon"
               onClick={toggleLang}
-              className="w-9 h-9 border-white/10 hover:bg-white/5"
+              className="w-8 h-8 border-white/10 hover:bg-white/5 text-xs font-bold"
+              data-testid="button-toggle-lang"
             >
-              <span className="font-bold text-xs">{lang === 'en' ? 'ع' : 'EN'}</span>
+              {lang === 'en' ? 'ع' : 'EN'}
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
               onClick={logout}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 w-9 h-9"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 w-8 h-8"
               title={t.logoutBtn}
+              data-testid="button-logout"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -115,24 +86,43 @@ export function LayoutShell({ children }: LayoutShellProps) {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl relative">
+      <main className="flex-1 container mx-auto px-4 py-6 max-w-2xl relative pb-24">
         <motion.div
           key={location}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
         >
           {children}
         </motion.div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-6 border-t border-white/5 mt-auto">
-        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} DAAM Platform. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/95 backdrop-blur-md safe-area-bottom">
+        <div className="container mx-auto px-2">
+          <div className="flex items-center justify-around h-16">
+            {navItems.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => setLocation(item.path)}
+                  className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all ${
+                    active 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                  }`}
+                  data-testid={`nav-bottom-${item.path.replace('/', '')}`}
+                >
+                  <item.icon className={`w-5 h-5 ${active ? 'text-primary' : ''}`} />
+                  <span className={`text-[10px] font-medium ${active ? 'text-primary' : ''}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </footer>
+      </nav>
     </div>
   );
 }

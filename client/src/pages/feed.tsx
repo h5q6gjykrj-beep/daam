@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +40,7 @@ const SUBJECTS = [
 
 export default function Feed() {
   const { posts, createPost, deletePost, toggleLike, toggleSave, addReply, t, lang, user, getProfile } = useDaamStore();
+  const [location, setLocation] = useLocation();
   const [content, setContent] = useState("");
   const [postType, setPostType] = useState<PostType>('discussion');
   const [subject, setSubject] = useState<string>('');
@@ -48,6 +50,7 @@ export default function Feed() {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'recent' | 'popular'>('recent');
   const [filterType, setFilterType] = useState<PostType | 'all'>('all');
+  const [filterSubject, setFilterSubject] = useState<string | null>(null);
   const [aiExplaining, setAiExplaining] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -55,6 +58,16 @@ export default function Feed() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const subjectParam = params.get('subject');
+    if (subjectParam && SUBJECTS.find(s => s.value === subjectParam)) {
+      setFilterSubject(subjectParam);
+    } else {
+      setFilterSubject(null);
+    }
+  }, [location]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -300,6 +313,7 @@ export default function Feed() {
 
   const filteredPosts = posts
     .filter(post => filterType === 'all' || post.postType === filterType)
+    .filter(post => !filterSubject || post.subject === filterSubject)
     .sort((a, b) => {
       if (sortBy === 'popular') {
         const aScore = (a.likedBy?.length || 0) + (a.replies?.length || 0) * 2;
@@ -557,6 +571,20 @@ export default function Feed() {
               {lang === 'ar' ? config.labelAr : config.labelEn}
             </Button>
           ))}
+          {filterSubject && (
+            <Badge 
+              variant="secondary" 
+              className="h-7 px-2 gap-1 cursor-pointer bg-primary/20 text-primary border-primary/30 hover:bg-primary/30"
+              onClick={() => {
+                setFilterSubject(null);
+                setLocation('/feed');
+              }}
+              data-testid="badge-clear-subject-filter"
+            >
+              #{SUBJECTS.find(s => s.value === filterSubject)?.[lang === 'ar' ? 'labelAr' : 'labelEn'] || filterSubject}
+              <X className="w-3 h-3" />
+            </Badge>
+          )}
         </div>
       </div>
 
