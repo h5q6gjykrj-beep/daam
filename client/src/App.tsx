@@ -11,6 +11,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Feed from "@/pages/feed";
 import Tutor from "@/pages/tutor";
+import Profile from "@/pages/profile";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -56,6 +57,7 @@ function Router() {
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/feed" component={Feed} />
             <Route path="/tutor" component={Tutor} />
+            <Route path="/profile/:email?" component={Profile} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>

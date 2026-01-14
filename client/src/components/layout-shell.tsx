@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Globe, Shield, Home, MessageSquare } from "lucide-react";
+import { LogOut, Bot, Globe, Shield, Home, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
@@ -80,6 +80,17 @@ export function LayoutShell({ children }: LayoutShellProps) {
             >
               <Bot className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
               <span className="hidden sm:inline">{t.tutorBtn}</span>
+            </Button>
+
+            <Button
+              variant={location.startsWith('/profile') ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/profile')}
+              className={location.startsWith('/profile') ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
+              data-testid="nav-profile"
+            >
+              <User className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+              <span className="hidden sm:inline">{lang === 'ar' ? 'الملف' : 'Profile'}</span>
             </Button>
 
             <Button

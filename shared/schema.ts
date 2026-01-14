@@ -24,7 +24,15 @@ export interface UserProfile {
   name: string;
   major: string;
   university: string;
+  level?: string; // Academic level (year 1, 2, etc.)
   avatarColor?: string;
+  avatarUrl?: string; // Profile photo base64
+  coverUrl?: string; // Cover image base64
+  interests?: string[]; // Tags like ['math', 'programming']
+  bio?: string;
+  // Privacy settings
+  showFavorites?: boolean; // Default true (public)
+  showInterests?: boolean; // Default true (public)
 }
 
 // Client-side types for localStorage data
