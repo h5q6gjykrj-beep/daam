@@ -142,7 +142,8 @@ export default function Profile() {
   };
 
   const handleSaveProfile = () => {
-    updateProfile({
+    if (!profileEmail) return;
+    updateProfile(profileEmail, {
       name: editForm.name,
       major: editForm.major,
       university: editForm.university,

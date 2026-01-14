@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
 import { type LocalPost, type LocalReply, type PostType, type UserProfile, type Attachment } from "@shared/schema";
 
 // Types
@@ -67,7 +67,28 @@ const DICTIONARY = {
   }
 };
 
-export function useDaamStore() {
+interface DaamStoreContextType {
+  user: User | null;
+  lang: Language;
+  posts: LocalPost[];
+  profiles: Record<string, UserProfile>;
+  isLoading: boolean;
+  t: typeof DICTIONARY.en;
+  login: (email: string) => void;
+  logout: () => void;
+  createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
+  deletePost: (postId: string) => void;
+  toggleLike: (postId: string) => void;
+  toggleSave: (postId: string) => void;
+  addReply: (postId: string, content: string, parentReplyId?: string) => void;
+  toggleLang: () => void;
+  updateProfile: (email: string, profile: Partial<UserProfile>) => void;
+  getProfile: (email: string) => UserProfile | undefined;
+}
+
+const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
+
+export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // State
   const [user, setUser] = useState<User | null>(null);
   const [lang, setLang] = useState<Language>('ar');
@@ -114,7 +135,7 @@ export function useDaamStore() {
     
     // Update document direction
     document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = storedLang || 'en';
+    document.documentElement.lang = storedLang || 'ar';
     
     setIsLoading(false);
   }, []);
@@ -175,19 +196,29 @@ export function useDaamStore() {
       imageUrl,
       attachments
     };
-    
     const updatedPosts = [newPost, ...posts];
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
-  const updateProfile = (profile: Omit<UserProfile, 'email'>) => {
-    if (!user) return;
-    const newProfile: UserProfile = { ...profile, email: user.email };
-    const updatedProfiles = { ...profiles, [user.email]: newProfile };
+  const updateProfile = (email: string, profileData: Partial<UserProfile>) => {
+    const updatedProfiles = {
+      ...profiles,
+      [email]: {
+        ...profiles[email],
+        ...profileData
+      }
+    };
     setProfiles(updatedProfiles);
     localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
-    setUser({ ...user, profile: newProfile });
+    
+    // Update user object if it's the current user
+    if (user?.email === email) {
+      setUser({
+        ...user,
+        profile: updatedProfiles[email]
+      });
+    }
   };
 
   const getProfile = useCallback((email: string): UserProfile | undefined => {
@@ -259,7 +290,7 @@ export function useDaamStore() {
     setLang(prev => prev === 'en' ? 'ar' : 'en');
   };
 
-  return {
+  const value: DaamStoreContextType = {
     user,
     lang,
     posts,
@@ -277,4 +308,18 @@ export function useDaamStore() {
     updateProfile,
     getProfile
   };
+
+  return (
+    <DaamStoreContext.Provider value={value}>
+      {children}
+    </DaamStoreContext.Provider>
+  );
+}
+
+export function useDaamStore() {
+  const context = useContext(DaamStoreContext);
+  if (!context) {
+    throw new Error('useDaamStore must be used within a DaamStoreProvider');
+  }
+  return context;
 }

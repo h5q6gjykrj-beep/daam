@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useDaamStore } from "@/hooks/use-daam-store";
+import { useDaamStore, DaamStoreProvider } from "@/hooks/use-daam-store";
 import { LayoutShell } from "@/components/layout-shell";
 import { Loader2 } from "lucide-react";
 
@@ -98,10 +98,12 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <AppContent />
-      </TooltipProvider>
+      <DaamStoreProvider>
+        <TooltipProvider>
+          <Toaster />
+          <AppContent />
+        </TooltipProvider>
+      </DaamStoreProvider>
     </QueryClientProvider>
   );
 }
