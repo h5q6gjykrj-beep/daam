@@ -22,7 +22,7 @@ export default function Login() {
       setLocation("/dashboard");
       toast({
         title: lang === 'en' ? "Welcome back!" : "أهلاً بك!",
-        description: lang === 'en' ? "Successfully logged in to DAAM." : "تم تسجيل الدخول بنجاح لمنصة داعم.",
+        description: lang === 'en' ? "Successfully logged in to DAAM." : "تم تسجيل الدخول بنجاح لمنصة دام.",
         variant: "default",
       });
     } catch (error: any) {
@@ -76,7 +76,7 @@ export default function Login() {
               className="h-20 mx-auto mb-2"
               data-testid="img-logo-login"
             />
-            <CardTitle className="text-3xl font-bold tracking-tight">منصة داعم</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">منصة دام</CardTitle>
             <CardDescription className="text-lg text-muted-foreground">
               {t.loginSubtitle}
             </CardDescription>

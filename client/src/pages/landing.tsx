@@ -77,7 +77,7 @@ export default function Landing() {
     trendingSubject: lang === 'ar' ? 'المادة الأكثر تفاعلاً' : 'Trending Subject',
     trendingDiscussions: lang === 'ar' ? 'المنشورات الأكثر تفاعلاً' : 'Trending Discussions',
     hotTopics: lang === 'ar' ? 'المواضيع الساخنة' : 'Hot Topics',
-    whyDaam: lang === 'ar' ? 'لماذا داعم؟' : 'Why DAAM?',
+    whyDaam: lang === 'ar' ? 'لماذا دام؟' : 'Why DAAM?',
     feature1Title: lang === 'ar' ? 'ساحة نقاش طلابية' : 'Student Discussion Arena',
     feature1Desc: lang === 'ar' ? 'شارك أسئلتك وأفكارك مع زملائك' : 'Share questions and ideas with peers',
     feature2Title: lang === 'ar' ? 'مساعد ذكي يشرح لك' : 'AI Assistant Explains',
@@ -103,7 +103,7 @@ export default function Landing() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={daamLogo} alt="DAAM" className="h-10" data-testid="img-logo-nav" />
-            <span className="font-bold text-lg hidden sm:block">داعم</span>
+            <span className="font-bold text-lg hidden sm:block">دام</span>
           </div>
           
           <nav className="hidden md:flex items-center gap-6">
@@ -363,7 +363,7 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <img src={daamLogo} alt="DAAM" className="h-8" />
-              <span className="font-bold">داعم - DAAM</span>
+              <span className="font-bold">دام - DAAM</span>
             </div>
             
             <nav className="flex items-center gap-6 text-sm text-muted-foreground">

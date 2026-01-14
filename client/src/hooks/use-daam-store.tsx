@@ -43,7 +43,7 @@ const DICTIONARY = {
     deletePost: "Delete"
   },
   ar: {
-    welcome: "مرحباً بكم في داعم",
+    welcome: "مرحباً بكم في دام",
     loginSubtitle: "منصة التعاون الطلابي",
     emailPlaceholder: "البريد الجامعي (@utas.edu.om)",
     loginBtn: "دخول",
