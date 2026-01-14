@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Bot, Globe, Shield, Home, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
+import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
 interface LayoutShellProps {
   children: ReactNode;
@@ -24,11 +25,14 @@ export function LayoutShell({ children }: LayoutShellProps) {
           <div 
             className="flex items-center gap-2 cursor-pointer" 
             onClick={() => setLocation('/dashboard')}
+            data-testid="link-logo-home"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary/20">
-              D
-            </div>
-            <span className="font-bold text-xl tracking-tight hidden sm:block">DAAM</span>
+            <img 
+              src={daamLogo} 
+              alt="DAAM Logo" 
+              className="h-10"
+              data-testid="img-logo-header"
+            />
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">

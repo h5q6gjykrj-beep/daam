@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Globe, ArrowRight, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -61,13 +62,16 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <Card className="glass-panel border-0 overflow-hidden shadow-2xl shadow-black/50">
-          <div className="h-2 bg-gradient-to-r from-primary via-purple-500 to-pink-500 w-full" />
+          <div className="h-2 bg-gradient-to-r from-primary to-gray-500 w-full" />
           
           <CardHeader className="text-center pt-8 pb-2 space-y-3">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-primary/25 mb-4">
-              D
-            </div>
-            <CardTitle className="text-3xl font-bold tracking-tight">DAAM</CardTitle>
+            <img 
+              src={daamLogo} 
+              alt="DAAM Logo" 
+              className="h-20 mx-auto mb-2"
+              data-testid="img-logo-login"
+            />
+            <CardTitle className="text-3xl font-bold tracking-tight">منصة داعم</CardTitle>
             <CardDescription className="text-lg text-muted-foreground">
               {t.loginSubtitle}
             </CardDescription>
