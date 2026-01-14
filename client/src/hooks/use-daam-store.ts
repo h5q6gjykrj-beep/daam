@@ -7,8 +7,7 @@ export type User = { email: string; isAdmin: boolean };
 
 // Admin Configuration - add admin emails here
 export const ADMIN_EMAILS = [
-  'admin@utas.edu.om',
-  'administrator@utas.edu.om'
+  'w.qq89@hotmail.com'
 ];
 
 const KEYS = {
@@ -111,13 +110,15 @@ export function useDaamStore() {
 
   // Actions
   const login = (email: string) => {
-    if (!email.endsWith('@utas.edu.om')) {
+    const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
+    // Allow admin emails OR university emails
+    if (!isAdminEmail && !email.endsWith('@utas.edu.om')) {
       throw new Error(DICTIONARY[lang].invalidEmail);
     }
     localStorage.setItem(KEYS.USER, email);
     setUser({ 
       email, 
-      isAdmin: ADMIN_EMAILS.includes(email.toLowerCase()) 
+      isAdmin: isAdminEmail 
     });
   };
 
