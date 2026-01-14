@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
@@ -192,6 +192,7 @@ export default function Feed() {
             style={{ marginLeft: isRTL ? 0 : indentLevel * 24, marginRight: isRTL ? indentLevel * 24 : 0 }}
           >
             <Avatar className={`${depth === 0 ? 'w-7 h-7' : 'w-6 h-6'} border border-white/10 flex-shrink-0`}>
+              <AvatarImage src={getProfile(reply.authorEmail)?.avatarUrl} />
               <AvatarFallback className={`bg-secondary text-secondary-foreground ${depth === 0 ? 'text-xs' : 'text-[10px]'}`}>
                 {getInitials(reply.authorEmail)}
               </AvatarFallback>
@@ -232,6 +233,7 @@ export default function Feed() {
               style={{ marginLeft: isRTL ? 0 : (indentLevel + 1) * 24, marginRight: isRTL ? (indentLevel + 1) * 24 : 0 }}
             >
               <Avatar className="w-5 h-5 border border-white/10 flex-shrink-0">
+                <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
                 <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
                   {user ? getInitials(user.email) : 'ME'}
                 </AvatarFallback>
@@ -365,6 +367,7 @@ export default function Feed() {
             <Card className="glass-panel border-violet-500/20 p-5 space-y-4">
               <div className="flex gap-3">
                 <Avatar className="w-10 h-10 border border-violet-500/30">
+                  <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
                   <AvatarFallback className="bg-primary/20 text-primary font-bold">
                     {user ? getInitials(user.email) : 'ME'}
                   </AvatarFallback>
@@ -587,6 +590,7 @@ export default function Feed() {
                     <div className="p-5">
                       <div className="flex gap-4">
                         <Avatar className="w-11 h-11 border-2 border-violet-500/30">
+                          <AvatarImage src={getProfile(post.authorEmail)?.avatarUrl} />
                           <AvatarFallback className="bg-gradient-to-br from-violet-600 to-gray-500 text-white font-medium">
                             {getInitials(post.authorEmail)}
                           </AvatarFallback>
@@ -795,6 +799,7 @@ export default function Feed() {
                               >
                                 <div className="flex gap-2 items-start">
                                   <Avatar className="w-7 h-7 border border-white/10">
+                                    <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
                                     <AvatarFallback className="bg-primary/20 text-primary text-xs">
                                       {user ? getInitials(user.email) : 'ME'}
                                     </AvatarFallback>
