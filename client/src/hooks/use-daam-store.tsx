@@ -78,6 +78,7 @@ interface DaamStoreContextType {
   logout: () => void;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
+  updatePost: (postId: string, content: string, postType?: PostType, subject?: string) => void;
   toggleLike: (postId: string) => void;
   toggleSave: (postId: string) => void;
   addReply: (postId: string, content: string, parentReplyId?: string) => void;
@@ -243,8 +244,31 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   };
 
   const deletePost = (postId: string) => {
-    if (!user?.isAdmin) return;
+    if (!user) return;
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    // Allow deletion if user is admin or the post author
+    if (!user.isAdmin && post.authorEmail !== user.email) return;
     const updatedPosts = posts.filter(p => p.id !== postId);
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+
+  const updatePost = (postId: string, content: string, postType?: PostType, subject?: string) => {
+    if (!user) return;
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    // Only allow update if user is the post author
+    if (post.authorEmail !== user.email) return;
+    const updatedPosts = posts.map(p => {
+      if (p.id !== postId) return p;
+      return {
+        ...p,
+        content,
+        postType: postType || p.postType,
+        subject: subject !== undefined ? subject : p.subject
+      };
+    });
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
@@ -301,6 +325,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     logout,
     createPost,
     deletePost,
+    updatePost,
     toggleLike,
     toggleSave,
     addReply,

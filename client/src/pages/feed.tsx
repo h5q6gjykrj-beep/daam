@@ -8,8 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
-  Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink
+  Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
+  MoreVertical, Pencil, Trash2
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { type LocalReply, type PostType, type Attachment } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -36,7 +43,7 @@ const SUBJECTS = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, lang, user, getProfile } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, lang, user, getProfile } = useDaamStore();
   const [content, setContent] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
@@ -48,6 +55,10 @@ export default function Feed() {
   const [newPostType, setNewPostType] = useState<PostType>('discussion');
   const [newPostSubject, setNewPostSubject] = useState<string>('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editPostType, setEditPostType] = useState<PostType>('discussion');
+  const [editSubject, setEditSubject] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -108,6 +119,47 @@ export default function Feed() {
       link.download = attachment.name;
       link.click();
     }
+  };
+
+  const startEditPost = (post: typeof posts[0]) => {
+    setEditingPostId(post.id);
+    setEditContent(post.content);
+    setEditPostType(post.postType);
+    setEditSubject(post.subject || '');
+  };
+
+  const cancelEditPost = () => {
+    setEditingPostId(null);
+    setEditContent("");
+    setEditPostType('discussion');
+    setEditSubject('');
+  };
+
+  const saveEditPost = () => {
+    if (!editingPostId || !editContent.trim()) return;
+    updatePost(editingPostId, editContent, editPostType, editSubject || undefined);
+    setEditingPostId(null);
+    setEditContent("");
+    toast({
+      title: lang === 'ar' ? 'تم التعديل' : 'Updated',
+      description: lang === 'ar' ? 'تم تعديل المنشور بنجاح' : 'Post updated successfully'
+    });
+  };
+
+  const handleDeletePost = (postId: string) => {
+    deletePost(postId);
+    toast({
+      title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
+      description: lang === 'ar' ? 'تم حذف المنشور' : 'Post deleted'
+    });
+  };
+
+  const canEditPost = (post: typeof posts[0]) => {
+    return user?.email === post.authorEmail;
+  };
+
+  const canDeletePost = (post: typeof posts[0]) => {
+    return user?.email === post.authorEmail || user?.isAdmin;
   };
 
   const getInitials = (email: string) => {
@@ -301,7 +353,11 @@ export default function Feed() {
     postType: lang === 'ar' ? 'نوع المنشور' : 'Post Type',
     subject: lang === 'ar' ? 'المادة' : 'Subject',
     selectSubject: lang === 'ar' ? 'اختر المادة' : 'Select Subject',
-    admin: lang === 'ar' ? 'مشرف' : 'Admin'
+    admin: lang === 'ar' ? 'مشرف' : 'Admin',
+    edit: lang === 'ar' ? 'تعديل' : 'Edit',
+    delete: lang === 'ar' ? 'حذف' : 'Delete',
+    saveChanges: lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes',
+    confirmDelete: lang === 'ar' ? 'هل أنت متأكد من حذف هذا المنشور؟' : 'Are you sure you want to delete this post?'
   };
 
   const getPostTypeLabel = (type: PostType) => {
@@ -547,15 +603,53 @@ export default function Feed() {
                     </Avatar>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm">
-                          {getDisplayName(post.authorEmail)}
-                        </span>
-                        {isAdmin(post.authorEmail) && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
-                            <Shield className="w-2.5 h-2.5 me-0.5" />
-                            {tr.admin}
-                          </Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">
+                            {getDisplayName(post.authorEmail)}
+                          </span>
+                          {isAdmin(post.authorEmail) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                              <Shield className="w-2.5 h-2.5 me-0.5" />
+                              {tr.admin}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {(canEditPost(post) || canDeletePost(post)) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-7 w-7"
+                                data-testid={`button-post-menu-${post.id}`}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={isRTL ? "start" : "end"}>
+                              {canEditPost(post) && (
+                                <DropdownMenuItem 
+                                  onClick={() => startEditPost(post)}
+                                  data-testid={`button-edit-${post.id}`}
+                                >
+                                  <Pencil className="w-4 h-4 me-2" />
+                                  {tr.edit}
+                                </DropdownMenuItem>
+                              )}
+                              {canDeletePost(post) && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeletePost(post.id)}
+                                  className="text-destructive focus:text-destructive"
+                                  data-testid={`button-delete-${post.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 me-2" />
+                                  {tr.delete}
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
@@ -574,21 +668,90 @@ export default function Feed() {
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {post.subject && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-violet-500/30 text-violet-400">
-                            <Hash className="w-2.5 h-2.5 me-0.5" />
-                            {getSubjectLabel(post.subject)}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-white/10">
-                          {getPostTypeLabel(post.postType)}
-                        </Badge>
-                      </div>
-                      
-                      <p className="text-base leading-relaxed mt-3 whitespace-pre-wrap">
-                        {post.content}
-                      </p>
+                      {editingPostId === post.id ? (
+                        <div className="mt-3 space-y-3">
+                          <Textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
+                            autoFocus
+                            data-testid="textarea-edit-post"
+                          />
+                          
+                          <div className="flex flex-wrap gap-1">
+                            {POST_TYPES.map((type) => (
+                              <Button
+                                key={type.value}
+                                size="sm"
+                                variant={editPostType === type.value ? "default" : "outline"}
+                                onClick={() => setEditPostType(type.value)}
+                                className="text-xs h-7"
+                              >
+                                {lang === 'ar' ? type.labelAr : type.labelEn}
+                              </Button>
+                            ))}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1">
+                            <Button
+                              size="sm"
+                              variant={!editSubject ? "default" : "outline"}
+                              onClick={() => setEditSubject('')}
+                              className="text-xs h-7"
+                            >
+                              -
+                            </Button>
+                            {SUBJECTS.map((subject) => (
+                              <Button
+                                key={subject.value}
+                                size="sm"
+                                variant={editSubject === subject.value ? "default" : "outline"}
+                                onClick={() => setEditSubject(subject.value)}
+                                className="text-xs h-7"
+                              >
+                                {lang === 'ar' ? subject.labelAr : subject.labelEn}
+                              </Button>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-2 justify-end">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={cancelEditPost}
+                              data-testid="button-cancel-edit"
+                            >
+                              {tr.cancel}
+                            </Button>
+                            <Button 
+                              size="sm"
+                              onClick={saveEditPost}
+                              disabled={!editContent.trim()}
+                              data-testid="button-save-edit"
+                            >
+                              {tr.saveChanges}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {post.subject && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-violet-500/30 text-violet-400">
+                                <Hash className="w-2.5 h-2.5 me-0.5" />
+                                {getSubjectLabel(post.subject)}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-white/10">
+                              {getPostTypeLabel(post.postType)}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-base leading-relaxed mt-3 whitespace-pre-wrap">
+                            {post.content}
+                          </p>
+                        </>
+                      )}
 
                       {post.imageUrl && (
                         <img 
