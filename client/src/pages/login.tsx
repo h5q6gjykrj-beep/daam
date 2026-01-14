@@ -43,7 +43,7 @@ export default function Login() {
   const isRTL = lang === 'ar';
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
       <div className="absolute top-4 right-4">
         <Button 
           variant="outline" 

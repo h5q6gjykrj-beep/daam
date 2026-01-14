@@ -70,7 +70,7 @@ export default function Tutor() {
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-white/5">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-violet-600 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
           <Bot className="w-6 h-6 text-white" />
         </div>
         <div>
@@ -96,10 +96,10 @@ export default function Tutor() {
               animate={{ opacity: 1, y: 0 }}
               className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
-              <Avatar className={`w-8 h-8 border ${msg.role === 'assistant' ? 'border-cyan-500/30' : 'border-white/10'}`}>
+              <Avatar className={`w-8 h-8 border ${msg.role === 'assistant' ? 'border-violet-500/30' : 'border-white/10'}`}>
                 {msg.role === 'assistant' ? (
-                  <div className="w-full h-full bg-cyan-950 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <div className="w-full h-full bg-violet-950 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-violet-400" />
                   </div>
                 ) : (
                   <AvatarFallback className="bg-primary/20 text-primary text-xs">ME</AvatarFallback>
@@ -125,8 +125,8 @@ export default function Tutor() {
               animate={{ opacity: 1 }}
               className="flex gap-3"
             >
-              <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-500/30 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
+              <div className="w-8 h-8 rounded-full bg-violet-950 border border-violet-500/30 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-violet-400" />
               </div>
               <div className="bg-card border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -147,12 +147,12 @@ export default function Tutor() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t.tutorPlaceholder}
-              className="flex-1 bg-black/20 border-white/10 focus:border-cyan-500/50 transition-colors"
+              className="flex-1 bg-black/20 border-white/10 focus:border-violet-500/50 transition-colors"
             />
             <Button 
               type="submit" 
               disabled={!input.trim() || isTyping}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/20"
+              className="bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-900/20"
             >
               {isRTL ? <Send className="w-4 h-4 transform rotate-180" /> : <Send className="w-4 h-4" />}
             </Button>

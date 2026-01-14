@@ -140,7 +140,7 @@ export default function Feed() {
 
                       {/* Fake interaction buttons for visuals */}
                       <div className="flex gap-4 pt-3 mt-2">
-                        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 gap-1 px-2">
+                        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 gap-1 px-2">
                           <Heart className="w-3.5 h-3.5" />
                           <span>Like</span>
                         </Button>
@@ -148,7 +148,7 @@ export default function Feed() {
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>Reply</span>
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10 gap-1 px-2 ml-auto rtl:mr-auto rtl:ml-0">
+                        <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-gray-400 hover:bg-gray-500/10 gap-1 px-2 ml-auto rtl:mr-auto rtl:ml-0">
                           <Share2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>

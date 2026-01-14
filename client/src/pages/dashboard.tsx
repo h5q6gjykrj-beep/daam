@@ -82,19 +82,19 @@ export default function Dashboard() {
       label: lang === 'ar' ? 'منشوراتك' : 'Your Posts',
       value: userPosts.length,
       icon: MessageSquare,
-      color: 'from-blue-500 to-cyan-500'
+      color: 'from-violet-600 to-purple-500'
     },
     {
       label: lang === 'ar' ? 'إجمالي المنشورات' : 'Total Posts',
       value: posts.length,
       icon: TrendingUp,
-      color: 'from-purple-500 to-pink-500'
+      color: 'from-gray-500 to-gray-400'
     },
     {
       label: lang === 'ar' ? 'المساعد الذكي' : 'AI Tutor',
       value: lang === 'ar' ? 'متاح' : 'Ready',
       icon: Bot,
-      color: 'from-green-500 to-emerald-500'
+      color: 'from-purple-600 to-violet-400'
     }
   ];
 
@@ -228,7 +228,7 @@ export default function Dashboard() {
               transition={{ duration: 0.4, delay: 0.3 }}
             >
               <Card 
-                className="border-white/10 bg-gradient-to-br from-primary/20 to-purple-600/20 cursor-pointer hover:from-primary/30 hover:to-purple-600/30 transition-all"
+                className="border-violet-500/20 bg-gradient-to-br from-violet-600/20 to-purple-500/10 cursor-pointer hover:from-violet-600/30 hover:to-purple-500/20 transition-all"
                 onClick={() => setLocation('/feed')}
                 data-testid="card-go-to-feed"
               >
@@ -257,15 +257,15 @@ export default function Dashboard() {
               transition={{ duration: 0.4, delay: 0.4 }}
             >
               <Card 
-                className="border-white/10 bg-gradient-to-br from-green-500/20 to-emerald-600/20 cursor-pointer hover:from-green-500/30 hover:to-emerald-600/30 transition-all"
+                className="border-gray-500/20 bg-gradient-to-br from-gray-500/20 to-gray-600/10 cursor-pointer hover:from-gray-500/30 hover:to-gray-600/20 transition-all"
                 onClick={() => setLocation('/tutor')}
                 data-testid="card-go-to-tutor"
               >
                 <CardContent className="pt-6 pb-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-500/30 flex items-center justify-center">
-                        <Bot className="w-5 h-5 text-green-400" />
+                      <div className="w-10 h-10 rounded-lg bg-purple-500/30 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-purple-400" />
                       </div>
                       <div>
                         <p className="font-semibold">{translations.askTutor}</p>
@@ -312,7 +312,7 @@ export default function Dashboard() {
                         onClick={() => setLocation('/feed')}
                         data-testid={`recent-post-${index}`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-gray-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                           {post.authorEmail.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">

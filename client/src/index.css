@@ -8,34 +8,36 @@
   --font-sans: 'Outfit', sans-serif;
   --font-ar: 'Cairo', sans-serif;
   
-  /* DAAM Dark Theme Palette */
-  --background: 222 47% 11%;
+  /* DAAM Brand Colors - Purple & Gray */
+  --background: 240 20% 12%;
   --foreground: 210 40% 98%;
 
-  --card: 222 47% 14%;
+  --card: 240 18% 16%;
   --card-foreground: 210 40% 98%;
 
-  --popover: 222 47% 11%;
+  --popover: 240 20% 12%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 262 83% 58%;
+  /* DAAM Purple from logo */
+  --primary: 270 50% 50%;
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 217 33% 17%;
+  /* DAAM Gray from logo */
+  --secondary: 220 10% 25%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 220 10% 20%;
+  --muted-foreground: 220 10% 60%;
 
-  --accent: 262 83% 58%;
+  --accent: 270 50% 50%;
   --accent-foreground: 210 40% 98%;
 
   --destructive: 0 63% 31%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 217 33% 20%;
-  --input: 217 33% 20%;
-  --ring: 262 83% 58%;
+  --border: 240 15% 22%;
+  --input: 240 15% 22%;
+  --ring: 270 50% 50%;
 
   --radius: 0.75rem;
 }
