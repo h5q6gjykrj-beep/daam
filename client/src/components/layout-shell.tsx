@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, LayoutGrid, Globe, Shield } from "lucide-react";
+import { LogOut, Bot, Globe, Shield, Home, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface LayoutShellProps {
@@ -23,7 +23,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div 
             className="flex items-center gap-2 cursor-pointer" 
-            onClick={() => setLocation('/feed')}
+            onClick={() => setLocation('/dashboard')}
           >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary/20">
               D
@@ -46,13 +46,36 @@ export function LayoutShell({ children }: LayoutShellProps) {
             </div>
 
             <Button
+              variant={location === '/dashboard' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/dashboard')}
+              className={location === '/dashboard' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
+              data-testid="nav-dashboard"
+            >
+              <Home className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+              <span className="hidden sm:inline">{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
+            </Button>
+
+            <Button
+              variant={location === '/feed' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/feed')}
+              className={location === '/feed' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
+              data-testid="nav-feed"
+            >
+              <MessageSquare className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+              <span className="hidden sm:inline">{lang === 'ar' ? 'المنتدى' : 'Feed'}</span>
+            </Button>
+
+            <Button
               variant={location === '/tutor' ? "default" : "ghost"}
               size="sm"
-              onClick={() => setLocation(location === '/tutor' ? '/feed' : '/tutor')}
+              onClick={() => setLocation('/tutor')}
               className={location === '/tutor' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}
+              data-testid="nav-tutor"
             >
-              {location === '/tutor' ? <LayoutGrid className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" /> : <Bot className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />}
-              {location === '/tutor' ? t.backToFeed : t.tutorBtn}
+              <Bot className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+              <span className="hidden sm:inline">{t.tutorBtn}</span>
             </Button>
 
             <Button

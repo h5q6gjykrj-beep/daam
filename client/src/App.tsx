@@ -8,6 +8,7 @@ import { LayoutShell } from "@/components/layout-shell";
 import { Loader2 } from "lucide-react";
 
 import Login from "@/pages/login";
+import Dashboard from "@/pages/dashboard";
 import Feed from "@/pages/feed";
 import Tutor from "@/pages/tutor";
 import NotFound from "@/pages/not-found";
@@ -41,7 +42,7 @@ function RootRedirect() {
     );
   }
   
-  return user ? <Redirect to="/feed" /> : <Redirect to="/login" />;
+  return user ? <Redirect to="/dashboard" /> : <Redirect to="/login" />;
 }
 
 function Router() {
@@ -52,13 +53,14 @@ function Router() {
       {user ? (
         <LayoutShell>
           <Switch>
+            <Route path="/dashboard" component={Dashboard} />
             <Route path="/feed" component={Feed} />
             <Route path="/tutor" component={Tutor} />
             <Route path="/login">
-              <Redirect to="/feed" />
+              <Redirect to="/dashboard" />
             </Route>
             <Route path="/">
-              <Redirect to="/feed" />
+              <Redirect to="/dashboard" />
             </Route>
             <Route component={NotFound} />
           </Switch>

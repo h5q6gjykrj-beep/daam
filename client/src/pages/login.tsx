@@ -16,7 +16,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      setLocation("/feed");
+      setLocation("/dashboard");
     }
   }, [user, setLocation]);
 
@@ -24,7 +24,7 @@ export default function Login() {
     e.preventDefault();
     try {
       login(email);
-      setLocation("/feed");
+      setLocation("/dashboard");
       toast({
         title: lang === 'en' ? "Welcome back!" : "أهلاً بك!",
         description: lang === 'en' ? "Successfully logged in to DAAM." : "تم تسجيل الدخول بنجاح لمنصة داعم.",
