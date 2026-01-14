@@ -69,7 +69,7 @@ const DICTIONARY = {
 export function useDaamStore() {
   // State
   const [user, setUser] = useState<User | null>(null);
-  const [lang, setLang] = useState<Language>('en');
+  const [lang, setLang] = useState<Language>('ar');
   const [posts, setPosts] = useState<LocalPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
