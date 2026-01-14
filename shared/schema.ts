@@ -56,6 +56,7 @@ export interface LocalPost {
   authorEmail: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
   likedBy: string[];
   replies: LocalReply[];
   postType: PostType;

@@ -266,7 +266,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         ...p,
         content,
         postType: postType || p.postType,
-        subject: subject !== undefined ? subject : p.subject
+        subject: subject !== undefined ? subject : p.subject,
+        updatedAt: new Date().toISOString()
       };
     });
     setPosts(updatedPosts);

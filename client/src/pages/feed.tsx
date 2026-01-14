@@ -803,6 +803,18 @@ export default function Feed() {
                         </div>
                       )}
 
+                      {post.updatedAt && (
+                        <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground/70">
+                          <Pencil className="w-3 h-3" />
+                          <span>
+                            {lang === 'ar' ? 'تم تعديل' : 'Edited'} · {formatDistanceToNow(new Date(post.updatedAt), { 
+                              addSuffix: true,
+                              locale: lang === 'ar' ? ar : enUS 
+                            })}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5">
                         <button 
                           onClick={() => setActiveReplyId(activeReplyId === post.id ? null : post.id)}
