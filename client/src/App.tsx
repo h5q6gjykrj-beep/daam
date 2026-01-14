@@ -12,7 +12,6 @@ import Feed from "@/pages/feed";
 import Tutor from "@/pages/tutor";
 import NotFound from "@/pages/not-found";
 
-// Protected Route Wrapper
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useDaamStore();
 
@@ -31,7 +30,6 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
-// Root Redirect Component - separate to follow React hooks rules
 function RootRedirect() {
   const { user, isLoading } = useDaamStore();
   
@@ -47,24 +45,48 @@ function RootRedirect() {
 }
 
 function Router() {
+  const { user } = useDaamStore();
+  
   return (
-    <LayoutShell>
-      <Switch>
-        {/* Public Route */}
-        <Route path="/login" component={Login} />
-        
-        {/* Protected Routes */}
-        <Route path="/feed" component={() => <ProtectedRoute component={Feed} />} />
-        
-        <Route path="/tutor" component={() => <ProtectedRoute component={Tutor} />} />
-
-        {/* Root Redirect */}
-        <Route path="/" component={RootRedirect} />
-
-        <Route component={NotFound} />
-      </Switch>
-    </LayoutShell>
+    <>
+      {user ? (
+        <LayoutShell>
+          <Switch>
+            <Route path="/feed" component={Feed} />
+            <Route path="/tutor" component={Tutor} />
+            <Route path="/login">
+              <Redirect to="/feed" />
+            </Route>
+            <Route path="/">
+              <Redirect to="/feed" />
+            </Route>
+            <Route component={NotFound} />
+          </Switch>
+        </LayoutShell>
+      ) : (
+        <Switch>
+          <Route path="/login" component={Login} />
+          <Route>
+            <Redirect to="/login" />
+          </Route>
+        </Switch>
+      )}
+    </>
   );
+}
+
+function AppContent() {
+  const { isLoading } = useDaamStore();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-primary">
+        <Loader2 className="w-10 h-10 animate-spin" />
+      </div>
+    );
+  }
+  
+  return <Router />;
 }
 
 function App() {
@@ -72,7 +94,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <AppContent />
       </TooltipProvider>
     </QueryClientProvider>
   );
