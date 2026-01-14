@@ -1059,18 +1059,39 @@ export default function Feed() {
           </div>
           <div className="p-3 border-t flex-shrink-0 flex justify-between items-center gap-2">
             <p className="text-xs text-muted-foreground hidden sm:block">
-              {lang === 'ar' ? 'استخدم التمرير للتنقل بين الصفحات' : 'Scroll to navigate pages'}
+              {viewerContent?.type === 'pdf' 
+                ? (lang === 'ar' ? 'للعرض الكامل، افتح في تبويب جديد' : 'For full view, open in new tab')
+                : (lang === 'ar' ? 'استخدم التمرير للتنقل' : 'Scroll to navigate')
+              }
             </p>
             <div className="flex gap-2 ms-auto">
+              {viewerContent?.type === 'pdf' && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (viewerContent?.blobUrl) {
+                      window.open(viewerContent.blobUrl, '_blank');
+                    }
+                  }}
+                  data-testid="button-viewer-newtab"
+                >
+                  <ExternalLink className="w-4 h-4 me-2" />
+                  {lang === 'ar' ? 'تبويب جديد' : 'New Tab'}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (viewerContent) {
-                    downloadAttachment({ 
-                      url: viewerContent.url, 
-                      name: viewerContent.name, 
-                      type: viewerContent.type === 'image' ? 'image' : 'file',
-                      size: 0 
+                  if (viewerContent?.blobUrl) {
+                    const link = document.createElement('a');
+                    link.href = viewerContent.blobUrl;
+                    link.download = viewerContent.name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    toast({
+                      title: lang === 'ar' ? 'جاري التحميل' : 'Downloading',
+                      description: viewerContent.name
                     });
                   }
                 }}
