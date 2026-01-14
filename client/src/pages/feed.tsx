@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
-  Bookmark, FileText, Hash, TrendingUp, Clock, Shield
+  Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink
 } from "lucide-react";
-import { type LocalReply, type PostType } from "@shared/schema";
+import { type LocalReply, type PostType, type Attachment } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,20 +47,67 @@ export default function Feed() {
   const [sortBy, setSortBy] = useState<SortType>('newest');
   const [newPostType, setNewPostType] = useState<PostType>('discussion');
   const [newPostSubject, setNewPostSubject] = useState<string>('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newAttachments: Attachment[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      newAttachments.push({
+        type: file.type.startsWith('image/') ? 'image' : 'file',
+        url: base64,
+        name: file.name,
+        size: file.size
+      });
+    }
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handlePost = () => {
     if (!content.trim()) return;
-    createPost(content, newPostType, newPostSubject || undefined);
+    createPost(content, newPostType, newPostSubject || undefined, undefined, attachments.length > 0 ? attachments : undefined);
     setContent("");
     setShowCreateForm(false);
     setNewPostType('discussion');
     setNewPostSubject('');
+    setAttachments([]);
     toast({
       title: lang === 'ar' ? 'تم النشر' : 'Posted',
       description: lang === 'ar' ? 'تم نشر مشاركتك بنجاح' : 'Your post was published successfully'
     });
+  };
+
+  const openAttachment = (attachment: Attachment) => {
+    if (attachment.type === 'image' || attachment.name.toLowerCase().endsWith('.pdf')) {
+      window.open(attachment.url, '_blank');
+    } else {
+      const link = document.createElement('a');
+      link.href = attachment.url;
+      link.download = attachment.name;
+      link.click();
+    }
   };
 
   const getInitials = (email: string) => {
@@ -357,6 +404,50 @@ export default function Feed() {
                     ))}
                   </div>
                 </div>
+
+                <div className="mb-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    data-testid="input-file-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                    data-testid="button-attach-files"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    {lang === 'ar' ? 'إرفاق ملفات' : 'Attach Files'}
+                  </Button>
+                  
+                  {attachments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {attachments.map((att, index) => (
+                        <div key={index} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+                          <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm flex-1 truncate">{att.name}</span>
+                          <span className="text-xs text-muted-foreground">{(att.size / 1024).toFixed(1)} KB</span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => removeAttachment(index)}
+                            data-testid={`button-remove-attachment-${index}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex justify-end gap-2 pt-3 border-t border-white/5">
                   <Button 
@@ -508,11 +599,42 @@ export default function Feed() {
                       )}
 
                       {post.attachments && post.attachments.length > 0 && (
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-2">
                           {post.attachments.map((attachment, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
-                              <FileText className="w-4 h-4" />
-                              <span>{attachment.name}</span>
+                            <div 
+                              key={idx} 
+                              className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors group"
+                            >
+                              <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{attachment.name}</p>
+                                <p className="text-xs text-muted-foreground">{(attachment.size / 1024).toFixed(1)} KB</p>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => openAttachment(attachment)}
+                                  data-testid={`button-open-${idx}`}
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                                <a
+                                  href={attachment.url}
+                                  download={attachment.name}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    data-testid={`button-download-${idx}`}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </a>
+                              </div>
                             </div>
                           ))}
                         </div>
