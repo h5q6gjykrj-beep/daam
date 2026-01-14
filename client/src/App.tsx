@@ -31,6 +31,21 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+// Root Redirect Component - separate to follow React hooks rules
+function RootRedirect() {
+  const { user, isLoading } = useDaamStore();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-primary">
+        <Loader2 className="w-10 h-10 animate-spin" />
+      </div>
+    );
+  }
+  
+  return user ? <Redirect to="/feed" /> : <Redirect to="/login" />;
+}
+
 function Router() {
   return (
     <LayoutShell>
@@ -39,21 +54,12 @@ function Router() {
         <Route path="/login" component={Login} />
         
         {/* Protected Routes */}
-        <Route path="/feed">
-          {() => <ProtectedRoute component={Feed} />}
-        </Route>
+        <Route path="/feed" component={() => <ProtectedRoute component={Feed} />} />
         
-        <Route path="/tutor">
-          {() => <ProtectedRoute component={Tutor} />}
-        </Route>
+        <Route path="/tutor" component={() => <ProtectedRoute component={Tutor} />} />
 
         {/* Root Redirect */}
-        <Route path="/">
-          {() => {
-             const { user } = useDaamStore();
-             return user ? <Redirect to="/feed" /> : <Redirect to="/login" />;
-          }}
-        </Route>
+        <Route path="/" component={RootRedirect} />
 
         <Route component={NotFound} />
       </Switch>
