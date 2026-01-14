@@ -7,6 +7,7 @@ import { useDaamStore } from "@/hooks/use-daam-store";
 import { LayoutShell } from "@/components/layout-shell";
 import { Loader2 } from "lucide-react";
 
+import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Feed from "@/pages/feed";
@@ -69,9 +70,10 @@ function Router() {
         </LayoutShell>
       ) : (
         <Switch>
+          <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
           <Route>
-            <Redirect to="/login" />
+            <Redirect to="/" />
           </Route>
         </Switch>
       )}

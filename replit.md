@@ -48,7 +48,13 @@ client/           # React frontend
   src/
     components/   # UI components (shadcn/ui)
     hooks/        # Custom React hooks
-    pages/        # Route pages (login, feed, tutor)
+    pages/        # Route pages
+      landing.tsx   # Public landing page for guests
+      login.tsx     # Login form page
+      dashboard.tsx # Home dashboard for logged-in users
+      feed.tsx      # Discussion arena
+      tutor.tsx     # AI tutor page
+      profile.tsx   # User profile page
     lib/          # Utilities and query client
 server/           # Express backend
   index.ts        # Server entry point
@@ -57,6 +63,11 @@ server/           # Express backend
 shared/           # Shared types and schemas
   schema.ts       # Drizzle schema and types
 ```
+
+### Page Flow
+- **Guests**: Landing page (`/`) → Login (`/login`)
+- **Logged-in users**: Dashboard (`/dashboard`), Feed (`/feed`), AI Tutor (`/tutor`), Profile (`/profile`)
+- The landing page shows live activity stats, trending discussions, and hot topics to attract visitors
 
 ## External Dependencies
 

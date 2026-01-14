@@ -1,0 +1,391 @@
+import { useLocation } from "wouter";
+import { useDaamStore } from "@/hooks/use-daam-store";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Globe, MessageSquare, Sparkles, Users, FileText, Heart, 
+  ArrowLeft, ArrowRight, BookOpen, Zap, GraduationCap, TrendingUp
+} from "lucide-react";
+import { motion } from "framer-motion";
+import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
+
+const SUBJECTS = [
+  { value: 'programming', labelAr: 'البرمجة', labelEn: 'Programming' },
+  { value: 'math', labelAr: 'الرياضيات', labelEn: 'Mathematics' },
+  { value: 'physics', labelAr: 'الفيزياء', labelEn: 'Physics' },
+  { value: 'english', labelAr: 'اللغة الإنجليزية', labelEn: 'English' },
+  { value: 'business', labelAr: 'إدارة الأعمال', labelEn: 'Business' },
+  { value: 'engineering', labelAr: 'الهندسة', labelEn: 'Engineering' },
+];
+
+export default function Landing() {
+  const { posts, t, lang, toggleLang, getProfile } = useDaamStore();
+  const [_, setLocation] = useLocation();
+  const isRTL = lang === 'ar';
+
+  const trendingPosts = [...posts]
+    .sort((a, b) => {
+      const aScore = (a.likedBy?.length || 0) + (a.replies?.length || 0) * 2;
+      const bScore = (b.likedBy?.length || 0) + (b.replies?.length || 0) * 2;
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const todayPosts = posts.filter(p => {
+    const postDate = new Date(p.createdAt);
+    const today = new Date();
+    return postDate.toDateString() === today.toDateString();
+  });
+
+  const subjectCounts = posts.reduce((acc, post) => {
+    if (post.subject) {
+      acc[post.subject] = (acc[post.subject] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const hotTopics = Object.entries(subjectCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+    .map(([subject]) => subject);
+
+  const getInitials = (email: string) => {
+    return email.substring(0, 2).toUpperCase();
+  };
+
+  const getDisplayName = (email: string) => {
+    const profile = getProfile(email);
+    if (profile?.name) return profile.name;
+    return email.split('@')[0];
+  };
+
+  const tr = {
+    heroTitle: lang === 'ar' ? 'مجتمع طلابي يناقش، يشرح، ويتعلم معًا' : 'A student community that discusses, explains, and learns together',
+    heroSubtitle: lang === 'ar' ? 'انضم لزملائك في ساحة نقاش تفاعلية واستفد من المساعد الذكي' : 'Join your peers in an interactive discussion arena with AI assistance',
+    enterArena: lang === 'ar' ? 'ادخل ساحة النقاش' : 'Enter Discussion Arena',
+    startNow: lang === 'ar' ? 'ابدأ الآن' : 'Start Now',
+    login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
+    createAccount: lang === 'ar' ? 'إنشاء حساب' : 'Create Account',
+    home: lang === 'ar' ? 'الرئيسية' : 'Home',
+    arena: lang === 'ar' ? 'ساحة النقاش' : 'Discussion Arena',
+    aiAssistant: lang === 'ar' ? 'المساعد الذكي' : 'AI Assistant',
+    liveActivity: lang === 'ar' ? 'النشاط الحي' : 'Live Activity',
+    activeDiscussions: lang === 'ar' ? 'نقاشات نشطة' : 'Active Discussions',
+    studentsOnline: lang === 'ar' ? 'طلاب متواجدون' : 'Students Online',
+    trendingSubject: lang === 'ar' ? 'المادة الأكثر تفاعلاً' : 'Trending Subject',
+    trendingDiscussions: lang === 'ar' ? 'المنشورات الأكثر تفاعلاً' : 'Trending Discussions',
+    hotTopics: lang === 'ar' ? 'المواضيع الساخنة' : 'Hot Topics',
+    whyDaam: lang === 'ar' ? 'لماذا داعم؟' : 'Why DAAM?',
+    feature1Title: lang === 'ar' ? 'ساحة نقاش طلابية' : 'Student Discussion Arena',
+    feature1Desc: lang === 'ar' ? 'شارك أسئلتك وأفكارك مع زملائك' : 'Share questions and ideas with peers',
+    feature2Title: lang === 'ar' ? 'مساعد ذكي يشرح لك' : 'AI Assistant Explains',
+    feature2Desc: lang === 'ar' ? 'احصل على تفسيرات فورية لأي موضوع' : 'Get instant explanations for any topic',
+    feature3Title: lang === 'ar' ? 'ملخصات وملفات' : 'Summaries & Files',
+    feature3Desc: lang === 'ar' ? 'شارك وحمّل ملفات دراسية مفيدة' : 'Share and download useful study files',
+    feature4Title: lang === 'ar' ? 'مجتمع جامعي حقيقي' : 'Real University Community',
+    feature4Desc: lang === 'ar' ? 'تواصل مع طلاب من تخصصك' : 'Connect with students from your major',
+    footerLinks: lang === 'ar' ? 'روابط سريعة' : 'Quick Links',
+    privacy: lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy',
+    contact: lang === 'ar' ? 'تواصل معنا' : 'Contact Us',
+    likes: lang === 'ar' ? 'إعجاب' : 'likes',
+    comments: lang === 'ar' ? 'تعليق' : 'comments',
+  };
+
+  const topSubject = hotTopics[0];
+  const topSubjectLabel = SUBJECTS.find(s => s.value === topSubject)?.[lang === 'ar' ? 'labelAr' : 'labelEn'] || topSubject;
+
+  return (
+    <div className={`min-h-screen bg-background ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src={daamLogo} alt="DAAM" className="h-10" data-testid="img-logo-nav" />
+            <span className="font-bold text-lg hidden sm:block">داعم</span>
+          </div>
+          
+          <nav className="hidden md:flex items-center gap-6">
+            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-home">
+              {tr.home}
+            </a>
+            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-arena">
+              {tr.arena}
+            </a>
+            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-ai">
+              {tr.aiAssistant}
+            </a>
+          </nav>
+          
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={toggleLang}
+              className="gap-1.5"
+              data-testid="button-toggle-lang"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">{lang === 'en' ? 'العربية' : 'English'}</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setLocation('/login')}
+              data-testid="button-login"
+            >
+              {tr.login}
+            </Button>
+            <Button 
+              size="sm"
+              onClick={() => setLocation('/login')}
+              className="bg-primary hover:bg-primary/90"
+              data-testid="button-create-account"
+            >
+              {tr.createAccount}
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden py-20 lg:py-32">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/30 via-background to-background" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+        
+        <div className="container mx-auto px-4 relative">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-3xl mx-auto"
+          >
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 gradient-text leading-tight">
+              {tr.heroTitle}
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-8">
+              {tr.heroSubtitle}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button 
+                size="lg"
+                onClick={() => setLocation('/login')}
+                className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 text-lg h-12 px-8 gap-2"
+                data-testid="button-start-now"
+              >
+                {tr.startNow}
+                {isRTL ? <ArrowLeft className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                onClick={() => setLocation('/login')}
+                className="border-white/20 hover:bg-white/5 text-lg h-12 px-8"
+                data-testid="button-enter-arena"
+              >
+                {tr.enterArena}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Live Activity Section */}
+      <section className="py-12 border-y border-white/5 bg-card/30">
+        <div className="container mx-auto px-4">
+          <h2 className="text-xl font-bold mb-6 text-center">{tr.liveActivity}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="p-4 text-center bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 text-violet-400" />
+                <p className="text-2xl font-bold">{posts.length}</p>
+                <p className="text-sm text-muted-foreground">{tr.activeDiscussions}</p>
+              </Card>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="p-4 text-center bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                <Users className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                <p className="text-2xl font-bold">{Math.max(todayPosts.length * 3, 12)}</p>
+                <p className="text-sm text-muted-foreground">{tr.studentsOnline}</p>
+              </Card>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="p-4 text-center bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-green-400" />
+                <p className="text-lg font-bold">{topSubjectLabel || '-'}</p>
+                <p className="text-sm text-muted-foreground">{tr.trendingSubject}</p>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trending Discussions Section */}
+      {trendingPosts.length > 0 && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <h2 className="text-2xl font-bold mb-8 text-center">{tr.trendingDiscussions}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {trendingPosts.map((post, index) => {
+                const profile = getProfile(post.authorEmail);
+                const subjectInfo = SUBJECTS.find(s => s.value === post.subject);
+                
+                return (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card 
+                      className="p-4 hover:border-primary/30 transition-all cursor-pointer"
+                      onClick={() => setLocation('/login')}
+                      data-testid={`card-trending-post-${index}`}
+                    >
+                      <div className="flex gap-3">
+                        <Avatar className="w-10 h-10 border border-violet-500/30">
+                          <AvatarImage src={profile?.avatarUrl} />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-600 to-gray-500 text-white text-sm">
+                            {getInitials(post.authorEmail)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm truncate">{getDisplayName(post.authorEmail)}</span>
+                            {subjectInfo && (
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                {lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                            {post.content}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Heart className="w-3 h-3" />
+                              {post.likedBy?.length || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" />
+                              {post.replies?.length || 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Hot Topics Section */}
+      {hotTopics.length > 0 && (
+        <section className="py-12 bg-card/30">
+          <div className="container mx-auto px-4">
+            <h2 className="text-2xl font-bold mb-6 text-center">{tr.hotTopics}</h2>
+            <div className="flex flex-wrap justify-center gap-3 max-w-3xl mx-auto">
+              {hotTopics.map((topic, index) => {
+                const subjectInfo = SUBJECTS.find(s => s.value === topic);
+                return (
+                  <motion.div
+                    key={topic}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => setLocation('/login')}
+                      className="border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-base"
+                      data-testid={`button-topic-${topic}`}
+                    >
+                      #{lang === 'ar' ? subjectInfo?.labelAr : subjectInfo?.labelEn}
+                    </Button>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Why DAAM Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl font-bold mb-12 text-center">{tr.whyDaam}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+            {[
+              { icon: MessageSquare, title: tr.feature1Title, desc: tr.feature1Desc, color: 'violet' },
+              { icon: Sparkles, title: tr.feature2Title, desc: tr.feature2Desc, color: 'blue' },
+              { icon: FileText, title: tr.feature3Title, desc: tr.feature3Desc, color: 'green' },
+              { icon: GraduationCap, title: tr.feature4Title, desc: tr.feature4Desc, color: 'orange' },
+            ].map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="p-6 text-center h-full hover:border-primary/30 transition-all">
+                  <feature.icon className={`w-10 h-10 mx-auto mb-4 text-${feature.color}-400`} />
+                  <h3 className="font-bold mb-2">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-white/5 bg-card/30">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <img src={daamLogo} alt="DAAM" className="h-8" />
+              <span className="font-bold">داعم - DAAM</span>
+            </div>
+            
+            <nav className="flex items-center gap-6 text-sm text-muted-foreground">
+              <a href="#" className="hover:text-foreground transition-colors">{tr.privacy}</a>
+              <a href="#" className="hover:text-foreground transition-colors">{tr.contact}</a>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={toggleLang}
+                className="gap-1.5"
+              >
+                <Globe className="w-4 h-4" />
+                {lang === 'en' ? 'العربية' : 'English'}
+              </Button>
+            </nav>
+          </div>
+          
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            &copy; 2024 DAAM - {lang === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved'}
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}

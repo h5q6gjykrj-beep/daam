@@ -1,25 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Globe, ArrowRight, ArrowLeft } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const { login, t, lang, toggleLang, user } = useDaamStore();
+  const { login, t, lang, toggleLang } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (user) {
-      setLocation("/dashboard");
-    }
-  }, [user, setLocation]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +38,18 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 left-4 rtl:left-auto rtl:right-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation('/')}
+          className="rounded-full border-white/10 bg-black/20 backdrop-blur-md hover:bg-white/10 gap-2"
+          data-testid="button-back-home"
+        >
+          <ArrowUpLeft className="w-4 h-4" />
+          {lang === 'ar' ? 'الرئيسية' : 'Home'}
+        </Button>
+      </div>
+      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4">
         <Button 
           variant="outline" 
           onClick={toggleLang}
