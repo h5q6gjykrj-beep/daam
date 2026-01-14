@@ -1027,49 +1027,62 @@ export default function Feed() {
       </div>
 
       <Dialog open={viewerOpen} onOpenChange={(open) => !open && closeViewer()}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-4 border-b flex-shrink-0">
             <DialogTitle className="truncate pe-8">
               {viewerContent?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-auto p-4 bg-muted/30 min-h-[60vh]">
+          <div className="flex-1 min-h-0 p-2 bg-muted/30">
             {viewerContent?.type === 'pdf' ? (
-              <embed
-                src={viewerContent.blobUrl}
+              <object
+                data={viewerContent.blobUrl}
                 type="application/pdf"
-                className="w-full h-[70vh] border-0 rounded"
+                className="w-full h-full rounded border-0"
                 title={viewerContent.name}
-              />
+              >
+                <iframe
+                  src={viewerContent.blobUrl}
+                  className="w-full h-full rounded border-0"
+                  title={viewerContent.name}
+                />
+              </object>
             ) : viewerContent?.type === 'image' ? (
-              <img
-                src={viewerContent.blobUrl}
-                alt={viewerContent.name}
-                className="max-w-full max-h-[70vh] mx-auto object-contain rounded"
-              />
+              <div className="w-full h-full overflow-auto flex items-center justify-center">
+                <img
+                  src={viewerContent.blobUrl}
+                  alt={viewerContent.name}
+                  className="max-w-full max-h-full object-contain rounded"
+                />
+              </div>
             ) : null}
           </div>
-          <div className="p-4 border-t flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (viewerContent) {
-                  downloadAttachment({ 
-                    url: viewerContent.url, 
-                    name: viewerContent.name, 
-                    type: viewerContent.type === 'image' ? 'image' : 'file',
-                    size: 0 
-                  });
-                }
-              }}
-              data-testid="button-viewer-download"
-            >
-              <Download className="w-4 h-4 me-2" />
-              {lang === 'ar' ? 'تحميل' : 'Download'}
-            </Button>
-            <Button onClick={closeViewer} data-testid="button-viewer-close">
-              {lang === 'ar' ? 'إغلاق' : 'Close'}
-            </Button>
+          <div className="p-3 border-t flex-shrink-0 flex justify-between items-center gap-2">
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {lang === 'ar' ? 'استخدم التمرير للتنقل بين الصفحات' : 'Scroll to navigate pages'}
+            </p>
+            <div className="flex gap-2 ms-auto">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (viewerContent) {
+                    downloadAttachment({ 
+                      url: viewerContent.url, 
+                      name: viewerContent.name, 
+                      type: viewerContent.type === 'image' ? 'image' : 'file',
+                      size: 0 
+                    });
+                  }
+                }}
+                data-testid="button-viewer-download"
+              >
+                <Download className="w-4 h-4 me-2" />
+                {lang === 'ar' ? 'تحميل' : 'Download'}
+              </Button>
+              <Button onClick={closeViewer} data-testid="button-viewer-close">
+                {lang === 'ar' ? 'إغلاق' : 'Close'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
