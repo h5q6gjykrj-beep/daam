@@ -61,7 +61,7 @@ export default function Feed() {
   const [editPostType, setEditPostType] = useState<PostType>('discussion');
   const [editSubject, setEditSubject] = useState<string>('');
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerContent, setViewerContent] = useState<{ url: string; name: string; type: 'pdf' | 'image' } | null>(null);
+  const [viewerContent, setViewerContent] = useState<{ url: string; blobUrl: string; name: string; type: 'pdf' | 'image' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -170,15 +170,36 @@ export default function Feed() {
     const isImage = attachment.type === 'image';
     
     if (isPdf || isImage) {
-      setViewerContent({
-        url: attachment.url,
-        name: attachment.name,
-        type: isPdf ? 'pdf' : 'image'
-      });
-      setViewerOpen(true);
+      // Convert base64 to blob URL for better browser compatibility
+      const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        setViewerContent({
+          url: attachment.url,
+          blobUrl: blobUrl,
+          name: attachment.name,
+          type: isPdf ? 'pdf' : 'image'
+        });
+        setViewerOpen(true);
+      } else {
+        toast({
+          title: lang === 'ar' ? 'خطأ' : 'Error',
+          description: lang === 'ar' ? 'تعذر فتح الملف' : 'Could not open file',
+          variant: 'destructive'
+        });
+      }
     } else {
       downloadAttachment(attachment);
     }
+  };
+  
+  // Clean up blob URL when viewer closes
+  const closeViewer = () => {
+    if (viewerContent?.blobUrl) {
+      URL.revokeObjectURL(viewerContent.blobUrl);
+    }
+    setViewerContent(null);
+    setViewerOpen(false);
   };
 
   const downloadAttachment = (attachment: Attachment) => {
@@ -846,9 +867,11 @@ export default function Feed() {
                       {post.attachments && post.attachments.length > 0 && (
                         <div className="mt-3 space-y-2">
                           {post.attachments.map((attachment, idx) => (
-                            <div 
+                            <button 
                               key={idx} 
-                              className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors group"
+                              onClick={() => openAttachment(attachment)}
+                              className="w-full flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors group cursor-pointer text-start border border-transparent hover:border-primary/30"
+                              data-testid={`button-attachment-${idx}`}
                             >
                               <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                               <div className="flex-1 min-w-0">
@@ -856,26 +879,12 @@ export default function Feed() {
                                 <p className="text-xs text-muted-foreground">{(attachment.size / 1024).toFixed(1)} KB</p>
                               </div>
                               <div className="flex gap-1">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8"
-                                  onClick={() => openAttachment(attachment)}
-                                  data-testid={`button-open-${idx}`}
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8"
-                                  onClick={() => downloadAttachment(attachment)}
-                                  data-testid={`button-download-${idx}`}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
+                                <span className="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {lang === 'ar' ? 'فتح' : 'Open'}
+                                </span>
+                                <ExternalLink className="w-4 h-4 text-primary" />
                               </div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -1017,23 +1026,24 @@ export default function Feed() {
         )}
       </div>
 
-      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+      <Dialog open={viewerOpen} onOpenChange={(open) => !open && closeViewer()}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="truncate pe-8">
               {viewerContent?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-auto p-4 bg-muted/30">
+          <div className="flex-1 overflow-auto p-4 bg-muted/30 min-h-[60vh]">
             {viewerContent?.type === 'pdf' ? (
-              <iframe
-                src={viewerContent.url}
+              <embed
+                src={viewerContent.blobUrl}
+                type="application/pdf"
                 className="w-full h-[70vh] border-0 rounded"
                 title={viewerContent.name}
               />
             ) : viewerContent?.type === 'image' ? (
               <img
-                src={viewerContent.url}
+                src={viewerContent.blobUrl}
                 alt={viewerContent.name}
                 className="max-w-full max-h-[70vh] mx-auto object-contain rounded"
               />
@@ -1057,7 +1067,7 @@ export default function Feed() {
               <Download className="w-4 h-4 me-2" />
               {lang === 'ar' ? 'تحميل' : 'Download'}
             </Button>
-            <Button onClick={() => setViewerOpen(false)} data-testid="button-viewer-close">
+            <Button onClick={closeViewer} data-testid="button-viewer-close">
               {lang === 'ar' ? 'إغلاق' : 'Close'}
             </Button>
           </div>
