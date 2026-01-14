@@ -63,14 +63,43 @@ export default function Feed() {
   const { toast } = useToast();
   const isRTL = lang === 'ar';
 
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB per file
+  const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB total
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
     const newAttachments: Attachment[] = [];
+    let totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      
+      // Check individual file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: lang === 'ar' ? 'الملف كبير جداً' : 'File too large',
+          description: lang === 'ar' 
+            ? `${file.name} أكبر من 2 ميجابايت` 
+            : `${file.name} is larger than 2MB`,
+          variant: 'destructive'
+        });
+        continue;
+      }
+      
+      // Check total size
+      if (totalSize + file.size > MAX_TOTAL_SIZE) {
+        toast({
+          title: lang === 'ar' ? 'تم تجاوز الحد' : 'Limit exceeded',
+          description: lang === 'ar' 
+            ? 'الحد الأقصى للملفات 5 ميجابايت' 
+            : 'Maximum total file size is 5MB',
+          variant: 'destructive'
+        });
+        break;
+      }
+
       const reader = new FileReader();
       
       const base64 = await new Promise<string>((resolve) => {
@@ -84,6 +113,8 @@ export default function Feed() {
         name: file.name,
         size: file.size
       });
+      
+      totalSize += file.size;
     }
 
     setAttachments(prev => [...prev, ...newAttachments]);
@@ -110,33 +141,67 @@ export default function Feed() {
     });
   };
 
+  const base64ToBlob = (base64Url: string, mimeType?: string): Blob | null => {
+    try {
+      const base64Data = base64Url.split(',')[1];
+      if (!base64Data) return null;
+      
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      
+      // Extract mime type from data URL if not provided
+      const extractedMime = mimeType || base64Url.split(';')[0].split(':')[1] || 'application/octet-stream';
+      return new Blob([byteArray], { type: extractedMime });
+    } catch (e) {
+      console.error('Error converting base64 to blob:', e);
+      return null;
+    }
+  };
+
   const openAttachment = (attachment: Attachment) => {
     const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
+    const isImage = attachment.type === 'image';
     
-    if (isPdf) {
-      // Convert base64 to Blob for better PDF handling
-      try {
-        const base64Data = attachment.url.split(',')[1];
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
+    if (isPdf || isImage) {
+      const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
+      if (blob) {
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
-      } catch (e) {
-        // Fallback to direct URL if conversion fails
-        window.open(attachment.url, '_blank');
+      } else {
+        toast({
+          title: lang === 'ar' ? 'خطأ' : 'Error',
+          description: lang === 'ar' ? 'تعذر فتح الملف' : 'Could not open file',
+          variant: 'destructive'
+        });
       }
-    } else if (attachment.type === 'image') {
-      window.open(attachment.url, '_blank');
     } else {
+      downloadAttachment(attachment);
+    }
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const blob = base64ToBlob(attachment.url);
+    if (blob) {
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = attachment.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } else {
+      // Fallback to direct download
       const link = document.createElement('a');
       link.href = attachment.url;
       link.download = attachment.name;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -802,20 +867,15 @@ export default function Feed() {
                                 >
                                   <ExternalLink className="w-4 h-4" />
                                 </Button>
-                                <a
-                                  href={attachment.url}
-                                  download={attachment.name}
-                                  onClick={(e) => e.stopPropagation()}
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => downloadAttachment(attachment)}
+                                  data-testid={`button-download-${idx}`}
                                 >
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8"
-                                    data-testid={`button-download-${idx}`}
-                                  >
-                                    <Download className="w-4 h-4" />
-                                  </Button>
-                                </a>
+                                  <Download className="w-4 h-4" />
+                                </Button>
                               </div>
                             </div>
                           ))}
