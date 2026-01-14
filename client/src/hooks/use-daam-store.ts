@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { type LocalPost } from "@shared/schema";
+import { type LocalPost, type LocalReply } from "@shared/schema";
 
 // Types
 export type Language = 'ar' | 'en';
@@ -142,7 +142,9 @@ export function useDaamStore() {
       id: generateId(),
       authorEmail: user.email,
       content,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      likedBy: [],
+      replies: []
     };
     
     const updatedPosts = [newPost, ...posts];
@@ -153,6 +155,50 @@ export function useDaamStore() {
   const deletePost = (postId: string) => {
     if (!user?.isAdmin) return;
     const updatedPosts = posts.filter(p => p.id !== postId);
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+
+  const generateId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  const toggleLike = (postId: string) => {
+    if (!user) return;
+    const updatedPosts = posts.map(post => {
+      if (post.id !== postId) return post;
+      const likedBy = post.likedBy || [];
+      const isLiked = likedBy.includes(user.email);
+      return {
+        ...post,
+        likedBy: isLiked 
+          ? likedBy.filter(email => email !== user.email)
+          : [...likedBy, user.email]
+      };
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+
+  const addReply = (postId: string, content: string) => {
+    if (!user || !content.trim()) return;
+    const newReply: LocalReply = {
+      id: generateId(),
+      authorEmail: user.email,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    const updatedPosts = posts.map(post => {
+      if (post.id !== postId) return post;
+      return {
+        ...post,
+        replies: [...(post.replies || []), newReply]
+      };
+    });
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
@@ -171,6 +217,8 @@ export function useDaamStore() {
     logout,
     createPost,
     deletePost,
+    toggleLike,
+    addReply,
     toggleLang
   };
 }

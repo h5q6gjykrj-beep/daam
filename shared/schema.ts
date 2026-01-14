@@ -16,11 +16,20 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 // Client-side types for localStorage data
+export interface LocalReply {
+  id: string;
+  authorEmail: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface LocalPost {
   id: string;
   authorEmail: string;
   content: string;
   createdAt: string;
+  likedBy: string[];
+  replies: LocalReply[];
 }
 
 export type Language = 'ar' | 'en';
