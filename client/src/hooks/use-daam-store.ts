@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { type LocalPost, type LocalReply } from "@shared/schema";
+import { type LocalPost, type LocalReply, type PostType, type UserProfile, type Attachment } from "@shared/schema";
 
 // Types
 export type Language = 'ar' | 'en';
-export type User = { email: string; isAdmin: boolean };
+export type User = { email: string; isAdmin: boolean; profile?: UserProfile };
 
 // Admin Configuration - add admin emails here
 export const ADMIN_EMAILS = [
@@ -12,8 +12,9 @@ export const ADMIN_EMAILS = [
 
 const KEYS = {
   USER: 'daam_user',
-  POSTS: 'daam_posts_v1',
-  LANG: 'daam_lang'
+  POSTS: 'daam_posts_v2',
+  LANG: 'daam_lang',
+  PROFILES: 'daam_profiles'
 };
 
 // Simple translations dictionary
@@ -71,6 +72,7 @@ export function useDaamStore() {
   const [user, setUser] = useState<User | null>(null);
   const [lang, setLang] = useState<Language>('ar');
   const [posts, setPosts] = useState<LocalPost[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize from localStorage
@@ -78,11 +80,27 @@ export function useDaamStore() {
     const storedUser = localStorage.getItem(KEYS.USER);
     const storedLang = localStorage.getItem(KEYS.LANG) as Language;
     const storedPosts = localStorage.getItem(KEYS.POSTS);
+    const storedProfiles = localStorage.getItem(KEYS.PROFILES);
+
+    if (storedProfiles) {
+      try {
+        setProfiles(JSON.parse(storedProfiles));
+      } catch (e) {
+        console.error("Failed to parse profiles", e);
+      }
+    }
 
     if (storedUser) {
+      let parsedProfiles: Record<string, UserProfile> = {};
+      try {
+        parsedProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+      } catch (e) {
+        console.error("Failed to parse profiles for user", e);
+      }
       setUser({ 
         email: storedUser, 
-        isAdmin: ADMIN_EMAILS.includes(storedUser.toLowerCase()) 
+        isAdmin: ADMIN_EMAILS.includes(storedUser.toLowerCase()),
+        profile: parsedProfiles[storedUser]
       });
     }
     if (storedLang) setLang(storedLang);
@@ -127,16 +145,22 @@ export function useDaamStore() {
     setUser(null);
   };
 
-  const createPost = (content: string) => {
+  const generateId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  const createPost = (
+    content: string, 
+    postType: PostType = 'discussion', 
+    subject?: string, 
+    imageUrl?: string,
+    attachments?: Attachment[]
+  ) => {
     if (!user || !content.trim()) return;
-    
-    const generateId = () => {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-    };
     
     const newPost: LocalPost = {
       id: generateId(),
@@ -144,10 +168,45 @@ export function useDaamStore() {
       content,
       createdAt: new Date().toISOString(),
       likedBy: [],
-      replies: []
+      replies: [],
+      postType,
+      subject,
+      savedBy: [],
+      imageUrl,
+      attachments
     };
     
     const updatedPosts = [newPost, ...posts];
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+
+  const updateProfile = (profile: Omit<UserProfile, 'email'>) => {
+    if (!user) return;
+    const newProfile: UserProfile = { ...profile, email: user.email };
+    const updatedProfiles = { ...profiles, [user.email]: newProfile };
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+    setUser({ ...user, profile: newProfile });
+  };
+
+  const getProfile = (email: string): UserProfile | undefined => {
+    return profiles[email];
+  };
+
+  const toggleSave = (postId: string) => {
+    if (!user) return;
+    const updatedPosts = posts.map(post => {
+      if (post.id !== postId) return post;
+      const savedBy = post.savedBy || [];
+      const isSaved = savedBy.includes(user.email);
+      return {
+        ...post,
+        savedBy: isSaved 
+          ? savedBy.filter(email => email !== user.email)
+          : [...savedBy, user.email]
+      };
+    });
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
@@ -157,14 +216,6 @@ export function useDaamStore() {
     const updatedPosts = posts.filter(p => p.id !== postId);
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
-  };
-
-  const generateId = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
   };
 
   const toggleLike = (postId: string) => {
@@ -184,13 +235,14 @@ export function useDaamStore() {
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
-  const addReply = (postId: string, content: string) => {
+  const addReply = (postId: string, content: string, parentReplyId?: string) => {
     if (!user || !content.trim()) return;
     const newReply: LocalReply = {
       id: generateId(),
       authorEmail: user.email,
       content,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      parentId: parentReplyId
     };
     const updatedPosts = posts.map(post => {
       if (post.id !== postId) return post;
@@ -211,6 +263,7 @@ export function useDaamStore() {
     user,
     lang,
     posts,
+    profiles,
     isLoading,
     t: DICTIONARY[lang],
     login,
@@ -218,7 +271,10 @@ export function useDaamStore() {
     createPost,
     deletePost,
     toggleLike,
+    toggleSave,
     addReply,
-    toggleLang
+    toggleLang,
+    updateProfile,
+    getProfile
   };
 }

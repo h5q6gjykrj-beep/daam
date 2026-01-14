@@ -15,12 +15,32 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+// Post types for discussion arena
+export type PostType = 'question' | 'explanation' | 'summary' | 'discussion';
+
+// User profile for localStorage
+export interface UserProfile {
+  email: string;
+  name: string;
+  major: string;
+  university: string;
+  avatarColor?: string;
+}
+
 // Client-side types for localStorage data
 export interface LocalReply {
   id: string;
   authorEmail: string;
   content: string;
   createdAt: string;
+  parentId?: string; // ID of parent reply for nested threading
+}
+
+export interface Attachment {
+  type: 'image' | 'file';
+  url: string;  // base64 data URL
+  name: string; // original filename
+  size: number; // bytes
 }
 
 export interface LocalPost {
@@ -30,6 +50,11 @@ export interface LocalPost {
   createdAt: string;
   likedBy: string[];
   replies: LocalReply[];
+  postType: PostType;
+  subject?: string;
+  savedBy: string[];
+  imageUrl?: string;
+  attachments?: Attachment[];
 }
 
 export type Language = 'ar' | 'en';
