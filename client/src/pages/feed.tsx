@@ -111,7 +111,26 @@ export default function Feed() {
   };
 
   const openAttachment = (attachment: Attachment) => {
-    if (attachment.type === 'image' || attachment.name.toLowerCase().endsWith('.pdf')) {
+    const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
+    
+    if (isPdf) {
+      // Convert base64 to Blob for better PDF handling
+      try {
+        const base64Data = attachment.url.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      } catch (e) {
+        // Fallback to direct URL if conversion fails
+        window.open(attachment.url, '_blank');
+      }
+    } else if (attachment.type === 'image') {
       window.open(attachment.url, '_blank');
     } else {
       const link = document.createElement('a');
