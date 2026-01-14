@@ -2,7 +2,8 @@ import { ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
-import { LogOut, Bot, LayoutGrid, Globe } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogOut, Bot, LayoutGrid, Globe, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface LayoutShellProps {
@@ -32,7 +33,13 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
           <div className="flex items-center gap-2 md:gap-4">
             {/* Nav Items */}
-            <div className="hidden md:flex items-center gap-1 mr-2 rtl:mr-0 rtl:ml-2">
+            <div className="hidden md:flex items-center gap-2 mr-2 rtl:mr-0 rtl:ml-2">
+              {user.isAdmin && (
+                <Badge variant="secondary" className="text-xs bg-primary/20 text-primary border-primary/30">
+                  <Shield className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                  {lang === 'ar' ? 'مشرف' : 'Admin'}
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full border border-white/5">
                 {user.email}
               </span>

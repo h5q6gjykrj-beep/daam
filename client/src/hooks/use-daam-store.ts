@@ -3,7 +3,13 @@ import { type LocalPost } from "@shared/schema";
 
 // Types
 export type Language = 'ar' | 'en';
-export type User = { email: string };
+export type User = { email: string; isAdmin: boolean };
+
+// Admin Configuration - add admin emails here
+export const ADMIN_EMAILS = [
+  'admin@utas.edu.om',
+  'administrator@utas.edu.om'
+];
 
 const KEYS = {
   USER: 'daam_user',
@@ -32,7 +38,9 @@ const DICTIONARY = {
     emptyFeed: "No posts yet. Be the first to share!",
     postedJustNow: "Just now",
     by: "by",
-    recentPosts: "Recent Discussions"
+    recentPosts: "Recent Discussions",
+    adminBadge: "Admin",
+    deletePost: "Delete"
   },
   ar: {
     welcome: "مرحباً بكم في داعم",
@@ -53,7 +61,9 @@ const DICTIONARY = {
     emptyFeed: "لا توجد منشورات بعد. كن أول من يشارك!",
     postedJustNow: "الآن",
     by: "بواسطة",
-    recentPosts: "أحدث النقاشات"
+    recentPosts: "أحدث النقاشات",
+    adminBadge: "مشرف",
+    deletePost: "حذف"
   }
 };
 
@@ -70,7 +80,12 @@ export function useDaamStore() {
     const storedLang = localStorage.getItem(KEYS.LANG) as Language;
     const storedPosts = localStorage.getItem(KEYS.POSTS);
 
-    if (storedUser) setUser({ email: storedUser });
+    if (storedUser) {
+      setUser({ 
+        email: storedUser, 
+        isAdmin: ADMIN_EMAILS.includes(storedUser.toLowerCase()) 
+      });
+    }
     if (storedLang) setLang(storedLang);
     if (storedPosts) {
       try {
@@ -100,7 +115,10 @@ export function useDaamStore() {
       throw new Error(DICTIONARY[lang].invalidEmail);
     }
     localStorage.setItem(KEYS.USER, email);
-    setUser({ email });
+    setUser({ 
+      email, 
+      isAdmin: ADMIN_EMAILS.includes(email.toLowerCase()) 
+    });
   };
 
   const logout = () => {
@@ -123,6 +141,13 @@ export function useDaamStore() {
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
+  const deletePost = (postId: string) => {
+    if (!user?.isAdmin) return;
+    const updatedPosts = posts.filter(p => p.id !== postId);
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+
   const toggleLang = () => {
     setLang(prev => prev === 'en' ? 'ar' : 'en');
   };
@@ -136,6 +161,7 @@ export function useDaamStore() {
     login,
     logout,
     createPost,
+    deletePost,
     toggleLang
   };
 }

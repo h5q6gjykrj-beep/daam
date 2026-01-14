@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useDaamStore } from "@/hooks/use-daam-store";
+import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Clock, MessageSquare, Heart, Share2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Send, Clock, MessageSquare, Heart, Share2, Trash2, Shield } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Feed() {
-  const { posts, createPost, t, lang, user } = useDaamStore();
+  const { posts, createPost, deletePost, t, lang, user } = useDaamStore();
   const [content, setContent] = useState("");
   const isRTL = lang === 'ar';
 
@@ -101,16 +102,35 @@ export default function Feed() {
                     
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex items-center gap-2">
                           <p className="font-medium text-sm text-foreground/90">
                             {post.authorEmail.split('@')[0]}
                           </p>
+                          {ADMIN_EMAILS.includes(post.authorEmail.toLowerCase()) && (
+                            <Badge variant="secondary" className="text-xs px-2 py-0 bg-primary/20 text-primary border-primary/30">
+                              <Shield className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                              {t.adminBadge}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
                           <p className="text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(post.createdAt), { 
                               addSuffix: true,
                               locale: lang === 'ar' ? ar : enUS 
                             })}
                           </p>
+                          {user?.isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deletePost(post.id)}
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              data-testid={`button-delete-post-${post.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       
