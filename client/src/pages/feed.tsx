@@ -169,16 +169,30 @@ export default function Feed() {
     const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
     const isImage = attachment.type === 'image';
     
-    if (isPdf || isImage) {
-      // Convert base64 to blob URL for better browser compatibility
-      const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
+    // Convert base64 to blob URL for better browser compatibility
+    const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
+    
+    if (isPdf) {
+      // Open PDF directly in new tab for full viewing with scrolling
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      } else {
+        toast({
+          title: lang === 'ar' ? 'خطأ' : 'Error',
+          description: lang === 'ar' ? 'تعذر فتح الملف' : 'Could not open file',
+          variant: 'destructive'
+        });
+      }
+    } else if (isImage) {
+      // Show images in dialog
       if (blob) {
         const blobUrl = URL.createObjectURL(blob);
         setViewerContent({
           url: attachment.url,
           blobUrl: blobUrl,
           name: attachment.name,
-          type: isPdf ? 'pdf' : 'image'
+          type: 'image'
         });
         setViewerOpen(true);
       } else {
@@ -1027,83 +1041,48 @@ export default function Feed() {
       </div>
 
       <Dialog open={viewerOpen} onOpenChange={(open) => !open && closeViewer()}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] p-0 flex flex-col">
           <DialogHeader className="p-4 border-b flex-shrink-0">
             <DialogTitle className="truncate pe-8">
               {viewerContent?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-2 bg-muted/30">
-            {viewerContent?.type === 'pdf' ? (
-              <object
-                data={viewerContent.blobUrl}
-                type="application/pdf"
-                className="w-full h-full rounded border-0"
-                title={viewerContent.name}
-              >
-                <iframe
-                  src={viewerContent.blobUrl}
-                  className="w-full h-full rounded border-0"
-                  title={viewerContent.name}
-                />
-              </object>
-            ) : viewerContent?.type === 'image' ? (
-              <div className="w-full h-full overflow-auto flex items-center justify-center">
+          <div className="flex-1 min-h-0 p-4 bg-muted/30 overflow-auto">
+            {viewerContent?.type === 'image' && (
+              <div className="flex items-center justify-center min-h-[300px]">
                 <img
                   src={viewerContent.blobUrl}
                   alt={viewerContent.name}
-                  className="max-w-full max-h-full object-contain rounded"
+                  className="max-w-full max-h-[70vh] object-contain rounded"
                 />
               </div>
-            ) : null}
+            )}
           </div>
-          <div className="p-3 border-t flex-shrink-0 flex justify-between items-center gap-2">
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              {viewerContent?.type === 'pdf' 
-                ? (lang === 'ar' ? 'للعرض الكامل، افتح في تبويب جديد' : 'For full view, open in new tab')
-                : (lang === 'ar' ? 'استخدم التمرير للتنقل' : 'Scroll to navigate')
-              }
-            </p>
-            <div className="flex gap-2 ms-auto">
-              {viewerContent?.type === 'pdf' && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (viewerContent?.blobUrl) {
-                      window.open(viewerContent.blobUrl, '_blank');
-                    }
-                  }}
-                  data-testid="button-viewer-newtab"
-                >
-                  <ExternalLink className="w-4 h-4 me-2" />
-                  {lang === 'ar' ? 'تبويب جديد' : 'New Tab'}
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (viewerContent?.blobUrl) {
-                    const link = document.createElement('a');
-                    link.href = viewerContent.blobUrl;
-                    link.download = viewerContent.name;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    toast({
-                      title: lang === 'ar' ? 'جاري التحميل' : 'Downloading',
-                      description: viewerContent.name
-                    });
-                  }
-                }}
-                data-testid="button-viewer-download"
-              >
-                <Download className="w-4 h-4 me-2" />
-                {lang === 'ar' ? 'تحميل' : 'Download'}
-              </Button>
-              <Button onClick={closeViewer} data-testid="button-viewer-close">
-                {lang === 'ar' ? 'إغلاق' : 'Close'}
-              </Button>
-            </div>
+          <div className="p-3 border-t flex-shrink-0 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (viewerContent?.blobUrl) {
+                  const link = document.createElement('a');
+                  link.href = viewerContent.blobUrl;
+                  link.download = viewerContent.name;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  toast({
+                    title: lang === 'ar' ? 'جاري التحميل' : 'Downloading',
+                    description: viewerContent.name
+                  });
+                }
+              }}
+              data-testid="button-viewer-download"
+            >
+              <Download className="w-4 h-4 me-2" />
+              {lang === 'ar' ? 'تحميل' : 'Download'}
+            </Button>
+            <Button onClick={closeViewer} data-testid="button-viewer-close">
+              {lang === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
