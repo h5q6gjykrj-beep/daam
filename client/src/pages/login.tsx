@@ -3,22 +3,45 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const { login, t, lang, toggleLang, theme, toggleTheme } = useDaamStore();
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  const { login, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const isRTL = lang === 'ar';
+  
+  const tr = {
+    title: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
+    subtitle: lang === 'ar' ? 'منصة التعاون الطلابي' : 'Student Collaboration Platform',
+    email: lang === 'ar' ? 'البريد الإلكتروني' : 'Email',
+    emailPlaceholder: lang === 'ar' ? 'البريد الجامعي (@utas.edu.om)' : 'University Email (@utas.edu.om)',
+    password: lang === 'ar' ? 'كلمة المرور' : 'Password',
+    rememberMe: lang === 'ar' ? 'تذكرني' : 'Remember me',
+    loginBtn: lang === 'ar' ? 'دخول' : 'Login',
+    noAccount: lang === 'ar' ? 'ليس لديك حساب؟' : "Don't have an account?",
+    createAccount: lang === 'ar' ? 'إنشاء حساب' : 'Create Account',
+    biometric: lang === 'ar' ? 'الدخول بالبصمة' : 'Biometric Login',
+    home: lang === 'ar' ? 'الرئيسية' : 'Home',
+    onlyUniversity: lang === 'ar' ? 'متاح فقط لحسابات @utas.edu.om' : 'Only @utas.edu.om accounts supported',
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      login(email);
+      login(email, password, rememberMe);
       setLocation("/dashboard");
       toast({
         title: lang === 'en' ? "Welcome back!" : "أهلاً بك!",
@@ -34,8 +57,23 @@ export default function Login() {
     }
   };
 
-  const isRTL = lang === 'ar';
+  const handleBiometricLogin = async () => {
+    if (!('credentials' in navigator) || !('PublicKeyCredential' in window)) {
+      toast({
+        title: lang === 'ar' ? 'غير مدعوم' : 'Not Supported',
+        description: lang === 'ar' ? 'المتصفح لا يدعم الدخول بالبصمة' : 'Browser does not support biometric login',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    toast({
+      title: lang === 'ar' ? 'قريباً' : 'Coming Soon',
+      description: lang === 'ar' ? 'سيتم دعم الدخول بالبصمة قريباً' : 'Biometric login will be available soon',
+    });
+  };
 
+  
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
       <div className="absolute top-4 left-4 rtl:left-auto rtl:right-4">
@@ -46,7 +84,7 @@ export default function Login() {
           data-testid="button-back-home"
         >
           <ArrowUpLeft className="w-4 h-4" />
-          {lang === 'ar' ? 'الرئيسية' : 'Home'}
+          {tr.home}
         </Button>
       </div>
       <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 flex items-center gap-2">
@@ -87,35 +125,102 @@ export default function Login() {
             />
             <CardTitle className="text-3xl font-bold tracking-tight">منصة دام</CardTitle>
             <CardDescription className="text-lg text-muted-foreground">
-              {t.loginSubtitle}
+              {tr.subtitle}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
+                <Label htmlFor="email">{tr.email}</Label>
                 <Input
+                  id="email"
                   type="email"
-                  placeholder={t.emailPlaceholder}
+                  placeholder={tr.emailPlaceholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors"
-                  dir="ltr" // Email is always LTR
+                  dir="ltr"
+                  data-testid="input-email"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">{tr.password}</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors pe-12"
+                    dir="ltr"
+                    data-testid="input-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute end-0 top-0 h-12 w-12 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <Checkbox 
+                    id="rememberMe" 
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    data-testid="checkbox-remember-me"
+                  />
+                  <label 
+                    htmlFor="rememberMe" 
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    {tr.rememberMe}
+                  </label>
+                </div>
               </div>
 
               <Button 
                 type="submit" 
                 className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 transition-all duration-300 shadow-lg shadow-primary/20 hover:shadow-primary/30"
+                data-testid="button-login"
               >
-                {t.loginBtn}
-                {isRTL ? <ArrowLeft className="w-5 h-5 mr-2" /> : <ArrowRight className="w-5 h-5 ml-2" />}
+                {tr.loginBtn}
+                {isRTL ? <ArrowLeft className="w-5 h-5 me-2" /> : <ArrowRight className="w-5 h-5 ms-2" />}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 text-base gap-2"
+                onClick={handleBiometricLogin}
+                data-testid="button-biometric"
+              >
+                <Fingerprint className="w-5 h-5" />
+                {tr.biometric}
               </Button>
             </form>
 
-            <div className="mt-8 text-center">
+            <div className="mt-6 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {tr.noAccount}{' '}
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto text-primary hover:bg-transparent hover:underline"
+                  onClick={() => setLocation('/register')}
+                  data-testid="link-register"
+                >
+                  {tr.createAccount}
+                </Button>
+              </p>
               <p className="text-xs text-muted-foreground/50">
-                {lang === 'en' ? 'Only @utas.edu.om accounts supported' : 'متاح فقط لحسابات @utas.edu.om'}
+                {tr.onlyUniversity}
               </p>
             </div>
           </CardContent>

@@ -9,6 +9,8 @@ import { Loader2 } from "lucide-react";
 
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
+import Register from "@/pages/register";
+import Verify from "@/pages/verify";
 import Dashboard from "@/pages/dashboard";
 import Feed from "@/pages/feed";
 import Tutor from "@/pages/tutor";
@@ -72,6 +74,8 @@ function Router() {
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+          <Route path="/verify" component={Verify} />
           <Route>
             <Redirect to="/" />
           </Route>

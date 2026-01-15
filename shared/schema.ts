@@ -18,6 +18,32 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 // Post types for discussion arena
 export type PostType = 'question' | 'explanation' | 'summary' | 'discussion';
 
+// User role types
+export type UserRole = 'student' | 'moderator';
+
+// Region data structure
+export interface Region {
+  governorate: string;
+  wilayat: string;
+}
+
+// User account for localStorage (registration data)
+export interface UserAccount {
+  email: string;
+  passwordHash: string; // Simple hash for demo purposes
+  phone: string;
+  region: Region;
+  role: UserRole;
+  verified: boolean;
+  verificationToken?: string;
+  verificationExpiry?: string;
+  createdAt: string;
+  rememberMe?: boolean;
+  biometricEnabled?: boolean;
+  banned?: boolean;
+  bannedReason?: string;
+}
+
 // User profile for localStorage
 export interface UserProfile {
   email: string;

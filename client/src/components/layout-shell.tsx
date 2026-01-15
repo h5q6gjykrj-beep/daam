@@ -51,6 +51,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     tutor: lang === 'ar' ? 'المساعد الذكي' : 'AI Tutor',
     profile: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
     admin: lang === 'ar' ? 'مشرف' : 'Admin',
+    moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
     login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
   };
 
@@ -122,10 +123,10 @@ export function LayoutShell({ children }: LayoutShellProps) {
           </nav>
 
           <div className="flex items-center gap-2">
-            {user.isAdmin && (
-              <Badge variant="secondary" className="text-[10px] bg-primary/20 text-primary border-primary/30 hidden sm:flex">
+            {user.isModerator && (
+              <Badge variant="secondary" className="text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30 hidden sm:flex">
                 <Shield className="w-3 h-3 me-1" />
-                {tr.admin}
+                {tr.moderator}
               </Badge>
             )}
             
@@ -225,10 +226,10 @@ export function LayoutShell({ children }: LayoutShellProps) {
                 </nav>
 
                 <div className="p-4 border-t border-white/10 space-y-3">
-                  {user.isAdmin && (
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10">
-                      <Shield className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-primary font-medium">{tr.admin}</span>
+                  {user.isModerator && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10">
+                      <Shield className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm text-amber-500 font-medium">{tr.moderator}</span>
                     </div>
                   )}
                   

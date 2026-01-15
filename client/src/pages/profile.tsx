@@ -27,7 +27,12 @@ import {
   Calendar,
   X,
   Plus,
-  Check
+  Check,
+  Shield,
+  Lock,
+  Mail,
+  Phone,
+  MapPin
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow, format } from "date-fns";
@@ -50,7 +55,7 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, updateProfile, toggleFollow, isFollowing } = useDaamStore();
+  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing } = useDaamStore();
   const [_, setLocation] = useLocation();
   const [match, params] = useRoute("/profile/:email");
   const { toast } = useToast();
@@ -492,9 +497,17 @@ export default function Profile() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-2xl md:text-3xl font-bold">
-                    {profile?.name || profileEmail.split('@')[0]}
-                  </h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-2xl md:text-3xl font-bold">
+                      {profile?.name || profileEmail.split('@')[0]}
+                    </h1>
+                    {profileEmail?.toLowerCase() === 'w.qq89@hotmail.com' && (
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 border-amber-500/30 text-amber-500 bg-amber-500/10">
+                        <Shield className="w-3 h-3 me-1" />
+                        {lang === 'ar' ? 'مشرف' : 'Moderator'}
+                      </Badge>
+                    )}
+                  </div>
                   {profile?.major && (
                     <p className="text-muted-foreground flex items-center gap-2 mt-1">
                       <GraduationCap className="w-4 h-4" />
@@ -650,6 +663,16 @@ export default function Profile() {
               <Hash className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
               {tr.interests}
             </TabsTrigger>
+            {isOwnProfile && (
+              <TabsTrigger 
+                value="private" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
+                data-testid="tab-private"
+              >
+                <Lock className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+                {lang === 'ar' ? 'معلومات خاصة' : 'Private Info'}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <div className="py-4">
@@ -778,6 +801,78 @@ export default function Profile() {
                 </div>
               )}
             </TabsContent>
+
+            {isOwnProfile && (
+              <TabsContent value="private" className="mt-0">
+                <Card className="border-white/10 bg-card/30">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lock className="w-5 h-5 text-amber-500" />
+                      <h3 className="font-semibold">
+                        {lang === 'ar' ? 'معلوماتك الخاصة' : 'Your Private Information'}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {lang === 'ar' 
+                        ? 'هذه المعلومات خاصة بك ولا يمكن لأي شخص آخر رؤيتها.'
+                        : 'This information is private to you. No one else can see it.'}
+                    </p>
+                    
+                    {(() => {
+                      const account = user?.email ? getAccount(user.email) : undefined;
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                            <Mail className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">
+                                {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                              </p>
+                              <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
+                            </div>
+                          </div>
+                          
+                          {account?.phone && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                              <Phone className="w-5 h-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  {lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                                </p>
+                                <p className="font-medium" data-testid="text-private-phone">{account.phone}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {account?.region && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                              <MapPin className="w-5 h-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  {lang === 'ar' ? 'المنطقة' : 'Region'}
+                                </p>
+                                <p className="font-medium" data-testid="text-private-region">
+                                  {account.region.governorate} - {account.region.wilayat}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="pt-4 border-t border-white/10">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              {lang === 'ar' 
+                                ? 'هذه المعلومات محمية ولن تتم مشاركتها مع أي شخص.'
+                                : 'This information is protected and will not be shared with anyone.'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
           </div>
         </Tabs>
       </div>

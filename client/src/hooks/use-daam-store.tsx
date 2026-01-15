@@ -1,14 +1,23 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
-import { type LocalPost, type LocalReply, type PostType, type UserProfile, type Attachment } from "@shared/schema";
+import { type LocalPost, type LocalReply, type PostType, type UserProfile, type Attachment, type UserAccount, type UserRole, type Region } from "@shared/schema";
 
 // Types
 export type Language = 'ar' | 'en';
 export type Theme = 'light' | 'dark';
-export type User = { email: string; isAdmin: boolean; profile?: UserProfile };
+export type User = { 
+  email: string; 
+  isAdmin: boolean; 
+  isModerator: boolean;
+  profile?: UserProfile;
+  account?: UserAccount;
+};
 
-// Admin Configuration - add admin emails here
+// Moderator email - the only allowed moderator email
+export const MODERATOR_EMAIL = 'w.qq89@hotmail.com';
+
+// Admin Configuration - add admin emails here (moderators are admins)
 export const ADMIN_EMAILS = [
-  'w.qq89@hotmail.com'
+  MODERATOR_EMAIL
 ];
 
 const KEYS = {
@@ -16,7 +25,25 @@ const KEYS = {
   POSTS: 'daam_posts_v2',
   LANG: 'daam_lang',
   PROFILES: 'daam_profiles',
-  THEME: 'daam_theme'
+  THEME: 'daam_theme',
+  ACCOUNTS: 'daam_accounts',
+  PENDING_VERIFICATION: 'daam_pending_verification'
+};
+
+// Simple hash function for demo (in production, use bcrypt on server)
+const simpleHash = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+};
+
+// Generate verification token
+const generateVerificationToken = (): string => {
+  return 'verify_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
 
 // Simple translations dictionary
@@ -69,16 +96,37 @@ const DICTIONARY = {
   }
 };
 
+// Registration data type
+export interface RegistrationData {
+  email: string;
+  password: string;
+  phone: string;
+  governorate: string;
+  wilayat: string;
+}
+
+// Pending verification for simulated emails
+export interface PendingVerification {
+  email: string;
+  token: string;
+  expiry: string;
+}
+
 interface DaamStoreContextType {
   user: User | null;
   lang: Language;
   theme: Theme;
   posts: LocalPost[];
   profiles: Record<string, UserProfile>;
+  accounts: Record<string, UserAccount>;
+  pendingVerification: PendingVerification | null;
   isLoading: boolean;
   t: typeof DICTIONARY.en;
-  login: (email: string) => void;
+  login: (email: string, password: string, rememberMe?: boolean) => void;
+  loginSimple: (email: string) => void;
   logout: () => void;
+  register: (data: RegistrationData) => PendingVerification;
+  verifyEmail: (token: string) => boolean;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, content: string, postType?: PostType, subject?: string) => void;
@@ -89,8 +137,13 @@ interface DaamStoreContextType {
   toggleTheme: () => void;
   updateProfile: (email: string, profile: Partial<UserProfile>) => void;
   getProfile: (email: string) => UserProfile | undefined;
+  getAccount: (email: string) => UserAccount | undefined;
   toggleFollow: (targetEmail: string) => void;
   isFollowing: (targetEmail: string) => boolean;
+  banUser: (email: string, reason: string) => void;
+  unbanUser: (email: string) => void;
+  deleteReply: (postId: string, replyId: string) => void;
+  editReply: (postId: string, replyId: string, content: string) => void;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -113,6 +166,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
   const [posts, setPosts] = useState<LocalPost[]>([]);
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
+  const [accounts, setAccounts] = useState<Record<string, UserAccount>>({});
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize from localStorage
@@ -121,12 +176,32 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const storedLang = localStorage.getItem(KEYS.LANG) as Language;
     const storedPosts = localStorage.getItem(KEYS.POSTS);
     const storedProfiles = localStorage.getItem(KEYS.PROFILES);
+    const storedAccounts = localStorage.getItem(KEYS.ACCOUNTS);
+    const storedPendingVerification = localStorage.getItem(KEYS.PENDING_VERIFICATION);
 
     if (storedProfiles) {
       try {
         setProfiles(JSON.parse(storedProfiles));
       } catch (e) {
         console.error("Failed to parse profiles", e);
+      }
+    }
+    
+    let parsedAccounts: Record<string, UserAccount> = {};
+    if (storedAccounts) {
+      try {
+        parsedAccounts = JSON.parse(storedAccounts);
+        setAccounts(parsedAccounts);
+      } catch (e) {
+        console.error("Failed to parse accounts", e);
+      }
+    }
+    
+    if (storedPendingVerification) {
+      try {
+        setPendingVerification(JSON.parse(storedPendingVerification));
+      } catch (e) {
+        console.error("Failed to parse pending verification", e);
       }
     }
 
@@ -137,10 +212,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Failed to parse profiles for user", e);
       }
+      const isMod = storedUser.toLowerCase() === MODERATOR_EMAIL.toLowerCase();
+      const userAccount = parsedAccounts[storedUser];
       setUser({ 
         email: storedUser, 
         isAdmin: ADMIN_EMAILS.includes(storedUser.toLowerCase()),
-        profile: parsedProfiles[storedUser]
+        isModerator: isMod,
+        profile: parsedProfiles[storedUser],
+        account: userAccount
       });
     }
     if (storedLang) setLang(storedLang);
@@ -173,17 +252,151 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   // Actions
-  const login = (email: string) => {
-    const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
-    // Allow admin emails OR university emails
-    if (!isAdminEmail && !email.endsWith('@utas.edu.om')) {
-      throw new Error(DICTIONARY[lang].invalidEmail);
+  
+  // Full login with password (for registered users)
+  const login = (email: string, password: string, rememberMe: boolean = false) => {
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    
+    if (!account) {
+      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
     }
+    
+    if (!account.verified) {
+      throw new Error(lang === 'ar' ? 'يرجى تأكيد بريدك الإلكتروني أولاً' : 'Please verify your email first');
+    }
+    
+    if (account.banned) {
+      throw new Error(lang === 'ar' ? 'حسابك محظور: ' + account.bannedReason : 'Your account is banned: ' + account.bannedReason);
+    }
+    
+    if (account.passwordHash !== simpleHash(password)) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
+    }
+    
+    // Update rememberMe status
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: { ...account, rememberMe }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
+    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+    const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
+    
     localStorage.setItem(KEYS.USER, email);
     setUser({ 
       email, 
-      isAdmin: isAdminEmail 
+      isAdmin: isAdminEmail,
+      isModerator: isMod,
+      account: updatedAccounts[emailLower],
+      profile: profiles[email]
     });
+  };
+  
+  // Simple login - DISABLED for security
+  // This function is kept for backward compatibility but always throws an error
+  const loginSimple = (_email: string) => {
+    throw new Error(lang === 'ar' 
+      ? 'الدخول السريع معطل. يرجى استخدام تسجيل الدخول بكلمة المرور.' 
+      : 'Quick login is disabled. Please use password login.');
+  };
+  
+  // Register new account
+  const register = (data: RegistrationData): PendingVerification => {
+    const emailLower = data.email.toLowerCase();
+    
+    // Check if already registered
+    if (accounts[emailLower]) {
+      throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
+    }
+    
+    // Validate email domain
+    const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
+    const isUniversityEmail = data.email.endsWith('@utas.edu.om');
+    
+    if (!isModerator && !isUniversityEmail) {
+      throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي صحيح @utas.edu.om' : 'Please use a valid @utas.edu.om email');
+    }
+    
+    // Reject other hotmail emails
+    if (!isModerator && data.email.toLowerCase().includes('@hotmail.')) {
+      throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
+    }
+    
+    // Generate verification token
+    const token = generateVerificationToken();
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    
+    // Create account (not verified yet)
+    const newAccount: UserAccount = {
+      email: data.email,
+      passwordHash: simpleHash(data.password),
+      phone: data.phone,
+      region: {
+        governorate: data.governorate,
+        wilayat: data.wilayat
+      },
+      role: isModerator ? 'moderator' : 'student',
+      verified: false,
+      verificationToken: token,
+      verificationExpiry: expiry,
+      createdAt: new Date().toISOString()
+    };
+    
+    const updatedAccounts = { ...accounts, [emailLower]: newAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
+    // Store pending verification for display
+    const verification: PendingVerification = {
+      email: data.email,
+      token,
+      expiry
+    };
+    setPendingVerification(verification);
+    localStorage.setItem(KEYS.PENDING_VERIFICATION, JSON.stringify(verification));
+    
+    return verification;
+  };
+  
+  // Verify email with token
+  const verifyEmail = (token: string): boolean => {
+    // Find account with this token
+    const accountEntry = Object.entries(accounts).find(
+      ([_, acc]) => acc.verificationToken === token
+    );
+    
+    if (!accountEntry) {
+      return false;
+    }
+    
+    const [email, account] = accountEntry;
+    
+    // Check expiry
+    if (account.verificationExpiry && new Date(account.verificationExpiry) < new Date()) {
+      return false;
+    }
+    
+    // Mark as verified
+    const updatedAccounts = {
+      ...accounts,
+      [email]: {
+        ...account,
+        verified: true,
+        verificationToken: undefined,
+        verificationExpiry: undefined
+      }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
+    // Clear pending verification
+    setPendingVerification(null);
+    localStorage.removeItem(KEYS.PENDING_VERIFICATION);
+    
+    return true;
   };
 
   const logout = () => {
@@ -250,6 +463,11 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return profiles[email];
   }, [profiles]);
 
+  const getAccount = useCallback((email: string): UserAccount | undefined => {
+    // Only return account data if the requester is the account owner (checked by caller)
+    return accounts[email];
+  }, [accounts]);
+
   const toggleSave = (postId: string) => {
     if (!user) return;
     const updatedPosts = posts.map(post => {
@@ -271,8 +489,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const post = posts.find(p => p.id === postId);
     if (!post) return;
-    // Allow deletion if user is admin or the post author
-    if (!user.isAdmin && post.authorEmail !== user.email) return;
+    // Allow deletion if user is admin, moderator, or the post author
+    if (!user.isAdmin && !user.isModerator && post.authorEmail !== user.email) return;
     const updatedPosts = posts.filter(p => p.id !== postId);
     setPosts(updatedPosts);
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
@@ -282,8 +500,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const post = posts.find(p => p.id === postId);
     if (!post) return;
-    // Only allow update if user is the post author
-    if (post.authorEmail !== user.email) return;
+    // Allow update if user is moderator or the post author
+    if (!user.isModerator && post.authorEmail !== user.email) return;
     const updatedPosts = posts.map(p => {
       if (p.id !== postId) return p;
       return {
@@ -394,6 +612,89 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const currentUserProfile = profiles[user.email];
     return currentUserProfile?.following?.includes(targetEmail) || false;
   };
+  
+  // Moderator functions
+  const banUser = (email: string, reason: string) => {
+    if (!user?.isModerator) return;
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    if (!account) return;
+    
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: {
+        ...account,
+        banned: true,
+        bannedReason: reason
+      }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+  };
+  
+  const unbanUser = (email: string) => {
+    if (!user?.isModerator) return;
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    if (!account) return;
+    
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: {
+        ...account,
+        banned: false,
+        bannedReason: undefined
+      }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+  };
+  
+  const deleteReply = (postId: string, replyId: string) => {
+    if (!user) return;
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    
+    const reply = post.replies?.find(r => r.id === replyId);
+    if (!reply) return;
+    
+    // Allow deletion if user is moderator or the reply author
+    if (!user.isModerator && reply.authorEmail !== user.email) return;
+    
+    const updatedPosts = posts.map(p => {
+      if (p.id !== postId) return p;
+      return {
+        ...p,
+        replies: p.replies?.filter(r => r.id !== replyId) || []
+      };
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
+  
+  const editReply = (postId: string, replyId: string, content: string) => {
+    if (!user) return;
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    
+    const reply = post.replies?.find(r => r.id === replyId);
+    if (!reply) return;
+    
+    // Allow edit if user is moderator or the reply author
+    if (!user.isModerator && reply.authorEmail !== user.email) return;
+    
+    const updatedPosts = posts.map(p => {
+      if (p.id !== postId) return p;
+      return {
+        ...p,
+        replies: p.replies?.map(r => 
+          r.id === replyId ? { ...r, content } : r
+        ) || []
+      };
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
+  };
 
   const value: DaamStoreContextType = {
     user,
@@ -401,10 +702,15 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     theme,
     posts,
     profiles,
+    accounts,
+    pendingVerification,
     isLoading,
     t: DICTIONARY[lang],
     login,
+    loginSimple,
     logout,
+    register,
+    verifyEmail,
     createPost,
     deletePost,
     updatePost,
@@ -415,8 +721,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     toggleTheme,
     updateProfile,
     getProfile,
+    getAccount,
     toggleFollow,
-    isFollowing
+    isFollowing,
+    banUser,
+    unbanUser,
+    deleteReply,
+    editReply
   };
 
   return (

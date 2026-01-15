@@ -45,7 +45,7 @@ const SUBJECTS = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, lang, user, getProfile } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile } = useDaamStore();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const filterParam = searchParams.get('filter');
@@ -68,6 +68,8 @@ export default function Feed() {
   const [editSubject, setEditSubject] = useState<string>('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerContent, setViewerContent] = useState<{ url: string; blobUrl: string; name: string; type: 'pdf' | 'image' } | null>(null);
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyContent, setEditReplyContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -289,11 +291,11 @@ export default function Feed() {
   };
 
   const canEditPost = (post: typeof posts[0]) => {
-    return user?.email === post.authorEmail;
+    return user?.email === post.authorEmail || user?.isModerator;
   };
 
   const canDeletePost = (post: typeof posts[0]) => {
-    return user?.email === post.authorEmail || user?.isAdmin;
+    return user?.email === post.authorEmail || user?.isAdmin || user?.isModerator;
   };
 
   const getInitials = (email: string) => {
@@ -319,7 +321,45 @@ export default function Feed() {
     return profile?.university || '';
   };
 
-  const isAdmin = (email: string) => ADMIN_EMAILS.includes(email);
+  const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
+  const isModerator = (email: string) => email.toLowerCase() === 'w.qq89@hotmail.com';
+
+  const canEditReply = (reply: LocalReply) => {
+    return user?.email === reply.authorEmail || user?.isModerator;
+  };
+
+  const canDeleteReply = (reply: LocalReply) => {
+    return user?.email === reply.authorEmail || user?.isModerator;
+  };
+
+  const startEditReply = (reply: LocalReply) => {
+    setEditingReplyId(reply.id);
+    setEditReplyContent(reply.content);
+  };
+
+  const cancelEditReply = () => {
+    setEditingReplyId(null);
+    setEditReplyContent("");
+  };
+
+  const saveEditReply = (postId: string) => {
+    if (!editingReplyId || !editReplyContent.trim()) return;
+    editReply(postId, editingReplyId, editReplyContent);
+    setEditingReplyId(null);
+    setEditReplyContent("");
+    toast({
+      title: lang === 'ar' ? 'تم التعديل' : 'Updated',
+      description: lang === 'ar' ? 'تم تعديل الرد بنجاح' : 'Reply updated successfully'
+    });
+  };
+
+  const handleDeleteReply = (postId: string, replyId: string) => {
+    deleteReply(postId, replyId);
+    toast({
+      title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
+      description: lang === 'ar' ? 'تم حذف الرد' : 'Reply deleted'
+    });
+  };
 
   const handleLike = (postId: string) => {
     toggleLike(postId);
@@ -392,11 +432,84 @@ export default function Feed() {
                       {lang === 'ar' ? 'مشرف' : 'Admin'}
                     </Badge>
                   )}
+                  {isModerator(reply.authorEmail) && !isAdmin(reply.authorEmail) && (
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-500">
+                      <Shield className="w-2 h-2 mr-0.5" />
+                      {lang === 'ar' ? 'مشرف' : 'Moderator'}
+                    </Badge>
+                  )}
                   <span className="text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: false, locale: lang === 'ar' ? ar : enUS })}
                   </span>
+                  
+                  {(canEditReply(reply) || canDeleteReply(reply)) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button 
+                          className="ms-auto text-muted-foreground hover:text-foreground transition-colors"
+                          data-testid={`button-reply-menu-${reply.id}`}
+                        >
+                          <MoreVertical className="w-3 h-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEditReply(reply) && (
+                          <DropdownMenuItem 
+                            onClick={() => startEditReply(reply)}
+                            data-testid={`button-edit-reply-${reply.id}`}
+                          >
+                            <Pencil className="w-3 h-3 me-2" />
+                            {lang === 'ar' ? 'تعديل' : 'Edit'}
+                          </DropdownMenuItem>
+                        )}
+                        {canDeleteReply(reply) && (
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteReply(postId, reply.id)}
+                            className="text-destructive focus:text-destructive"
+                            data-testid={`button-delete-reply-${reply.id}`}
+                          >
+                            <Trash2 className="w-3 h-3 me-2" />
+                            {lang === 'ar' ? 'حذف' : 'Delete'}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
-                <p className="text-sm">{reply.content}</p>
+                
+                {editingReplyId === reply.id ? (
+                  <div className="space-y-2 mt-1">
+                    <Input
+                      value={editReplyContent}
+                      onChange={(e) => setEditReplyContent(e.target.value)}
+                      className="text-sm h-8 bg-background"
+                      onKeyDown={(e) => e.key === 'Enter' && saveEditReply(postId)}
+                      data-testid={`input-edit-reply-${reply.id}`}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => saveEditReply(postId)}
+                        disabled={!editReplyContent.trim()}
+                        className="h-6 text-xs px-2"
+                        data-testid={`button-save-reply-${reply.id}`}
+                      >
+                        {lang === 'ar' ? 'حفظ' : 'Save'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelEditReply}
+                        className="h-6 text-xs px-2"
+                        data-testid={`button-cancel-edit-reply-${reply.id}`}
+                      >
+                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm">{reply.content}</p>
+                )}
               </div>
               <button
                 onClick={() => setReplyingToReplyId(prev => ({ ...prev, [postId]: prev[postId] === reply.id ? null : reply.id }))}
@@ -564,6 +677,7 @@ export default function Feed() {
     subject: lang === 'ar' ? 'المادة' : 'Subject',
     selectSubject: lang === 'ar' ? 'اختر المادة' : 'Select Subject',
     admin: lang === 'ar' ? 'مشرف' : 'Admin',
+    moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
     edit: lang === 'ar' ? 'تعديل' : 'Edit',
     delete: lang === 'ar' ? 'حذف' : 'Delete',
     saveChanges: lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes',
@@ -828,10 +942,10 @@ export default function Feed() {
                           >
                             {getDisplayName(post.authorEmail)}
                           </Link>
-                          {isAdmin(post.authorEmail) && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                          {isModerator(post.authorEmail) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/30 text-amber-500 bg-amber-500/10">
                               <Shield className="w-2.5 h-2.5 me-0.5" />
-                              {tr.admin}
+                              {tr.moderator}
                             </Badge>
                           )}
                         </div>
