@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Link } from "wouter";
 import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -347,16 +348,28 @@ export default function Feed() {
               marginRight: isRTL ? indent * 20 : 0 
             }}
           >
-            <Avatar className="w-6 h-6 flex-shrink-0">
-              <AvatarImage src={getProfile(reply.authorEmail)?.avatarUrl} />
-              <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
-                {getInitials(reply.authorEmail)}
-              </AvatarFallback>
-            </Avatar>
+            <Link 
+              href={`/profile/${encodeURIComponent(reply.authorEmail)}`}
+              className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+              data-testid={`link-reply-avatar-${reply.id}`}
+            >
+              <Avatar className="w-6 h-6">
+                <AvatarImage src={getProfile(reply.authorEmail)?.avatarUrl} />
+                <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                  {getInitials(reply.authorEmail)}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1">
               <div className="bg-muted/30 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <span className="text-xs font-medium">{getDisplayName(reply.authorEmail)}</span>
+                  <Link 
+                    href={`/profile/${encodeURIComponent(reply.authorEmail)}`}
+                    className="text-xs font-medium hover:text-primary hover:underline cursor-pointer transition-colors"
+                    data-testid={`link-reply-author-${reply.id}`}
+                  >
+                    {getDisplayName(reply.authorEmail)}
+                  </Link>
                   {isAdmin(reply.authorEmail) && (
                     <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
                       <Shield className="w-2 h-2 mr-0.5" />
@@ -712,19 +725,29 @@ export default function Feed() {
               <Card className="border-white/5 bg-card/50 hover:bg-card/70 transition-colors" data-testid={`post-${post.id}`}>
                 <CardContent className="p-4">
                   <div className="flex gap-3">
-                    <Avatar className="w-11 h-11 flex-shrink-0 border border-primary/20">
-                      <AvatarImage src={getProfile(post.authorEmail)?.avatarUrl} />
-                      <AvatarFallback className="bg-gradient-to-br from-violet-600 to-gray-500 text-white text-sm">
-                        {getInitials(post.authorEmail)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Link 
+                      href={`/profile/${encodeURIComponent(post.authorEmail)}`}
+                      className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      data-testid={`link-avatar-${post.id}`}
+                    >
+                      <Avatar className="w-11 h-11 border border-primary/20">
+                        <AvatarImage src={getProfile(post.authorEmail)?.avatarUrl} />
+                        <AvatarFallback className="bg-gradient-to-br from-violet-600 to-gray-500 text-white text-sm">
+                          {getInitials(post.authorEmail)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm">
+                          <Link 
+                            href={`/profile/${encodeURIComponent(post.authorEmail)}`}
+                            className="font-semibold text-sm hover:text-primary hover:underline cursor-pointer transition-colors"
+                            data-testid={`link-author-${post.id}`}
+                          >
                             {getDisplayName(post.authorEmail)}
-                          </span>
+                          </Link>
                           {isAdmin(post.authorEmail) && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
                               <Shield className="w-2.5 h-2.5 me-0.5" />
