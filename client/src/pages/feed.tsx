@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Link } from "wouter";
+import { useState, useRef, useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +46,11 @@ type SortType = 'newest' | 'trending';
 
 export default function Feed() {
   const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, lang, user, getProfile } = useDaamStore();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const filterParam = searchParams.get('filter');
+  const subjectParam = searchParams.get('subject');
+  
   const [content, setContent] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
@@ -53,7 +58,7 @@ export default function Feed() {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [replyingToReplyId, setReplyingToReplyId] = useState<Record<string, string | null>>({});
   const [selectedType, setSelectedType] = useState<PostType | 'all'>('all');
-  const [sortBy, setSortBy] = useState<SortType>('newest');
+  const [sortBy, setSortBy] = useState<SortType>(filterParam === 'top' ? 'trending' : 'newest');
   const [newPostType, setNewPostType] = useState<PostType>('discussion');
   const [newPostSubject, setNewPostSubject] = useState<string>('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -66,6 +71,17 @@ export default function Feed() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
+
+  // Date helpers for filtering
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const sixtyMinutesAgo = useMemo(() => {
+    return new Date(Date.now() - 60 * 60 * 1000);
+  }, []);
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB per file
   const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB total
@@ -448,23 +464,87 @@ export default function Feed() {
   const getLikeCount = (postId: string) => posts.find(p => p.id === postId)?.likedBy?.length || 0;
   const getReplyCount = (postId: string) => posts.find(p => p.id === postId)?.replies?.length || 0;
 
-  const filteredPosts = posts.filter(post => {
-    if (selectedType === 'all') return true;
-    return post.postType === selectedType;
-  });
+  // Apply URL-based and type filters
+  const filteredPosts = useMemo(() => {
+    let result = posts;
 
-  const sortedPosts = [...filteredPosts].sort((a, b) => {
-    if (sortBy === 'trending') {
-      const scoreA = (a.likedBy?.length || 0) + (a.replies?.length || 0) * 2;
-      const scoreB = (b.likedBy?.length || 0) + (b.replies?.length || 0) * 2;
-      return scoreB - scoreA;
+    // Filter by subject param from URL
+    if (subjectParam) {
+      result = result.filter(post => post.subject === subjectParam);
     }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+
+    // Filter by post type selector
+    if (selectedType !== 'all') {
+      result = result.filter(post => post.postType === selectedType);
+    }
+
+    // Apply URL filter param
+    if (filterParam === 'today') {
+      // Posts created today
+      result = result.filter(post => new Date(post.createdAt) >= today);
+    } else if (filterParam === 'active') {
+      // Active discussions: posts with replies in last 60 minutes OR created in last 60 minutes
+      result = result.filter(post => {
+        const postCreatedRecently = new Date(post.createdAt) >= sixtyMinutesAgo;
+        const hasRecentReplies = post.replies?.some(r => new Date(r.createdAt) >= sixtyMinutesAgo);
+        return postCreatedRecently || hasRecentReplies;
+      });
+    }
+    // 'top' filter is handled by sorting, not filtering
+
+    return result;
+  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo]);
+
+  const sortedPosts = useMemo(() => {
+    const result = [...filteredPosts];
+    
+    if (sortBy === 'trending' || filterParam === 'top') {
+      // Sort by engagement score (likes + replies*2)
+      result.sort((a, b) => {
+        const scoreA = (a.likedBy?.length || 0) + (a.replies?.length || 0) * 2;
+        const scoreB = (b.likedBy?.length || 0) + (b.replies?.length || 0) * 2;
+        return scoreB - scoreA;
+      });
+    } else {
+      // Sort by newest
+      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    
+    return result;
+  }, [filteredPosts, sortBy, filterParam]);
+
+  // Get filter-specific title and empty state messages
+  const getFilterTitle = () => {
+    if (filterParam === 'today') return lang === 'ar' ? 'منشورات اليوم' : "Today's Posts";
+    if (filterParam === 'active') return lang === 'ar' ? 'نقاشات نشطة' : 'Active Discussions';
+    if (filterParam === 'top') return lang === 'ar' ? 'الأكثر تفاعلاً' : 'Most Engaged';
+    return lang === 'ar' ? 'ساحة المناقشة' : 'Discussion Arena';
+  };
+
+  const getFilterSubtitle = () => {
+    if (filterParam === 'today') return lang === 'ar' ? 'المنشورات التي تمت مشاركتها اليوم' : 'Posts shared today';
+    if (filterParam === 'active') return lang === 'ar' ? 'النقاشات النشطة خلال الساعة الأخيرة' : 'Discussions active in the last hour';
+    if (filterParam === 'top') return lang === 'ar' ? 'المنشورات الأكثر تفاعلاً' : 'Posts with the most engagement';
+    return lang === 'ar' ? 'تعلّم، ناقش، وشارك مع زملائك' : 'Learn, discuss, and share with your peers';
+  };
+
+  const getEmptyMessage = () => {
+    if (filterParam === 'today') return lang === 'ar' ? 'لا يوجد منشورات اليوم' : 'No posts today';
+    if (filterParam === 'active') return lang === 'ar' ? 'لا يوجد نقاشات نشطة حالياً' : 'No active discussions right now';
+    if (filterParam === 'top') return lang === 'ar' ? 'لا يوجد منشورات للتفاعل' : 'No posts with engagement yet';
+    return lang === 'ar' ? 'لا توجد مشاركات بعد' : 'No posts yet';
+  };
+
+  const getEmptySubMessage = () => {
+    if (filterParam === 'today') return lang === 'ar' ? 'شارك أول منشور اليوم!' : 'Share the first post today!';
+    if (filterParam === 'active') return lang === 'ar' ? 'ابدأ نقاشاً جديداً!' : 'Start a new discussion!';
+    if (filterParam === 'top') return lang === 'ar' ? 'كن أول من يشارك ويتفاعل!' : 'Be the first to share and engage!';
+    return lang === 'ar' ? 'كن أول من يشارك!' : 'Be the first to share!';
+  };
 
   const tr = {
-    pageTitle: lang === 'ar' ? 'ساحة المناقشة' : 'Discussion Arena',
-    pageSubtitle: lang === 'ar' ? 'تعلّم، ناقش، وشارك مع زملائك' : 'Learn, discuss, and share with your peers',
+    pageTitle: getFilterTitle(),
+    pageSubtitle: getFilterSubtitle(),
     newPost: lang === 'ar' ? '+ منشور جديد' : '+ New Post',
     writePost: lang === 'ar' ? 'شارك ما يدور في بالك...' : 'Share what\'s on your mind...',
     publish: lang === 'ar' ? 'نشر' : 'Publish',
@@ -475,8 +555,8 @@ export default function Feed() {
     writeComment: lang === 'ar' ? 'اكتب تعليقاً...' : 'Write a comment...',
     showComments: lang === 'ar' ? 'التعليقات' : 'Comments',
     hideComments: lang === 'ar' ? 'إخفاء' : 'Hide',
-    noPostsYet: lang === 'ar' ? 'لا توجد مشاركات بعد' : 'No posts yet',
-    beFirst: lang === 'ar' ? 'كن أول من يشارك!' : 'Be the first to share!',
+    noPostsYet: getEmptyMessage(),
+    beFirst: getEmptySubMessage(),
     newest: lang === 'ar' ? 'الأحدث' : 'Newest',
     trending: lang === 'ar' ? 'الأكثر تفاعلاً' : 'Trending',
     all: lang === 'ar' ? 'الكل' : 'All',

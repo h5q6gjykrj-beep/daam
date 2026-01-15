@@ -121,21 +121,24 @@ export default function Dashboard() {
       value: todayPosts.length,
       icon: MessageSquare,
       color: 'from-violet-600 to-purple-500',
-      bgColor: 'bg-violet-500/10'
+      bgColor: 'bg-violet-500/10',
+      link: '/feed?filter=today'
     },
     {
       label: tr.activeNow,
       value: activeDiscussions,
       icon: Users,
       color: 'from-green-600 to-emerald-500',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
+      link: '/feed?filter=active'
     },
     {
       label: tr.topSubject,
       value: topSubjectToday,
       icon: BookOpen,
       color: 'from-orange-600 to-amber-500',
-      bgColor: 'bg-orange-500/10'
+      bgColor: 'bg-orange-500/10',
+      link: '/feed?filter=top'
     }
   ];
 
@@ -167,7 +170,7 @@ export default function Dashboard() {
                 <Card 
                   className={`border-white/5 ${stat.bgColor} hover:scale-105 transition-transform cursor-pointer`} 
                   data-testid={`quick-stat-${index}`}
-                  onClick={() => setLocation('/feed')}
+                  onClick={() => setLocation(stat.link)}
                 >
                   <CardContent className="p-3 sm:p-4 text-center">
                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br ${stat.color} flex items-center justify-center mx-auto mb-2 shadow-lg`}>
@@ -189,7 +192,7 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold">{tr.trending}</h2>
             </div>
             <button
-              onClick={() => setLocation('/feed')}
+              onClick={() => setLocation('/feed?filter=top')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
               data-testid="link-view-all-trending"
             >
