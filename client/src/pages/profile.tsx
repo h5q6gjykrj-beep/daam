@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useLocation, useRoute, Link } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, updateProfile } = useDaamStore();
+  const { user, posts, lang, getProfile, updateProfile, toggleFollow, isFollowing } = useDaamStore();
   const [_, setLocation] = useLocation();
   const [match, params] = useRoute("/profile/:email");
   const { toast } = useToast();
@@ -79,6 +79,8 @@ export default function Profile() {
   const [tempAvatar, setTempAvatar] = useState<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [isSticky, setIsSticky] = useState(false);
+  const [showFollowersDialog, setShowFollowersDialog] = useState(false);
+  const [showFollowingDialog, setShowFollowingDialog] = useState(false);
 
   useEffect(() => {
     if (profileEmail) {
@@ -509,12 +511,46 @@ export default function Profile() {
                   {profile?.bio && (
                     <p className="text-sm mt-2 max-w-lg">{profile.bio}</p>
                   )}
+                  
+                  {/* Profile Stats */}
+                  <div className="flex items-center gap-6 mt-4">
+                    <button 
+                      onClick={() => setShowFollowersDialog(true)}
+                      className="text-center hover:text-primary transition-colors cursor-pointer"
+                      data-testid="button-stats-followers"
+                    >
+                      <span className="block text-xl font-bold">{profile?.followers?.length || 0}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {lang === 'ar' ? 'المتابعون' : 'Followers'}
+                      </span>
+                    </button>
+                    <button 
+                      onClick={() => setShowFollowingDialog(true)}
+                      className="text-center hover:text-primary transition-colors cursor-pointer"
+                      data-testid="button-stats-following"
+                    >
+                      <span className="block text-xl font-bold">{profile?.following?.length || 0}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {lang === 'ar' ? 'يتابع' : 'Following'}
+                      </span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('posts')}
+                      className="text-center hover:text-primary transition-colors cursor-pointer"
+                      data-testid="button-stats-posts"
+                    >
+                      <span className="block text-xl font-bold">{userPosts.length}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {lang === 'ar' ? 'المنشورات' : 'Posts'}
+                      </span>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
 
             <div className="flex gap-2">
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 isEditing ? (
                   <>
                     <Button 
@@ -550,6 +586,18 @@ export default function Profile() {
                     {tr.editProfile}
                   </Button>
                 )
+              ) : (
+                <Button 
+                  variant={isFollowing(profileEmail) ? "outline" : "default"}
+                  onClick={() => toggleFollow(profileEmail)}
+                  className="gap-1"
+                  data-testid="button-follow"
+                >
+                  {isFollowing(profileEmail) 
+                    ? (lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow')
+                    : (lang === 'ar' ? 'متابعة' : 'Follow')
+                  }
+                </Button>
               )}
             </div>
           </div>
@@ -733,6 +781,98 @@ export default function Profile() {
           </div>
         </Tabs>
       </div>
+
+      {/* Followers Dialog */}
+      <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'المتابعون' : 'Followers'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-2">
+            {(profile?.followers?.length || 0) === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {lang === 'ar' ? 'لا يوجد متابعون بعد' : 'No followers yet'}
+              </p>
+            ) : (
+              profile?.followers?.map((followerEmail) => {
+                const followerProfile = getProfile(followerEmail);
+                return (
+                  <Link 
+                    key={followerEmail}
+                    href={`/profile/${encodeURIComponent(followerEmail)}`}
+                    onClick={() => setShowFollowersDialog(false)}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    data-testid={`follower-${followerEmail}`}
+                  >
+                    <Avatar className="w-10 h-10 border border-white/10">
+                      <AvatarImage src={followerProfile?.avatarUrl} />
+                      <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                        {(followerProfile?.name || followerEmail.split('@')[0]).substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {followerProfile?.name || followerEmail.split('@')[0]}
+                      </p>
+                      {followerProfile?.major && (
+                        <p className="text-xs text-muted-foreground truncate">{followerProfile.major}</p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Following Dialog */}
+      <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'يتابع' : 'Following'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-2">
+            {(profile?.following?.length || 0) === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {lang === 'ar' ? 'لا يتابع أحداً بعد' : 'Not following anyone yet'}
+              </p>
+            ) : (
+              profile?.following?.map((followingEmail) => {
+                const followingProfile = getProfile(followingEmail);
+                return (
+                  <Link 
+                    key={followingEmail}
+                    href={`/profile/${encodeURIComponent(followingEmail)}`}
+                    onClick={() => setShowFollowingDialog(false)}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    data-testid={`following-${followingEmail}`}
+                  >
+                    <Avatar className="w-10 h-10 border border-white/10">
+                      <AvatarImage src={followingProfile?.avatarUrl} />
+                      <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                        {(followingProfile?.name || followingEmail.split('@')[0]).substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {followingProfile?.name || followingEmail.split('@')[0]}
+                      </p>
+                      {followingProfile?.major && (
+                        <p className="text-xs text-muted-foreground truncate">{followingProfile.major}</p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

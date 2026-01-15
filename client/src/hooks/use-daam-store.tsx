@@ -85,6 +85,8 @@ interface DaamStoreContextType {
   toggleLang: () => void;
   updateProfile: (email: string, profile: Partial<UserProfile>) => void;
   getProfile: (email: string) => UserProfile | undefined;
+  toggleFollow: (targetEmail: string) => void;
+  isFollowing: (targetEmail: string) => boolean;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -315,6 +317,43 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     setLang(prev => prev === 'en' ? 'ar' : 'en');
   };
 
+  const toggleFollow = (targetEmail: string) => {
+    if (!user || user.email === targetEmail) return;
+    
+    const currentUserProfile = profiles[user.email] || { email: user.email, name: '', major: '', university: '' };
+    const targetProfile = profiles[targetEmail] || { email: targetEmail, name: '', major: '', university: '' };
+    
+    const currentFollowing = currentUserProfile.following || [];
+    const targetFollowers = targetProfile.followers || [];
+    
+    const isCurrentlyFollowing = currentFollowing.includes(targetEmail);
+    
+    const updatedProfiles = {
+      ...profiles,
+      [user.email]: {
+        ...currentUserProfile,
+        following: isCurrentlyFollowing
+          ? currentFollowing.filter(e => e !== targetEmail)
+          : [...currentFollowing, targetEmail]
+      },
+      [targetEmail]: {
+        ...targetProfile,
+        followers: isCurrentlyFollowing
+          ? targetFollowers.filter(e => e !== user.email)
+          : [...targetFollowers, user.email]
+      }
+    };
+    
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+  };
+
+  const isFollowing = (targetEmail: string): boolean => {
+    if (!user) return false;
+    const currentUserProfile = profiles[user.email];
+    return currentUserProfile?.following?.includes(targetEmail) || false;
+  };
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -332,7 +371,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     addReply,
     toggleLang,
     updateProfile,
-    getProfile
+    getProfile,
+    toggleFollow,
+    isFollowing
   };
 
   return (

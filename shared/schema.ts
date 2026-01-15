@@ -30,6 +30,9 @@ export interface UserProfile {
   coverUrl?: string; // Cover image base64
   interests?: string[]; // Tags like ['math', 'programming']
   bio?: string;
+  // Social - followers/following
+  followers?: string[]; // Array of email addresses who follow this user
+  following?: string[]; // Array of email addresses this user follows
   // Privacy settings
   showFavorites?: boolean; // Default true (public)
   showInterests?: boolean; // Default true (public)
