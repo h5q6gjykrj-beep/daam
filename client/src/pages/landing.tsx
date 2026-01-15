@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
   Globe, MessageSquare, Sparkles, Users, FileText, Heart, 
-  ArrowLeft, ArrowRight, BookOpen, Zap, GraduationCap, TrendingUp
+  ArrowLeft, ArrowRight, BookOpen, Zap, GraduationCap, TrendingUp,
+  Sun, Moon
 } from "lucide-react";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
@@ -21,7 +22,7 @@ const SUBJECTS = [
 ];
 
 export default function Landing() {
-  const { posts, t, lang, toggleLang, getProfile } = useDaamStore();
+  const { posts, t, lang, toggleLang, theme, toggleTheme, getProfile } = useDaamStore();
   const [_, setLocation] = useLocation();
   const isRTL = lang === 'ar';
 
@@ -119,6 +120,16 @@ export default function Landing() {
           </nav>
           
           <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={toggleTheme}
+              className="w-8 h-8"
+              data-testid="button-toggle-theme"
+              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             <Button 
               variant="ghost" 
               size="sm"

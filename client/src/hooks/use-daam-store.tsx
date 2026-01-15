@@ -3,6 +3,7 @@ import { type LocalPost, type LocalReply, type PostType, type UserProfile, type 
 
 // Types
 export type Language = 'ar' | 'en';
+export type Theme = 'light' | 'dark';
 export type User = { email: string; isAdmin: boolean; profile?: UserProfile };
 
 // Admin Configuration - add admin emails here
@@ -14,7 +15,8 @@ const KEYS = {
   USER: 'daam_user',
   POSTS: 'daam_posts_v2',
   LANG: 'daam_lang',
-  PROFILES: 'daam_profiles'
+  PROFILES: 'daam_profiles',
+  THEME: 'daam_theme'
 };
 
 // Simple translations dictionary
@@ -70,6 +72,7 @@ const DICTIONARY = {
 interface DaamStoreContextType {
   user: User | null;
   lang: Language;
+  theme: Theme;
   posts: LocalPost[];
   profiles: Record<string, UserProfile>;
   isLoading: boolean;
@@ -83,6 +86,7 @@ interface DaamStoreContextType {
   toggleSave: (postId: string) => void;
   addReply: (postId: string, content: string, parentReplyId?: string) => void;
   toggleLang: () => void;
+  toggleTheme: () => void;
   updateProfile: (email: string, profile: Partial<UserProfile>) => void;
   getProfile: (email: string) => UserProfile | undefined;
   toggleFollow: (targetEmail: string) => void;
@@ -91,10 +95,22 @@ interface DaamStoreContextType {
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
 
+// Helper to get initial theme (system preference or stored)
+const getInitialTheme = (): Theme => {
+  const stored = localStorage.getItem(KEYS.THEME) as Theme | null;
+  if (stored) return stored;
+  // Check system preference
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'dark'; // Default to dark
+};
+
 export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // State
   const [user, setUser] = useState<User | null>(null);
   const [lang, setLang] = useState<Language>('ar');
+  const [theme, setTheme] = useState<Theme>('dark');
   const [posts, setPosts] = useState<LocalPost[]>([]);
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -139,6 +155,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     // Update document direction
     document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = storedLang || 'ar';
+    
+    // Initialize theme
+    const initialTheme = getInitialTheme();
+    setTheme(initialTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(initialTheme);
     
     setIsLoading(false);
   }, []);
@@ -317,6 +339,25 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     setLang(prev => prev === 'en' ? 'ar' : 'en');
   };
 
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const newTheme = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem(KEYS.THEME, newTheme);
+      
+      // Add transition class for smooth color change
+      document.documentElement.classList.add('theme-transition');
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(newTheme);
+      
+      // Remove transition class after animation completes
+      setTimeout(() => {
+        document.documentElement.classList.remove('theme-transition');
+      }, 300);
+      
+      return newTheme;
+    });
+  };
+
   const toggleFollow = (targetEmail: string) => {
     if (!user || user.email === targetEmail) return;
     
@@ -357,6 +398,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const value: DaamStoreContextType = {
     user,
     lang,
+    theme,
     posts,
     profiles,
     isLoading,
@@ -370,6 +412,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     toggleSave,
     addReply,
     toggleLang,
+    toggleTheme,
     updateProfile,
     getProfile,
     toggleFollow,

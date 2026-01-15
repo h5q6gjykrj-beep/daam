@@ -4,14 +4,14 @@ import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const { login, t, lang, toggleLang } = useDaamStore();
+  const { login, t, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -49,13 +49,22 @@ export default function Login() {
           {lang === 'ar' ? 'الرئيسية' : 'Home'}
         </Button>
       </div>
-      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4">
+      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={toggleTheme}
+          className="rounded-full border-white/10 dark:border-white/10 bg-black/20 dark:bg-black/20 backdrop-blur-md hover:bg-white/10 dark:hover:bg-white/10 w-9 h-9"
+          data-testid="button-toggle-theme"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
         <Button 
           variant="outline" 
           onClick={toggleLang}
-          className="rounded-full border-white/10 bg-black/20 backdrop-blur-md hover:bg-white/10"
+          className="rounded-full border-white/10 dark:border-white/10 bg-black/20 dark:bg-black/20 backdrop-blur-md hover:bg-white/10 dark:hover:bg-white/10"
         >
-          <Globe className="w-4 h-4 mr-2" />
+          <Globe className="w-4 h-4 me-2" />
           {lang === 'en' ? 'العربية' : 'English'}
         </Button>
       </div>

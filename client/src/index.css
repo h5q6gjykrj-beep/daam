@@ -7,8 +7,44 @@
 :root {
   --font-sans: 'Outfit', sans-serif;
   --font-ar: 'Cairo', sans-serif;
-  
-  /* DAAM Brand Colors - Purple & Gray */
+  --radius: 0.75rem;
+}
+
+/* Light Mode (Default for system preference) */
+:root, .light {
+  --background: 220 20% 97%;
+  --foreground: 240 20% 15%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 20% 15%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 20% 15%;
+
+  /* DAAM Purple from logo */
+  --primary: 270 50% 50%;
+  --primary-foreground: 210 40% 98%;
+
+  /* DAAM Gray from logo */
+  --secondary: 220 10% 92%;
+  --secondary-foreground: 240 20% 15%;
+
+  --muted: 220 10% 92%;
+  --muted-foreground: 220 10% 45%;
+
+  --accent: 270 50% 50%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 63% 45%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 220 15% 88%;
+  --input: 220 15% 88%;
+  --ring: 270 50% 50%;
+}
+
+/* Dark Mode */
+.dark {
   --background: 240 20% 12%;
   --foreground: 210 40% 98%;
 
@@ -38,8 +74,6 @@
   --border: 240 15% 22%;
   --input: 240 15% 22%;
   --ring: 270 50% 50%;
-
-  --radius: 0.75rem;
 }
 
 @layer base {
@@ -48,6 +82,14 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+  }
+  
+  /* Smooth theme transition */
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease !important;
   }
   
   /* Arabic Font Override */
@@ -67,9 +109,14 @@
 }
 
 .glass-panel {
-  @apply bg-card/50 backdrop-blur-xl border border-white/5 shadow-xl;
+  @apply bg-card/50 backdrop-blur-xl border border-border shadow-xl;
 }
 
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-gray-400;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-gray-500;
+}
+
+/* Dark mode specific overrides */
+.dark .glass-panel {
+  @apply border-white/5;
 }

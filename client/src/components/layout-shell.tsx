@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X } from "lucide-react";
+import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
@@ -12,7 +12,7 @@ interface LayoutShellProps {
 }
 
 export function LayoutShell({ children }: LayoutShellProps) {
-  const { user, logout, t, lang, toggleLang } = useDaamStore();
+  const { user, logout, t, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -132,8 +132,19 @@ export function LayoutShell({ children }: LayoutShellProps) {
             <Button
               variant="outline"
               size="icon"
+              onClick={toggleTheme}
+              className="w-8 h-8 border-white/10 dark:border-white/10 hover:bg-white/5 dark:hover:bg-white/5"
+              data-testid="button-toggle-theme"
+              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
               onClick={toggleLang}
-              className="w-8 h-8 border-white/10 hover:bg-white/5 text-xs font-bold"
+              className="w-8 h-8 border-white/10 dark:border-white/10 hover:bg-white/5 dark:hover:bg-white/5 text-xs font-bold"
               data-testid="button-toggle-lang"
             >
               {lang === 'en' ? 'ع' : 'EN'}
@@ -224,6 +235,26 @@ export function LayoutShell({ children }: LayoutShellProps) {
                   <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
                     <User className="w-4 h-4" />
                     <span className="truncate">{user.email}</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={toggleTheme}
+                      className="flex-1 border-border"
+                      data-testid="button-toggle-theme-mobile"
+                    >
+                      {theme === 'dark' ? <Sun className="w-4 h-4 me-2" /> : <Moon className="w-4 h-4 me-2" />}
+                      {theme === 'dark' ? (lang === 'ar' ? 'نهاري' : 'Light') : (lang === 'ar' ? 'ليلي' : 'Dark')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={toggleLang}
+                      className="flex-1 border-border"
+                      data-testid="button-toggle-lang-mobile"
+                    >
+                      {lang === 'en' ? 'العربية' : 'English'}
+                    </Button>
                   </div>
 
                   <Button
