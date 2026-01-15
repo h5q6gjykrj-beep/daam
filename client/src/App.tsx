@@ -77,7 +77,7 @@ function Router() {
           <Route path="/register" component={Register} />
           <Route path="/verify" component={Verify} />
           <Route>
-            <Redirect to="/" />
+            <Redirect to="/login" />
           </Route>
         </Switch>
       )}

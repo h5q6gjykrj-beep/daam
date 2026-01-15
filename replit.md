@@ -32,9 +32,21 @@ Preferred communication style: Simple, everyday language.
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
 
 ### Authentication
-- **Method**: Client-side email validation
+- **Method**: Full registration system with email/password authentication
 - **Domain Restriction**: Configurable allowed domain (default: `utas.edu.om`)
-- **Session**: localStorage-based session persistence
+- **Session**: localStorage-based session persistence with "Remember Me" option
+- **Email Verification**: Required before login; verification token displayed in development
+- **Biometric Login**: UI placeholder ready for future WebAuthn implementation
+- **Security**: loginSimple function is disabled; only password-based login allowed
+
+### User Roles
+- **Moderator Email**: `w.qq89@hotmail.com` (hardcoded)
+- **Moderator Permissions**: Edit/delete any post or reply, ban/unban users
+- **Moderator Badge**: Amber color (#fbbf24) displayed on profile and posts
+
+### Privacy
+- **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab
+- **Public Profile**: Name, bio, university, and social stats (followers/following) are public
 
 ### Key Design Patterns
 - **Component Structure**: Atomic design with shadcn/ui primitives
