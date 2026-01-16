@@ -32,13 +32,13 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
   { value: 'discussion', labelAr: 'نقاش', labelEn: 'Discussion' },
 ];
 
-const SUBJECTS = [
-  { value: 'programming', labelAr: 'البرمجة', labelEn: 'Programming' },
-  { value: 'math', labelAr: 'الرياضيات', labelEn: 'Mathematics' },
-  { value: 'physics', labelAr: 'الفيزياء', labelEn: 'Physics' },
-  { value: 'english', labelAr: 'اللغة الإنجليزية', labelEn: 'English' },
-  { value: 'business', labelAr: 'إدارة الأعمال', labelEn: 'Business' },
-  { value: 'engineering', labelAr: 'الهندسة', labelEn: 'Engineering' },
+const COLLEGES = [
+  { value: 'foundation', labelAr: 'التأسيسي (الفاونديشن)', labelEn: 'Foundation' },
+  { value: 'economics', labelAr: 'الاقتصاد وإدارة الأعمال', labelEn: 'Economics & Business' },
+  { value: 'applied-sciences', labelAr: 'العلوم التطبيقية والصيدلة', labelEn: 'Applied Sciences & Pharmacy' },
+  { value: 'engineering', labelAr: 'الهندسة والتكنولوجيا', labelEn: 'Engineering & Technology' },
+  { value: 'computer-science', labelAr: 'علوم الحاسوب والمعلومات', labelEn: 'Computer & Information Science' },
+  { value: 'creative-industries', labelAr: 'الصناعات الإبداعية', labelEn: 'Creative Industries' },
   { value: 'other', labelAr: 'أخرى', labelEn: 'Other' }
 ];
 
@@ -674,8 +674,8 @@ export default function Feed() {
     trending: lang === 'ar' ? 'الأكثر تفاعلاً' : 'Trending',
     all: lang === 'ar' ? 'الكل' : 'All',
     postType: lang === 'ar' ? 'نوع المنشور' : 'Post Type',
-    subject: lang === 'ar' ? 'المادة' : 'Subject',
-    selectSubject: lang === 'ar' ? 'اختر المادة' : 'Select Subject',
+    college: lang === 'ar' ? 'الكلية' : 'College',
+    selectCollege: lang === 'ar' ? 'اختر الكلية' : 'Select College',
     admin: lang === 'ar' ? 'مشرف' : 'Admin',
     moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
     edit: lang === 'ar' ? 'تعديل' : 'Edit',
@@ -689,9 +689,9 @@ export default function Feed() {
     return typeInfo ? (lang === 'ar' ? typeInfo.labelAr : typeInfo.labelEn) : type;
   };
 
-  const getSubjectLabel = (subject: string) => {
-    const subjectInfo = SUBJECTS.find(s => s.value === subject);
-    return subjectInfo ? (lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn) : subject;
+  const getCollegeLabel = (college: string) => {
+    const collegeInfo = COLLEGES.find(s => s.value === college);
+    return collegeInfo ? (lang === 'ar' ? collegeInfo.labelAr : collegeInfo.labelEn) : college;
   };
 
   return (
@@ -760,7 +760,7 @@ export default function Feed() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="text-xs text-muted-foreground mb-1 block">{tr.subject}</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{tr.college}</label>
                   <div className="flex flex-wrap gap-1">
                     <Button
                       size="sm"
@@ -770,16 +770,16 @@ export default function Feed() {
                     >
                       -
                     </Button>
-                    {SUBJECTS.map((subject) => (
+                    {COLLEGES.map((college) => (
                       <Button
-                        key={subject.value}
+                        key={college.value}
                         size="sm"
-                        variant={newPostSubject === subject.value ? "default" : "outline"}
-                        onClick={() => setNewPostSubject(subject.value)}
+                        variant={newPostSubject === college.value ? "default" : "outline"}
+                        onClick={() => setNewPostSubject(college.value)}
                         className="text-xs h-7"
-                        data-testid={`button-subject-${subject.value}`}
+                        data-testid={`button-college-${college.value}`}
                       >
-                        {lang === 'ar' ? subject.labelAr : subject.labelEn}
+                        {lang === 'ar' ? college.labelAr : college.labelEn}
                       </Button>
                     ))}
                   </div>
@@ -1035,15 +1035,15 @@ export default function Feed() {
                             >
                               -
                             </Button>
-                            {SUBJECTS.map((subject) => (
+                            {COLLEGES.map((college) => (
                               <Button
-                                key={subject.value}
+                                key={college.value}
                                 size="sm"
-                                variant={editSubject === subject.value ? "default" : "outline"}
-                                onClick={() => setEditSubject(subject.value)}
+                                variant={editSubject === college.value ? "default" : "outline"}
+                                onClick={() => setEditSubject(college.value)}
                                 className="text-xs h-7"
                               >
-                                {lang === 'ar' ? subject.labelAr : subject.labelEn}
+                                {lang === 'ar' ? college.labelAr : college.labelEn}
                               </Button>
                             ))}
                           </div>
@@ -1073,7 +1073,7 @@ export default function Feed() {
                             {post.subject && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-violet-500/30 text-violet-400">
                                 <Hash className="w-2.5 h-2.5 me-0.5" />
-                                {getSubjectLabel(post.subject)}
+                                {getCollegeLabel(post.subject)}
                               </Badge>
                             )}
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-white/10">
