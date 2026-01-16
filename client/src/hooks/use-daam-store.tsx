@@ -100,6 +100,7 @@ const DICTIONARY = {
 export interface RegistrationData {
   email: string;
   password: string;
+  name: string;
   phone: string;
   governorate: string;
   wilayat: string;
@@ -303,7 +304,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       : 'Quick login is disabled. Please use password login.');
   };
   
-  // Register new account
+  // Register new account - Auto-verified (no email verification required)
   const register = (data: RegistrationData): PendingVerification => {
     const emailLower = data.email.toLowerCase();
     
@@ -325,11 +326,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
     }
     
-    // Generate verification token
-    const token = generateVerificationToken();
-    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
-    
-    // Create account (not verified yet)
+    // Create account - automatically verified
     const newAccount: UserAccount = {
       email: data.email,
       passwordHash: simpleHash(data.password),
@@ -339,9 +336,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         wilayat: data.wilayat
       },
       role: isModerator ? 'moderator' : 'student',
-      verified: false,
-      verificationToken: token,
-      verificationExpiry: expiry,
+      verified: true, // Auto-verified
       createdAt: new Date().toISOString()
     };
     
@@ -349,14 +344,26 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     setAccounts(updatedAccounts);
     localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
     
-    // Store pending verification for display
+    // Create default profile
+    const defaultProfile: UserProfile = {
+      email: data.email,
+      name: data.name,
+      bio: '',
+      major: '',
+      university: 'UTAS',
+      followers: [],
+      following: []
+    };
+    const updatedProfiles = { ...profiles, [data.email]: defaultProfile };
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+    
+    // Return verification object (for backward compatibility)
     const verification: PendingVerification = {
       email: data.email,
-      token,
-      expiry
+      token: '',
+      expiry: ''
     };
-    setPendingVerification(verification);
-    localStorage.setItem(KEYS.PENDING_VERIFICATION, JSON.stringify(verification));
     
     return verification;
   };

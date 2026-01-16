@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, CheckCircle, Copy } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
@@ -125,14 +125,13 @@ export default function Register() {
   const [formData, setFormData] = useState<RegistrationData>({
     email: '',
     password: '',
+    name: '',
     phone: '',
     governorate: '',
     wilayat: ''
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<'form' | 'verification'>('form');
-  const [verificationLink, setVerificationLink] = useState('');
   
   const { register, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
@@ -145,6 +144,8 @@ export default function Register() {
   const tr = {
     title: lang === 'ar' ? 'إنشاء حساب' : 'Create Account',
     subtitle: lang === 'ar' ? 'انضم إلى مجتمع دام الطلابي' : 'Join the DAAM student community',
+    name: lang === 'ar' ? 'الاسم الكامل' : 'Full Name',
+    namePlaceholder: lang === 'ar' ? 'اسمك الكامل' : 'Your full name',
     email: lang === 'ar' ? 'البريد الإلكتروني' : 'Email',
     emailPlaceholder: lang === 'ar' ? 'البريد الجامعي (@utas.edu.om)' : 'University Email (@utas.edu.om)',
     password: lang === 'ar' ? 'كلمة المرور' : 'Password',
@@ -161,19 +162,12 @@ export default function Register() {
     passwordMismatch: lang === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match',
     passwordTooShort: lang === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters',
     fillAllFields: lang === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields',
-    verificationTitle: lang === 'ar' ? 'تحقق من بريدك' : 'Verify Your Email',
-    verificationDesc: lang === 'ar' ? 'تم إرسال رابط التحقق إلى بريدك الإلكتروني. انقر على الرابط لتفعيل حسابك.' : 'A verification link has been sent to your email. Click the link to activate your account.',
-    simulatedLink: lang === 'ar' ? 'رابط التحقق (للتطوير):' : 'Verification Link (Development):',
-    copyLink: lang === 'ar' ? 'نسخ الرابط' : 'Copy Link',
-    copied: lang === 'ar' ? 'تم النسخ!' : 'Copied!',
-    goToVerify: lang === 'ar' ? 'الذهاب للتحقق' : 'Go to Verify',
-    backToLogin: lang === 'ar' ? 'العودة لتسجيل الدخول' : 'Back to Login',
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password || !formData.phone || !formData.governorate || !formData.wilayat) {
+    if (!formData.email || !formData.password || !formData.name || !formData.phone || !formData.governorate || !formData.wilayat) {
       toast({
         title: lang === 'ar' ? 'خطأ' : 'Error',
         description: tr.fillAllFields,
@@ -201,13 +195,13 @@ export default function Register() {
     }
     
     try {
-      const verification = register(formData);
-      setVerificationLink(`${window.location.origin}/verify?token=${verification.token}`);
-      setStep('verification');
+      register(formData);
       toast({
-        title: lang === 'ar' ? 'تم التسجيل!' : 'Registered!',
-        description: lang === 'ar' ? 'يرجى التحقق من بريدك الإلكتروني' : 'Please verify your email',
+        title: lang === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration Successful!',
+        description: lang === 'ar' ? 'يمكنك الآن تسجيل الدخول' : 'You can now login',
       });
+      // Redirect to login page
+      setLocation('/login');
     } catch (error: any) {
       toast({
         title: lang === 'ar' ? 'خطأ في التسجيل' : 'Registration Error',
@@ -215,14 +209,6 @@ export default function Register() {
         variant: 'destructive'
       });
     }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(verificationLink);
-    toast({
-      title: tr.copied,
-      duration: 2000
-    });
   };
 
   return (
@@ -265,7 +251,6 @@ export default function Register() {
         className="w-full max-w-md"
       >
         <AnimatePresence mode="wait">
-          {step === 'form' ? (
             <motion.div
               key="form"
               initial={{ opacity: 0, x: -20 }}
@@ -290,6 +275,19 @@ export default function Register() {
 
                 <CardContent className="p-6">
                   <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{tr.name}</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder={tr.namePlaceholder}
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="bg-black/20 border-white/10 h-11 focus:border-primary/50"
+                        data-testid="input-name"
+                      />
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="email">{tr.email}</Label>
                       <Input
@@ -418,65 +416,6 @@ export default function Register() {
                 </CardContent>
               </Card>
             </motion.div>
-          ) : (
-            <motion.div
-              key="verification"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <Card className="glass-panel border-0 overflow-hidden shadow-2xl shadow-black/50">
-                <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-500 w-full" />
-                
-                <CardHeader className="text-center pt-8 pb-4 space-y-4">
-                  <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  </div>
-                  <CardTitle className="text-2xl font-bold tracking-tight">{tr.verificationTitle}</CardTitle>
-                  <CardDescription className="text-muted-foreground">
-                    {tr.verificationDesc}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="p-6 space-y-4">
-                  <div className="bg-black/30 rounded-lg p-4 space-y-2">
-                    <p className="text-xs text-muted-foreground">{tr.simulatedLink}</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 text-xs bg-black/20 p-2 rounded break-all" data-testid="text-verification-link">
-                        {verificationLink}
-                      </code>
-                      <Button 
-                        size="icon" 
-                        variant="ghost"
-                        onClick={copyToClipboard}
-                        data-testid="button-copy-link"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                      variant="outline"
-                      onClick={() => setLocation('/login')}
-                      className="w-full"
-                      data-testid="button-back-to-login"
-                    >
-                      {tr.backToLogin}
-                    </Button>
-                    <Button 
-                      onClick={() => setLocation(`/verify?token=${verificationLink.split('token=')[1]}`)}
-                      className="w-full bg-green-500 hover:bg-green-600"
-                      data-testid="button-go-to-verify"
-                    >
-                      {tr.goToVerify}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
         </AnimatePresence>
       </motion.div>
     </div>

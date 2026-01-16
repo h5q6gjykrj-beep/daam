@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 - **Method**: Full registration system with email/password authentication
 - **Domain Restriction**: Configurable allowed domain (default: `utas.edu.om`)
 - **Session**: localStorage-based session persistence with "Remember Me" option
-- **Email Verification**: Required before login; verification token displayed in development
+- **Auto-Verification**: Accounts are automatically verified upon registration (no email verification required)
 - **Biometric Login**: UI placeholder ready for future WebAuthn implementation
 - **Security**: loginSimple function is disabled; only password-based login allowed
 
