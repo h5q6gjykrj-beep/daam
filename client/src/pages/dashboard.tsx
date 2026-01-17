@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { useLocation } from "wouter";
+import { useMemo, useState } from "react";
+import { useLocation, Link } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { 
   MessageSquare, 
   TrendingUp, 
@@ -14,7 +15,9 @@ import {
   ArrowLeft,
   Zap,
   Users,
-  BookOpen
+  BookOpen,
+  Search,
+  X
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -22,11 +25,27 @@ import { ar, enUS } from "date-fns/locale";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
 export default function Dashboard() {
-  const { posts, lang, getProfile } = useDaamStore();
+  const { posts, lang, getProfile, profiles, user } = useDaamStore();
   const [_, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const isRTL = lang === 'ar';
   const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return Object.entries(profiles)
+      .filter(([email, profile]) => {
+        if (email === user?.email) return false;
+        const name = profile?.name?.toLowerCase() || '';
+        const major = profile?.major?.toLowerCase() || '';
+        const emailLower = email.toLowerCase();
+        return name.includes(query) || major.includes(query) || emailLower.includes(query);
+      })
+      .slice(0, 5);
+  }, [searchQuery, profiles, user?.email]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
