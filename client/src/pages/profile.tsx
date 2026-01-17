@@ -601,15 +601,24 @@ export default function Profile() {
                 )
               ) : (
                 <Button 
-                  variant={isFollowing(profileEmail) ? "outline" : "default"}
+                  variant={isFollowing(profileEmail) ? "secondary" : "default"}
                   onClick={() => toggleFollow(profileEmail)}
-                  className="gap-1"
+                  className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
                   data-testid="button-follow"
                 >
-                  {isFollowing(profileEmail) 
-                    ? (lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow')
-                    : (lang === 'ar' ? 'متابعة' : 'Follow')
-                  }
+                  {isFollowing(profileEmail) ? (
+                    <>
+                      <Check className="w-4 h-4 group-hover:hidden" />
+                      <X className="w-4 h-4 hidden group-hover:block" />
+                      <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
+                      <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      {lang === 'ar' ? 'متابعة' : 'Follow'}
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -618,7 +627,7 @@ export default function Profile() {
       </div>
 
       <div className={`${isSticky ? 'sticky top-16 z-40 bg-background/95 backdrop-blur-sm border-b border-white/10 -mx-4 md:-mx-6 px-4 md:px-6' : ''}`}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir={isRTL ? 'rtl' : 'ltr'}>
           <TabsList className="w-full justify-start bg-transparent border-b border-white/10 rounded-none h-auto p-0 gap-0 overflow-x-auto flex-nowrap">
             <TabsTrigger 
               value="posts" 
