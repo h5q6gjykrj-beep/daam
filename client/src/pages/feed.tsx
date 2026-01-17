@@ -24,22 +24,13 @@ import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
 const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
   { value: 'question', labelAr: 'سؤال', labelEn: 'Question' },
   { value: 'explanation', labelAr: 'شرح', labelEn: 'Explanation' },
   { value: 'summary', labelAr: 'ملخص', labelEn: 'Summary' },
   { value: 'discussion', labelAr: 'نقاش', labelEn: 'Discussion' },
-];
-
-const COLLEGES = [
-  { value: 'foundation', labelAr: 'التأسيسي (الفاونديشن)', labelEn: 'Foundation' },
-  { value: 'economics', labelAr: 'الاقتصاد وإدارة الأعمال', labelEn: 'Economics & Business' },
-  { value: 'applied-sciences', labelAr: 'العلوم التطبيقية والصيدلة', labelEn: 'Applied Sciences & Pharmacy' },
-  { value: 'engineering', labelAr: 'الهندسة والتكنولوجيا', labelEn: 'Engineering & Technology' },
-  { value: 'computer-science', labelAr: 'علوم الحاسوب والمعلومات', labelEn: 'Computer & Information Science' },
-  { value: 'creative-industries', labelAr: 'الصناعات الإبداعية', labelEn: 'Creative Industries' },
-  { value: 'other', labelAr: 'أخرى', labelEn: 'Other' }
 ];
 
 type SortType = 'newest' | 'trending';
@@ -689,10 +680,6 @@ export default function Feed() {
     return typeInfo ? (lang === 'ar' ? typeInfo.labelAr : typeInfo.labelEn) : type;
   };
 
-  const getCollegeLabel = (college: string) => {
-    const collegeInfo = COLLEGES.find(s => s.value === college);
-    return collegeInfo ? (lang === 'ar' ? collegeInfo.labelAr : collegeInfo.labelEn) : college;
-  };
 
   return (
     <div className="max-w-2xl mx-auto pb-20">
@@ -1071,9 +1058,9 @@ export default function Feed() {
                         <>
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {post.subject && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-violet-500/30 text-violet-400">
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${getCollegeColor(post.subject)}`}>
                                 <Hash className="w-2.5 h-2.5 me-0.5" />
-                                {getCollegeLabel(post.subject)}
+                                {getCollegeLabel(post.subject, lang)}
                               </Badge>
                             )}
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-white/10">
