@@ -242,6 +242,105 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(initialTheme);
     
+    // Initialize demo users if none exist
+    const existingProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+    const existingAccounts = parsedAccounts;
+    const demoUsers = [
+      {
+        email: 'ahmed@utas.edu.om',
+        name: 'أحمد محمد',
+        major: 'علوم الحاسب',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثالثة',
+        bio: 'مهتم بالبرمجة والذكاء الاصطناعي',
+        college: 'computer_science',
+        interests: ['programming', 'it', 'math']
+      },
+      {
+        email: 'fatima@utas.edu.om',
+        name: 'فاطمة علي',
+        major: 'إدارة الأعمال',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثانية',
+        bio: 'أحب التعلم ومشاركة المعرفة',
+        college: 'economics_business',
+        interests: ['business', 'english', 'summaries']
+      },
+      {
+        email: 'mohammed@utas.edu.om',
+        name: 'محمد سالم',
+        major: 'الهندسة الميكانيكية',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الرابعة',
+        bio: 'مهندس المستقبل',
+        college: 'engineering_technology',
+        interests: ['engineering', 'physics', 'math']
+      },
+      {
+        email: 'sara@utas.edu.om',
+        name: 'سارة خالد',
+        major: 'الصيدلة',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثالثة',
+        bio: 'شغوفة بالعلوم الطبية',
+        college: 'applied_sciences_pharmacy',
+        interests: ['chemistry', 'biology', 'summaries']
+      },
+      {
+        email: 'omar@utas.edu.om',
+        name: 'عمر يوسف',
+        major: 'التصميم الجرافيكي',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الأولى',
+        bio: 'مصمم مبدع',
+        college: 'creative_industries',
+        interests: ['design', 'media', 'it']
+      }
+    ];
+    
+    let updatedProfiles = { ...existingProfiles };
+    let updatedAccounts = { ...existingAccounts };
+    let hasNewData = false;
+    
+    demoUsers.forEach(demoUser => {
+      if (!updatedProfiles[demoUser.email]) {
+        updatedProfiles[demoUser.email] = {
+          name: demoUser.name,
+          major: demoUser.major,
+          university: demoUser.university,
+          level: demoUser.level,
+          bio: demoUser.bio,
+          college: demoUser.college,
+          interests: demoUser.interests,
+          followers: [],
+          following: [],
+          showFavorites: true,
+          showInterests: true
+        };
+        hasNewData = true;
+      }
+      if (!updatedAccounts[demoUser.email]) {
+        updatedAccounts[demoUser.email] = {
+          email: demoUser.email,
+          passwordHash: simpleHash('Demo123!'),
+          phone: '99999999',
+          region: { governorate: 'muscat', wilayat: 'muscat' },
+          role: 'student' as const,
+          verified: true,
+          rememberMe: false,
+          createdAt: new Date().toISOString()
+        };
+        hasNewData = true;
+      }
+    });
+    
+    if (hasNewData) {
+      setProfiles(updatedProfiles);
+      setAccounts(updatedAccounts);
+      localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+      localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    }
+    
     setIsLoading(false);
   }, []);
 
