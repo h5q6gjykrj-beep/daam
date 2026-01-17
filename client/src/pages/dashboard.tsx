@@ -19,16 +19,7 @@ import {
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
-
-const SUBJECTS = [
-  { value: 'programming', labelAr: 'البرمجة', labelEn: 'Programming', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  { value: 'math', labelAr: 'الرياضيات', labelEn: 'Mathematics', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  { value: 'physics', labelAr: 'الفيزياء', labelEn: 'Physics', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  { value: 'english', labelAr: 'اللغة الإنجليزية', labelEn: 'English', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  { value: 'business', labelAr: 'إدارة الأعمال', labelEn: 'Business', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  { value: 'engineering', labelAr: 'الهندسة', labelEn: 'Engineering', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  { value: 'other', labelAr: 'أخرى', labelEn: 'Other', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' }
-];
+import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
 export default function Dashboard() {
   const { posts, lang, getProfile } = useDaamStore();
@@ -60,8 +51,7 @@ export default function Dashboard() {
     });
     const sorted = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]);
     if (sorted.length > 0) {
-      const subjectInfo = SUBJECTS.find(s => s.value === sorted[0][0]);
-      return subjectInfo ? (lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn) : sorted[0][0];
+      return getCollegeLabel(sorted[0][0], lang);
     }
     return lang === 'ar' ? 'لا يوجد' : 'None';
   }, [todayPosts, lang]);
@@ -212,7 +202,6 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {trendingPosts.map((post, index) => {
-                const subjectInfo = SUBJECTS.find(s => s.value === post.subject);
                 const profile = getProfile(post.authorEmail);
                 
                 return (
@@ -241,10 +230,10 @@ export default function Dashboard() {
                               <span className="font-medium text-sm truncate">
                                 {getDisplayName(post.authorEmail)}
                               </span>
-                              {subjectInfo && (
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${subjectInfo.color}`}>
+                              {post.subject && (
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCollegeColor(post.subject)}`}>
                                   <Hash className="w-2.5 h-2.5 mr-0.5" />
-                                  {lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn}
+                                  {getCollegeLabel(post.subject, lang)}
                                 </Badge>
                               )}
                             </div>
@@ -293,7 +282,6 @@ export default function Dashboard() {
             
             <div className="flex flex-wrap gap-2">
               {hotTopics.map((topic, index) => {
-                const subjectInfo = SUBJECTS.find(s => s.value === topic);
                 return (
                   <motion.button
                     key={topic}
@@ -301,11 +289,11 @@ export default function Dashboard() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2, delay: 0.4 + index * 0.05 }}
                     onClick={() => setLocation(`/feed?subject=${topic}`)}
-                    className={`px-4 py-2 rounded-full border text-sm font-medium transition-all hover:scale-105 ${subjectInfo?.color || 'bg-primary/20 text-primary border-primary/30'}`}
+                    className={`px-4 py-2 rounded-full border text-sm font-medium transition-all hover:scale-105 ${getCollegeColor(topic)}`}
                     data-testid={`hot-topic-${topic}`}
                   >
                     <Hash className="w-3.5 h-3.5 inline-block mr-1 rtl:ml-1 rtl:mr-0" />
-                    {subjectInfo ? (lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn) : topic}
+                    {getCollegeLabel(topic, lang)}
                   </motion.button>
                 );
               })}

@@ -11,15 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
-
-const SUBJECTS = [
-  { value: 'programming', labelAr: 'البرمجة', labelEn: 'Programming' },
-  { value: 'math', labelAr: 'الرياضيات', labelEn: 'Mathematics' },
-  { value: 'physics', labelAr: 'الفيزياء', labelEn: 'Physics' },
-  { value: 'english', labelAr: 'اللغة الإنجليزية', labelEn: 'English' },
-  { value: 'business', labelAr: 'إدارة الأعمال', labelEn: 'Business' },
-  { value: 'engineering', labelAr: 'الهندسة', labelEn: 'Engineering' },
-];
+import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
 export default function Landing() {
   const { posts, t, lang, toggleLang, theme, toggleTheme, getProfile } = useDaamStore();
@@ -95,7 +87,7 @@ export default function Landing() {
   };
 
   const topSubject = hotTopics[0];
-  const topSubjectLabel = SUBJECTS.find(s => s.value === topSubject)?.[lang === 'ar' ? 'labelAr' : 'labelEn'] || topSubject;
+  const topSubjectLabel = getCollegeLabel(topSubject, lang) || topSubject;
 
   return (
     <div className={`min-h-screen bg-background ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -254,7 +246,6 @@ export default function Landing() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
               {trendingPosts.map((post, index) => {
                 const profile = getProfile(post.authorEmail);
-                const subjectInfo = SUBJECTS.find(s => s.value === post.subject);
                 
                 return (
                   <motion.div
@@ -278,9 +269,9 @@ export default function Landing() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-sm truncate">{getDisplayName(post.authorEmail)}</span>
-                            {subjectInfo && (
-                              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                {lang === 'ar' ? subjectInfo.labelAr : subjectInfo.labelEn}
+                            {post.subject && (
+                              <Badge variant="secondary" className={`text-xs px-1.5 py-0 ${getCollegeColor(post.subject)}`}>
+                                {getCollegeLabel(post.subject, lang)}
                               </Badge>
                             )}
                           </div>
@@ -315,7 +306,6 @@ export default function Landing() {
             <h2 className="text-2xl font-bold mb-6 text-center">{tr.hotTopics}</h2>
             <div className="flex flex-wrap justify-center gap-3 max-w-3xl mx-auto">
               {hotTopics.map((topic, index) => {
-                const subjectInfo = SUBJECTS.find(s => s.value === topic);
                 return (
                   <motion.div
                     key={topic}
@@ -327,10 +317,10 @@ export default function Landing() {
                       variant="outline"
                       size="lg"
                       onClick={() => setLocation('/login')}
-                      className="border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-base"
+                      className={`border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-base ${getCollegeColor(topic)}`}
                       data-testid={`button-topic-${topic}`}
                     >
-                      #{lang === 'ar' ? subjectInfo?.labelAr : subjectInfo?.labelEn}
+                      #{getCollegeLabel(topic, lang)}
                     </Button>
                   </motion.div>
                 );
