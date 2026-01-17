@@ -86,6 +86,7 @@ export default function Profile() {
   const [isSticky, setIsSticky] = useState(false);
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
+  const [showAvatarPreview, setShowAvatarPreview] = useState(false);
 
   useEffect(() => {
     if (profileEmail) {
@@ -423,14 +424,22 @@ export default function Profile() {
         <div className="relative px-4 -mt-16 md:-mt-20 pb-4">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
             <div className="relative">
-              <Avatar className="w-28 h-28 md:w-36 md:h-36 border-4 border-background shadow-xl">
-                {(tempAvatar || profile?.avatarUrl) ? (
-                  <AvatarImage src={tempAvatar || profile?.avatarUrl} />
-                ) : null}
-                <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-violet-600 to-purple-500 text-white">
-                  {getInitials(profileEmail)}
-                </AvatarFallback>
-              </Avatar>
+              <button
+                type="button"
+                onClick={() => !isEditing && setShowAvatarPreview(true)}
+                className={`focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-full ${!isEditing ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+                disabled={isEditing}
+                data-testid="button-avatar-preview"
+              >
+                <Avatar className="w-28 h-28 md:w-36 md:h-36 border-4 border-background shadow-xl">
+                  {(tempAvatar || profile?.avatarUrl) ? (
+                    <AvatarImage src={tempAvatar || profile?.avatarUrl} />
+                  ) : null}
+                  <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-violet-600 to-purple-500 text-white">
+                    {getInitials(profileEmail)}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
               
               {isEditing && (
                 <>
@@ -974,6 +983,41 @@ export default function Profile() {
                 );
               })
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Preview Dialog */}
+      <Dialog open={showAvatarPreview} onOpenChange={setShowAvatarPreview}>
+        <DialogContent className="max-w-sm md:max-w-md p-0 bg-transparent border-none shadow-none">
+          <div className="relative flex items-center justify-center">
+            <button
+              onClick={() => setShowAvatarPreview(false)}
+              className="absolute -top-10 right-0 md:-right-10 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+              aria-label={lang === 'ar' ? 'إغلاق' : 'Close'}
+              data-testid="button-close-avatar-preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="rounded-full overflow-hidden shadow-2xl border-4 border-white/10">
+              {(profile?.avatarUrl) ? (
+                <img 
+                  src={profile.avatarUrl} 
+                  alt={profile?.name || profileEmail?.split('@')[0] || 'Profile'} 
+                  className="w-72 h-72 md:w-80 md:h-80 object-cover"
+                  data-testid="img-avatar-preview"
+                />
+              ) : (
+                <div 
+                  className="w-72 h-72 md:w-80 md:h-80 bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center"
+                  data-testid="avatar-fallback-preview"
+                >
+                  <span className="text-6xl md:text-7xl font-bold text-white">
+                    {getInitials(profileEmail || '')}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
