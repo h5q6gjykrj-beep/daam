@@ -121,7 +121,11 @@ export default function Dashboard() {
     viewAll: lang === 'ar' ? 'عرض الكل' : 'View All',
     noTrending: lang === 'ar' ? 'لا توجد منشورات رائجة بعد' : 'No trending posts yet',
     startSharing: lang === 'ar' ? 'ابدأ بمشاركة أفكارك!' : 'Start sharing your ideas!',
-    goToFeed: lang === 'ar' ? 'الذهاب للساحة' : 'Go to Feed'
+    goToFeed: lang === 'ar' ? 'الذهاب للساحة' : 'Go to Feed',
+    findPeople: lang === 'ar' ? 'ابحث عن أشخاص' : 'Find People',
+    searchPlaceholder: lang === 'ar' ? 'ابحث بالاسم أو التخصص...' : 'Search by name or major...',
+    noResults: lang === 'ar' ? 'لا توجد نتائج' : 'No results found',
+    viewProfile: lang === 'ar' ? 'عرض الملف' : 'View Profile'
   };
 
   const quickStats = [
@@ -162,6 +166,82 @@ export default function Dashboard() {
           <Zap className="w-7 h-7 text-primary" />
           <span className="gradient-text">{tr.whatsNew}</span>
         </h1>
+
+        {/* Search People Section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Search className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">{tr.findPeople}</h2>
+          </div>
+          <div className="relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={tr.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => setShowSearchResults(true)}
+                className="pl-10 pr-10 bg-card/50 border-white/10"
+                data-testid="input-search-people"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSearchResults(false);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  data-testid="button-clear-search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {showSearchResults && searchQuery && (
+              <Card className="absolute top-full mt-2 w-full z-50 border-white/10 bg-card shadow-xl">
+                <CardContent className="p-2">
+                  {searchResults.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">{tr.noResults}</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {searchResults.map(([email, profile]) => (
+                        <Link
+                          key={email}
+                          href={`/profile/${encodeURIComponent(email)}`}
+                          onClick={() => {
+                            setSearchQuery('');
+                            setShowSearchResults(false);
+                          }}
+                        >
+                          <div 
+                            className="flex items-center gap-3 p-2 rounded-md hover-elevate cursor-pointer"
+                            data-testid={`search-result-${email}`}
+                          >
+                            <Avatar className="w-10 h-10 border border-violet-500/30">
+                              <AvatarImage src={profile?.avatarUrl} />
+                              <AvatarFallback className="bg-gradient-to-br from-violet-600 to-gray-500 text-white text-sm">
+                                {(profile?.name || email.split('@')[0]).substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{profile?.name || email.split('@')[0]}</p>
+                              <p className="text-xs text-muted-foreground truncate">{profile?.major || email}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
 
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
