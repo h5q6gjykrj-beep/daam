@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 260px;
+      background: rgba(15, 23, 42, 0.8);
+      border-left: 1px solid rgba(148, 163, 184, 0.1);
+      padding: 20px 0;
+      position: fixed;
+      height: 100vh;
+      right: 0;
+      transition: all 0.3s ease;
+    }
+
+    [dir="ltr"] .sidebar {
+      right: auto;
+      left: 0;
+      border-left: none;
+      border-right: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .sidebar-logo {
+      padding: 0 20px 30px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .sidebar-logo h2 {
+      color: #8b5cf6;
+      font-size: 1.5rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 8px;
+      margin: 4px 12px;
+    }
+
+    .nav-item:hover {
+      background: rgba(139, 92, 246, 0.1);
+    }
+
+    .nav-item.active {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+    }
+
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .main-content {
+      flex: 1;
+      margin-right: 260px;
+      transition: all 0.3s ease;
+    }
+
+    [dir="ltr"] .main-content {
+      margin-right: 0;
+      margin-left: 260px;
+    }
+
+    .topbar {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 16px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .topbar h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #e2e8f0;
+    }
+
+    .btn-outline:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-primary {
+      background: #8b5cf6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #7c3aed;
+    }
+
+    .page-content {
+      padding: 30px;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .stat-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: white;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .stat-icon.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .stat-icon.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    .stat-icon.green { background: linear-gradient(135deg, #10b981, #059669); }
+    .stat-icon.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      color: #94a3b8;
+      font-size: 0.875rem;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .card-header h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .card-body {
+      padding: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      text-align: right;
+    }
+
+    [dir="ltr"] th, [dir="ltr"] td {
+      text-align: left;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.5);
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+
+    tr {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    tr:last-child {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(139, 92, 246, 0.05);
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-admin {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+    }
+
+    .badge-user {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+    }
+
+    .badge-active {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #94a3b8;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      color: #e2e8f0;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .toggle-track {
+      width: 48px;
+      height: 26px;
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 13px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-track.active {
+      background: #8b5cf6;
+    }
+
+    .toggle-thumb {
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      transition: all 0.3s ease;
+    }
+
+    [dir="ltr"] .toggle-thumb {
+      right: auto;
+      left: 2px;
+    }
+
+    .toggle-track.active .toggle-thumb {
+      right: 24px;
+    }
+
+    [dir="ltr"] .toggle-track.active .toggle-thumb {
+      right: auto;
+      left: 24px;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .content-card {
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .content-card h4 {
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+
+    .content-card p {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-bottom: 12px;
+    }
+
+    .content-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(100%);
+        width: 100%;
+      }
+
+      [dir="ltr"] .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .main-content {
+        margin-right: 0;
+        margin-left: 0;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h2 id="logo-text">DAAM</h2>
+      </div>
+      <nav>
+        <div class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </span>
+          <span class="nav-text" data-ar="نظرة عامة" data-en="Dashboard">نظرة عامة</span>
+        </div>
+        <div class="nav-item" data-page="users">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span class="nav-text" data-ar="المستخدمين" data-en="Users">المستخدمين</span>
+        </div>
+        <div class="nav-item" data-page="content">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </span>
+          <span class="nav-text" data-ar="المحتوى" data-en="Content">المحتوى</span>
+        </div>
+        <div class="nav-item" data-page="settings">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </span>
+          <span class="nav-text" data-ar="الإعدادات" data-en="Settings">الإعدادات</span>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 id="page-title" data-ar="لوحة التحكم" data-en="Control Panel">لوحة التحكم</h1>
+        <div class="topbar-actions">
+          <button class="btn btn-outline" id="lang-toggle">
+            <span id="lang-text">EN</span>
+          </button>
+          <button class="btn btn-danger" id="logout-btn">
+            <span data-ar="تسجيل خروج" data-en="Logout">تسجيل خروج</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <div class="page active" id="page-dashboard">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon purple">
+                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </div>
+              <div class="stat-value">1,245</div>
+              <div class="stat-label" data-ar="عدد المستخدمين" data-en="Total Users">عدد المستخدمين</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon blue">
+                <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div class="stat-value">3,892</div>
+              <div class="stat-label" data-ar="عدد المنشورات" data-en="Total Posts">عدد المنشورات</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green">
+                <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="stat-value">12,567</div>
+              <div class="stat-label" data-ar="عدد التعليقات" data-en="Total Comments">عدد التعليقات</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon orange">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <div class="stat-value"><span class="badge badge-active" data-ar="نشط" data-en="Active">نشط</span></div>
+              <div class="stat-label" data-ar="حالة الموقع" data-en="Site Status">حالة الموقع</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 data-ar="آخر النشاطات" data-en="Recent Activity">آخر النشاطات</h3>
+            </div>
+            <div class="card-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-ar="المستخدم" data-en="User">المستخدم</th>
+                    <th data-ar="النشاط" data-en="Activity">النشاط</th>
+                    <th data-ar="الوقت" data-en="Time">الوقت</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>أحمد محمد</td>
+                    <td data-ar="نشر منشور جديد" data-en="Created new post">نشر منشور جديد</td>
+                    <td data-ar="منذ 5 دقائق" data-en="5 minutes ago">منذ 5 دقائق</td>
+                  </tr>
+                  <tr>
+                    <td>فاطمة علي</td>
+                    <td data-ar="علقت على منشور" data-en="Commented on post">علقت على منشور</td>
+                    <td data-ar="منذ 12 دقيقة" data-en="12 minutes ago">منذ 12 دقيقة</td>
+                  </tr>
+                  <tr>
+                    <td>سارة خالد</td>
+                    <td data-ar="سجلت حساب جديد" data-en="Registered new account">سجلت حساب جديد</td>
+                    <td data-ar="منذ 30 دقيقة" data-en="30 minutes ago">منذ 30 دقيقة</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-users">
+          <div class="card">
+            <div class="card-header">
+              <h3 data-ar="إدارة المستخدمين" data-en="User Management">إدارة المستخدمين</h3>
+            </div>
+            <div class="card-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-ar="الاسم" data-en="Name">الاسم</th>
+                    <th data-ar="البريد الإلكتروني" data-en="Email">البريد الإلكتروني</th>
+                    <th data-ar="الدور" data-en="Role">الدور</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>أحمد محمد</td>
+                    <td>ahmed@utas.edu.om</td>
+                    <td><span class="badge badge-user" data-ar="مستخدم" data-en="User">مستخدم</span></td>
+                  </tr>
+                  <tr>
+                    <td>فاطمة علي</td>
+                    <td>fatima@utas.edu.om</td>
+                    <td><span class="badge badge-user" data-ar="مستخدم" data-en="User">مستخدم</span></td>
+                  </tr>
+                  <tr>
+                    <td>محمد سالم</td>
+                    <td>mohammed@utas.edu.om</td>
+                    <td><span class="badge badge-user" data-ar="مستخدم" data-en="User">مستخدم</span></td>
+                  </tr>
+                  <tr>
+                    <td>المشرف</td>
+                    <td>w.qq89@hotmail.com</td>
+                    <td><span class="badge badge-admin" data-ar="مشرف" data-en="Admin">مشرف</span></td>
+                  </tr>
+                  <tr>
+                    <td>سارة خالد</td>
+                    <td>sara@utas.edu.om</td>
+                    <td><span class="badge badge-user" data-ar="مستخدم" data-en="User">مستخدم</span></td>
+                  </tr>
+                  <tr>
+                    <td>عمر يوسف</td>
+                    <td>omar@utas.edu.om</td>
+                    <td><span class="badge badge-user" data-ar="مستخدم" data-en="User">مستخدم</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-content">
+          <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+              <h3 data-ar="إدارة المحتوى" data-en="Content Management">إدارة المحتوى</h3>
+            </div>
+          </div>
+          <div class="content-grid">
+            <div class="content-card">
+              <h4 data-ar="كيف أحل مسائل الرياضيات؟" data-en="How to solve math problems?">كيف أحل مسائل الرياضيات؟</h4>
+              <p data-ar="محتاج مساعدة في حل المعادلات التفاضلية..." data-en="Need help with differential equations...">محتاج مساعدة في حل المعادلات التفاضلية...</p>
+              <div class="content-meta">
+                <span>أحمد محمد</span>
+                <span data-ar="منذ ساعتين" data-en="2 hours ago">منذ ساعتين</span>
+              </div>
+            </div>
+            <div class="content-card">
+              <h4 data-ar="نقاش حول البرمجة" data-en="Programming Discussion">نقاش حول البرمجة</h4>
+              <p data-ar="ما هي أفضل لغة برمجة للمبتدئين؟" data-en="What's the best programming language for beginners?">ما هي أفضل لغة برمجة للمبتدئين؟</p>
+              <div class="content-meta">
+                <span>فاطمة علي</span>
+                <span data-ar="منذ 4 ساعات" data-en="4 hours ago">منذ 4 ساعات</span>
+              </div>
+            </div>
+            <div class="content-card">
+              <h4 data-ar="مشروع التخرج" data-en="Graduation Project">مشروع التخرج</h4>
+              <p data-ar="أبحث عن شريك لمشروع تطبيق موبايل..." data-en="Looking for a partner for mobile app project...">أبحث عن شريك لمشروع تطبيق موبايل...</p>
+              <div class="content-meta">
+                <span>محمد سالم</span>
+                <span data-ar="منذ يوم" data-en="1 day ago">منذ يوم</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-settings">
+          <div class="card">
+            <div class="card-header">
+              <h3 data-ar="إعدادات الموقع" data-en="Site Settings">إعدادات الموقع</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label data-ar="اسم الموقع" data-en="Site Name">اسم الموقع</label>
+                <input type="text" class="form-control" value="DAAM - منصة تعاون الطلاب">
+              </div>
+              <div class="form-group">
+                <label data-ar="الوضع الليلي" data-en="Dark Mode">الوضع الليلي</label>
+                <div class="toggle-switch" id="dark-mode-toggle">
+                  <div class="toggle-track active">
+                    <div class="toggle-thumb"></div>
+                  </div>
+                  <span data-ar="مفعل" data-en="Enabled">مفعل</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label data-ar="البريد الإلكتروني للدعم" data-en="Support Email">البريد الإلكتروني للدعم</label>
+                <input type="email" class="form-control" value="support@daam.om">
+              </div>
+              <button class="btn btn-primary" data-ar="حفظ التغييرات" data-en="Save Changes">حفظ التغييرات</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let currentLang = 'ar';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const html = document.documentElement;
+      html.lang = lang;
+      html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+      document.getElementById('lang-text').textContent = lang === 'ar' ? 'EN' : 'ع';
+
+      document.querySelectorAll('[data-ar][data-en]').forEach(el => {
+        el.textContent = el.getAttribute(`data-${lang}`);
+      });
+    }
+
+    function switchPage(pageName) {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+      });
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+
+      document.getElementById(`page-${pageName}`).classList.add('active');
+      document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+    }
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const page = item.getAttribute('data-page');
+        switchPage(page);
+      });
+    });
+
+    document.getElementById('lang-toggle').addEventListener('click', () => {
+      setLanguage(currentLang === 'ar' ? 'en' : 'ar');
+    });
+
+    document.getElementById('dark-mode-toggle').addEventListener('click', function() {
+      const track = this.querySelector('.toggle-track');
+      const label = this.querySelector('span');
+      track.classList.toggle('active');
+      if (track.classList.contains('active')) {
+        label.setAttribute('data-ar', 'مفعل');
+        label.setAttribute('data-en', 'Enabled');
+        label.textContent = currentLang === 'ar' ? 'مفعل' : 'Enabled';
+      } else {
+        label.setAttribute('data-ar', 'معطل');
+        label.setAttribute('data-en', 'Disabled');
+        label.textContent = currentLang === 'ar' ? 'معطل' : 'Disabled';
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      alert(currentLang === 'ar' ? 'تم تسجيل الخروج' : 'Logged out');
+    });
+  </script>
+</body>
+</html>
