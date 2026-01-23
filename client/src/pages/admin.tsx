@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDaamStore } from "@/hooks/use-daam-store";
+import { useDaamStore, type Report as StoreReport, type ReportStatus as StoreReportStatus } from "@/hooks/use-daam-store";
 import { 
   Users, MessageSquare, FileText, Flag, ClipboardList, LayoutDashboard,
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
@@ -122,7 +122,7 @@ const initialReports: Report[] = [
 ];
 
 export default function Admin() {
-  const { lang, user } = useDaamStore();
+  const { lang, user, reports: storeReports, updateReportStatus } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
   
@@ -130,8 +130,24 @@ export default function Admin() {
   const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
   const [comments, setComments] = useState<AdminComment[]>(initialComments);
   const [files, setFiles] = useState<AdminFile[]>(initialFiles);
-  const [reports, setReports] = useState<Report[]>(initialReports);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  
+  // Merge store reports with initial demo reports for display
+  const reports: Report[] = useMemo(() => {
+    const storeReportsMapped: Report[] = storeReports.map(r => ({
+      id: r.id,
+      targetType: r.targetType,
+      targetId: r.targetId,
+      targetTitle: r.targetTitle,
+      reason: r.reason,
+      reporter: r.reporter,
+      reporterEmail: r.reporterEmail,
+      status: r.status,
+      createdAt: r.createdAt
+    }));
+    // Combine store reports (new) with initial demo reports
+    return [...storeReportsMapped, ...initialReports.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
+  }, [storeReports]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -300,15 +316,18 @@ export default function Admin() {
   };
 
   const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss') => {
-    setReports(prev => prev.map(r => {
-      if (r.id === reportId) {
-        const newStatus: ReportStatus = action === 'resolve' ? 'resolved' : 'dismissed';
-        const actionType: ActionType = action === 'resolve' ? 'report_resolved' : 'report_dismissed';
-        addAuditLog(actionType, 'report', r.id, r.targetTitle);
-        return { ...r, status: newStatus };
+    const report = reports.find(r => r.id === reportId);
+    if (report) {
+      const newStatus: StoreReportStatus = action === 'resolve' ? 'resolved' : 'dismissed';
+      const actionType: ActionType = action === 'resolve' ? 'report_resolved' : 'report_dismissed';
+      addAuditLog(actionType, 'report', report.id, report.targetTitle);
+      // Update in store (persists to localStorage)
+      if (reportId.startsWith('report-')) {
+        // This is a store report, update via store
+        updateReportStatus(reportId, newStatus);
       }
-      return r;
-    }));
+      // Note: Demo reports (r1, r2, r3) are read-only placeholders
+    }
   };
 
   const openDetailModal = (item: any, type: string) => {

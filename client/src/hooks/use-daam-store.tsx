@@ -165,6 +165,7 @@ interface DaamStoreContextType {
   editReply: (postId: string, replyId: string, content: string) => void;
   reports: Report[];
   submitReport: (targetType: ReportTargetType, targetId: string, targetTitle: string, reason: ReportReason, note?: string) => void;
+  updateReportStatus: (reportId: string, status: ReportStatus, resolutionReason?: string) => void;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -861,6 +862,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
   }, [user, profiles, reports]);
 
+  const updateReportStatus = useCallback((reportId: string, status: ReportStatus, resolutionReason?: string) => {
+    const updatedReports = reports.map(report => 
+      report.id === reportId 
+        ? { ...report, status, resolutionReason } 
+        : report
+    );
+    setReports(updatedReports);
+    localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
+  }, [reports]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -894,7 +905,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     deleteReply,
     editReply,
     reports,
-    submitReport
+    submitReport,
+    updateReportStatus
   };
 
   return (
