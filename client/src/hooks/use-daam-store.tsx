@@ -27,8 +27,26 @@ const KEYS = {
   PROFILES: 'daam_profiles',
   THEME: 'daam_theme',
   ACCOUNTS: 'daam_accounts',
-  PENDING_VERIFICATION: 'daam_pending_verification'
+  PENDING_VERIFICATION: 'daam_pending_verification',
+  REPORTS: 'daam_reports'
 };
+
+export type ReportReason = 'spam' | 'harassment' | 'hate' | 'impersonation' | 'inappropriate' | 'other';
+export type ReportTargetType = 'post' | 'comment' | 'user';
+export type ReportStatus = 'pending' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  targetTitle: string;
+  reason: ReportReason;
+  note?: string;
+  reporter: string;
+  reporterEmail: string;
+  status: ReportStatus;
+  createdAt: string;
+}
 
 // Simple hash function for demo (in production, use bcrypt on server)
 const simpleHash = (str: string): string => {
@@ -145,6 +163,8 @@ interface DaamStoreContextType {
   unbanUser: (email: string) => void;
   deleteReply: (postId: string, replyId: string) => void;
   editReply: (postId: string, replyId: string, content: string) => void;
+  reports: Report[];
+  submitReport: (targetType: ReportTargetType, targetId: string, targetTitle: string, reason: ReportReason, note?: string) => void;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -169,6 +189,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [accounts, setAccounts] = useState<Record<string, UserAccount>>({});
   const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize from localStorage
@@ -203,6 +224,15 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setPendingVerification(JSON.parse(storedPendingVerification));
       } catch (e) {
         console.error("Failed to parse pending verification", e);
+      }
+    }
+    
+    const storedReports = localStorage.getItem(KEYS.REPORTS);
+    if (storedReports) {
+      try {
+        setReports(JSON.parse(storedReports));
+      } catch (e) {
+        console.error("Failed to parse reports", e);
       }
     }
 
@@ -802,6 +832,35 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
+  const submitReport = useCallback((
+    targetType: ReportTargetType, 
+    targetId: string, 
+    targetTitle: string, 
+    reason: ReportReason, 
+    note?: string
+  ) => {
+    if (!user) return;
+    const profile = profiles[user.email];
+    const reporterName = profile?.name || user.email.split('@')[0];
+    
+    const newReport: Report = {
+      id: `report-${Date.now()}`,
+      targetType,
+      targetId,
+      targetTitle,
+      reason,
+      note,
+      reporter: reporterName,
+      reporterEmail: user.email,
+      status: 'pending',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    
+    const updatedReports = [newReport, ...reports];
+    setReports(updatedReports);
+    localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
+  }, [user, profiles, reports]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -833,7 +892,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     banUser,
     unbanUser,
     deleteReply,
-    editReply
+    editReply,
+    reports,
+    submitReport
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute, Link } from "wouter";
-import { useDaamStore } from "@/hooks/use-daam-store";
+import { useDaamStore, type ReportReason } from "@/hooks/use-daam-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,11 @@ import {
   Lock,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Flag
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import { formatDistanceToNow, format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -55,7 +58,7 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing } = useDaamStore();
+  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing, submitReport } = useDaamStore();
   const [_, setLocation] = useLocation();
   const [match, params] = useRoute("/profile/:email");
   const { toast } = useToast();
@@ -67,6 +70,9 @@ export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
   const [isEditing, setIsEditing] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason | ''>('');
+  const [reportNote, setReportNote] = useState('');
   const [editForm, setEditForm] = useState({
     name: '',
     major: '',
@@ -245,7 +251,33 @@ export default function Profile() {
     private: lang === 'ar' ? 'خاص' : 'Private',
     showFavorites: lang === 'ar' ? 'إظهار التفضيلات للزوار' : 'Show favorites to visitors',
     showInterests: lang === 'ar' ? 'إظهار الاهتمامات للزوار' : 'Show interests to visitors',
-    download: lang === 'ar' ? 'تحميل' : 'Download'
+    download: lang === 'ar' ? 'تحميل' : 'Download',
+    reportUser: lang === 'ar' ? 'إبلاغ عن المستخدم' : 'Report User',
+    reportTitle: lang === 'ar' ? 'الإبلاغ عن مستخدم' : 'Report User',
+    reportReason: lang === 'ar' ? 'سبب الإبلاغ' : 'Reason for Report',
+    reportNote: lang === 'ar' ? 'ملاحظات إضافية (اختياري)' : 'Additional notes (optional)',
+    reportSubmit: lang === 'ar' ? 'إرسال البلاغ' : 'Submit Report',
+    reportSuccess: lang === 'ar' ? 'تم إرسال البلاغ' : 'Report Submitted',
+    reportSuccessDesc: lang === 'ar' ? 'شكراً لك، سيتم مراجعة البلاغ قريباً' : 'Thank you, your report will be reviewed soon',
+    selectReason: lang === 'ar' ? 'اختر السبب' : 'Select reason',
+    reasonSpam: lang === 'ar' ? 'محتوى مزعج / سبام' : 'Spam',
+    reasonHarassment: lang === 'ar' ? 'تحرش أو تنمر' : 'Harassment',
+    reasonHate: lang === 'ar' ? 'خطاب كراهية' : 'Hate Speech',
+    reasonImpersonation: lang === 'ar' ? 'انتحال شخصية' : 'Impersonation',
+    reasonInappropriate: lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate Content',
+    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other'
+  };
+
+  const handleSubmitUserReport = () => {
+    if (!profileEmail || !reportReason) return;
+    submitReport('user', profileEmail, profile?.name || profileEmail, reportReason as ReportReason, reportNote || undefined);
+    setReportModalOpen(false);
+    setReportReason('');
+    setReportNote('');
+    toast({
+      title: tr.reportSuccess,
+      description: tr.reportSuccessDesc
+    });
   };
 
   const postTypeLabels: Record<string, string> = {
@@ -609,26 +641,38 @@ export default function Profile() {
                   </Button>
                 )
               ) : (
-                <Button 
-                  variant={isFollowing(profileEmail) ? "secondary" : "default"}
-                  onClick={() => toggleFollow(profileEmail)}
-                  className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
-                  data-testid="button-follow"
-                >
-                  {isFollowing(profileEmail) ? (
-                    <>
-                      <Check className="w-4 h-4 group-hover:hidden" />
-                      <X className="w-4 h-4 hidden group-hover:block" />
-                      <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
-                      <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      {lang === 'ar' ? 'متابعة' : 'Follow'}
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant={isFollowing(profileEmail) ? "secondary" : "default"}
+                    onClick={() => toggleFollow(profileEmail)}
+                    className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
+                    data-testid="button-follow"
+                  >
+                    {isFollowing(profileEmail) ? (
+                      <>
+                        <Check className="w-4 h-4 group-hover:hidden" />
+                        <X className="w-4 h-4 hidden group-hover:block" />
+                        <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
+                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        {lang === 'ar' ? 'متابعة' : 'Follow'}
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setReportModalOpen(true)}
+                    className="text-amber-500"
+                    data-testid="button-report-user"
+                    title={tr.reportUser}
+                  >
+                    <Flag className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -1018,6 +1062,56 @@ export default function Profile() {
                 </div>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report User Modal */}
+      <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-report-user">
+          <DialogHeader>
+            <DialogTitle>{tr.reportTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground" data-testid="text-report-user-target">
+              {lang === 'ar' ? 'الإبلاغ عن:' : 'Reporting:'} {profile?.name || profileEmail}
+            </p>
+            <div className="space-y-2">
+              <Label>{tr.reportReason}</Label>
+              <Select value={reportReason} onValueChange={(val) => setReportReason(val as ReportReason)}>
+                <SelectTrigger data-testid="select-user-report-reason">
+                  <SelectValue placeholder={tr.selectReason} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spam" data-testid="user-option-spam">{tr.reasonSpam}</SelectItem>
+                  <SelectItem value="harassment" data-testid="user-option-harassment">{tr.reasonHarassment}</SelectItem>
+                  <SelectItem value="hate" data-testid="user-option-hate">{tr.reasonHate}</SelectItem>
+                  <SelectItem value="impersonation" data-testid="user-option-impersonation">{tr.reasonImpersonation}</SelectItem>
+                  <SelectItem value="inappropriate" data-testid="user-option-inappropriate">{tr.reasonInappropriate}</SelectItem>
+                  <SelectItem value="other" data-testid="user-option-other">{tr.reasonOther}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tr.reportNote}</Label>
+              <Textarea 
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+                placeholder={lang === 'ar' ? 'أضف تفاصيل إضافية...' : 'Add additional details...'}
+                className="resize-none"
+                rows={3}
+                data-testid="textarea-user-report-note"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitUserReport} 
+              disabled={!reportReason}
+              className="w-full"
+              data-testid="button-submit-user-report"
+            >
+              <Flag className="w-4 h-4 me-2" />
+              {tr.reportSubmit}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

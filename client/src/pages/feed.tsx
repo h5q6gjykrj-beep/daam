@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { Link, useSearch } from "wouter";
-import { useDaamStore, ADMIN_EMAILS } from "@/hooks/use-daam-store";
+import { useDaamStore, ADMIN_EMAILS, type ReportReason } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
-  MoreVertical, Pencil, Trash2
+  MoreVertical, Pencil, Trash2, Flag
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +38,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport } = useDaamStore();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const filterParam = searchParams.get('filter');
@@ -61,6 +63,10 @@ export default function Feed() {
   const [viewerContent, setViewerContent] = useState<{ url: string; blobUrl: string; name: string; type: 'pdf' | 'image' } | null>(null);
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const [editReplyContent, setEditReplyContent] = useState("");
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string; title: string } | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason | ''>('');
+  const [reportNote, setReportNote] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -433,39 +439,47 @@ export default function Feed() {
                     {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: false, locale: lang === 'ar' ? ar : enUS })}
                   </span>
                   
-                  {(canEditReply(reply) || canDeleteReply(reply)) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button 
-                          className="ms-auto text-muted-foreground hover:text-foreground transition-colors"
-                          data-testid={`button-reply-menu-${reply.id}`}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className="ms-auto text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid={`button-reply-menu-${reply.id}`}
+                      >
+                        <MoreVertical className="w-3 h-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canEditReply(reply) && (
+                        <DropdownMenuItem 
+                          onClick={() => startEditReply(reply)}
+                          data-testid={`button-edit-reply-${reply.id}`}
                         >
-                          <MoreVertical className="w-3 h-3" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {canEditReply(reply) && (
-                          <DropdownMenuItem 
-                            onClick={() => startEditReply(reply)}
-                            data-testid={`button-edit-reply-${reply.id}`}
-                          >
-                            <Pencil className="w-3 h-3 me-2" />
-                            {lang === 'ar' ? 'تعديل' : 'Edit'}
-                          </DropdownMenuItem>
-                        )}
-                        {canDeleteReply(reply) && (
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteReply(postId, reply.id)}
-                            className="text-destructive focus:text-destructive"
-                            data-testid={`button-delete-reply-${reply.id}`}
-                          >
-                            <Trash2 className="w-3 h-3 me-2" />
-                            {lang === 'ar' ? 'حذف' : 'Delete'}
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                          <Pencil className="w-3 h-3 me-2" />
+                          {lang === 'ar' ? 'تعديل' : 'Edit'}
+                        </DropdownMenuItem>
+                      )}
+                      {canDeleteReply(reply) && (
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteReply(postId, reply.id)}
+                          className="text-destructive focus:text-destructive"
+                          data-testid={`button-delete-reply-${reply.id}`}
+                        >
+                          <Trash2 className="w-3 h-3 me-2" />
+                          {lang === 'ar' ? 'حذف' : 'Delete'}
+                        </DropdownMenuItem>
+                      )}
+                      {user?.email !== reply.author && (
+                        <DropdownMenuItem 
+                          onClick={() => openReportModal('comment', reply.id, reply.content.substring(0, 50))}
+                          className="text-amber-500 focus:text-amber-500"
+                          data-testid={`button-report-comment-${reply.id}`}
+                        >
+                          <Flag className="w-3 h-3 me-2" />
+                          {tr.report}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 
                 {editingReplyId === reply.id ? (
@@ -672,7 +686,41 @@ export default function Feed() {
     edit: lang === 'ar' ? 'تعديل' : 'Edit',
     delete: lang === 'ar' ? 'حذف' : 'Delete',
     saveChanges: lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes',
-    confirmDelete: lang === 'ar' ? 'هل أنت متأكد من حذف هذا المنشور؟' : 'Are you sure you want to delete this post?'
+    confirmDelete: lang === 'ar' ? 'هل أنت متأكد من حذف هذا المنشور؟' : 'Are you sure you want to delete this post?',
+    report: lang === 'ar' ? 'إبلاغ' : 'Report',
+    reportTitle: lang === 'ar' ? 'الإبلاغ عن محتوى' : 'Report Content',
+    reportReason: lang === 'ar' ? 'سبب الإبلاغ' : 'Reason for Report',
+    reportNote: lang === 'ar' ? 'ملاحظات إضافية (اختياري)' : 'Additional notes (optional)',
+    reportSubmit: lang === 'ar' ? 'إرسال البلاغ' : 'Submit Report',
+    reportSuccess: lang === 'ar' ? 'تم إرسال البلاغ' : 'Report Submitted',
+    reportSuccessDesc: lang === 'ar' ? 'شكراً لك، سيتم مراجعة البلاغ قريباً' : 'Thank you, your report will be reviewed soon',
+    selectReason: lang === 'ar' ? 'اختر السبب' : 'Select reason',
+    reasonSpam: lang === 'ar' ? 'محتوى مزعج / سبام' : 'Spam',
+    reasonHarassment: lang === 'ar' ? 'تحرش أو تنمر' : 'Harassment',
+    reasonHate: lang === 'ar' ? 'خطاب كراهية' : 'Hate Speech',
+    reasonImpersonation: lang === 'ar' ? 'انتحال شخصية' : 'Impersonation',
+    reasonInappropriate: lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate Content',
+    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other'
+  };
+
+  const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
+    setReportTarget({ type, id, title });
+    setReportReason('');
+    setReportNote('');
+    setReportModalOpen(true);
+  };
+
+  const handleSubmitReport = () => {
+    if (!reportTarget || !reportReason) return;
+    submitReport(reportTarget.type, reportTarget.id, reportTarget.title, reportReason as ReportReason, reportNote || undefined);
+    setReportModalOpen(false);
+    setReportTarget(null);
+    setReportReason('');
+    setReportNote('');
+    toast({
+      title: tr.reportSuccess,
+      description: tr.reportSuccessDesc
+    });
   };
 
   const getPostTypeLabel = (type: PostType) => {
@@ -937,41 +985,48 @@ export default function Feed() {
                           )}
                         </div>
                         
-                        {(canEditPost(post) || canDeletePost(post)) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                className="h-7 w-7"
-                                data-testid={`button-post-menu-${post.id}`}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
+                              data-testid={`button-post-menu-${post.id}`}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align={isRTL ? "start" : "end"}>
+                            {canEditPost(post) && (
+                              <DropdownMenuItem 
+                                onClick={() => startEditPost(post)}
+                                data-testid={`button-edit-${post.id}`}
                               >
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align={isRTL ? "start" : "end"}>
-                              {canEditPost(post) && (
-                                <DropdownMenuItem 
-                                  onClick={() => startEditPost(post)}
-                                  data-testid={`button-edit-${post.id}`}
-                                >
-                                  <Pencil className="w-4 h-4 me-2" />
-                                  {tr.edit}
-                                </DropdownMenuItem>
-                              )}
-                              {canDeletePost(post) && (
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeletePost(post.id)}
-                                  className="text-destructive focus:text-destructive"
-                                  data-testid={`button-delete-${post.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4 me-2" />
-                                  {tr.delete}
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                                <Pencil className="w-4 h-4 me-2" />
+                                {tr.edit}
+                              </DropdownMenuItem>
+                            )}
+                            {canDeletePost(post) && (
+                              <DropdownMenuItem 
+                                onClick={() => handleDeletePost(post.id)}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`button-delete-${post.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 me-2" />
+                                {tr.delete}
+                              </DropdownMenuItem>
+                            )}
+                            {user?.email !== post.authorEmail && (
+                              <DropdownMenuItem 
+                                onClick={() => openReportModal('post', post.id, post.content.substring(0, 50))}
+                                className="text-amber-500 focus:text-amber-500"
+                                data-testid={`button-report-post-${post.id}`}
+                              >
+                                <Flag className="w-4 h-4 me-2" />
+                                {tr.report}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         {(getMajor(post.authorEmail) || getUniversity(post.authorEmail)) && (
@@ -1286,6 +1341,58 @@ export default function Feed() {
             </Button>
             <Button onClick={closeViewer} data-testid="button-viewer-close">
               {lang === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Modal */}
+      <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-report">
+          <DialogHeader>
+            <DialogTitle>{tr.reportTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {reportTarget && (
+              <p className="text-sm text-muted-foreground" data-testid="text-report-target">
+                {lang === 'ar' ? 'الإبلاغ عن:' : 'Reporting:'} "{reportTarget.title}..."
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>{tr.reportReason}</Label>
+              <Select value={reportReason} onValueChange={(val) => setReportReason(val as ReportReason)}>
+                <SelectTrigger data-testid="select-report-reason">
+                  <SelectValue placeholder={tr.selectReason} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spam" data-testid="option-spam">{tr.reasonSpam}</SelectItem>
+                  <SelectItem value="harassment" data-testid="option-harassment">{tr.reasonHarassment}</SelectItem>
+                  <SelectItem value="hate" data-testid="option-hate">{tr.reasonHate}</SelectItem>
+                  <SelectItem value="impersonation" data-testid="option-impersonation">{tr.reasonImpersonation}</SelectItem>
+                  <SelectItem value="inappropriate" data-testid="option-inappropriate">{tr.reasonInappropriate}</SelectItem>
+                  <SelectItem value="other" data-testid="option-other">{tr.reasonOther}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tr.reportNote}</Label>
+              <Textarea 
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+                placeholder={lang === 'ar' ? 'أضف تفاصيل إضافية...' : 'Add additional details...'}
+                className="resize-none"
+                rows={3}
+                data-testid="textarea-report-note"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitReport} 
+              disabled={!reportReason}
+              className="w-full"
+              data-testid="button-submit-report"
+            >
+              <Flag className="w-4 h-4 me-2" />
+              {tr.reportSubmit}
             </Button>
           </div>
         </DialogContent>

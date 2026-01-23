@@ -29,7 +29,17 @@ Preferred communication style: Simple, everyday language.
   - `daam_user`: Current user email
   - `daam_posts_v1`: JSON array of posts
   - `daam_lang`: Language preference (ar/en)
+  - `daam_reports`: JSON array of user reports
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
+
+### Reporting System
+- **Report Types**: Posts, comments/replies, and user profiles can be reported
+- **Report Reasons**: spam, harassment, hate, impersonation, inappropriate, other
+- **Report Flow**: 
+  - Posts/comments: Click menu → Report option → Select reason → Submit
+  - Users: Visit profile → Click flag icon → Select reason → Submit
+- **Storage**: Reports stored in localStorage (`daam_reports`) with timestamp, reporter, type, reason, optional note
+- **Admin Access**: Reports visible in Admin Dashboard under Reports tab (path: /admin)
 
 ### Authentication
 - **Method**: Full registration system with email/password authentication
@@ -64,9 +74,10 @@ client/           # React frontend
       landing.tsx   # Public landing page for guests
       login.tsx     # Login form page
       dashboard.tsx # Home dashboard for logged-in users
-      feed.tsx      # Discussion arena
+      feed.tsx      # Discussion arena with report functionality
       tutor.tsx     # AI tutor page
-      profile.tsx   # User profile page
+      profile.tsx   # User profile page with report user button
+      admin.tsx     # Admin dashboard with reports management
     lib/          # Utilities and query client
 server/           # Express backend
   index.ts        # Server entry point
