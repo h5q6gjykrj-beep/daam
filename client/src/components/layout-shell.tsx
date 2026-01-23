@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon } from "lucide-react";
+import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 
@@ -50,7 +50,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     feed: lang === 'ar' ? 'ساحة النقاش' : 'Discussion Arena',
     tutor: lang === 'ar' ? 'المساعد الذكي' : 'AI Tutor',
     profile: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
-    admin: lang === 'ar' ? 'مشرف' : 'Admin',
+    admin: lang === 'ar' ? 'الإدارة' : 'Admin',
     moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
     login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
   };
@@ -60,6 +60,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     { path: '/feed', label: tr.feed, icon: MessageSquare },
     { path: '/tutor', label: tr.tutor, icon: Bot },
     { path: '/profile', label: tr.profile, icon: User },
+    { path: '/admin', label: tr.admin, icon: Settings },
   ];
 
   const isActive = (path: string) => {
