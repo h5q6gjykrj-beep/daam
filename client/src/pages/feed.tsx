@@ -589,17 +589,21 @@ export default function Feed() {
   const filteredPosts = useMemo(() => {
     let result = posts;
 
-    // Admin override: show ALL posts including hidden/flagged and from banned users
-    // Non-admin users: filter out hidden/flagged posts and posts from banned users
+    // Admin override: show ALL posts including hidden/flagged, from banned users, and demo accounts
+    // Non-admin users: filter out hidden/flagged posts, posts from banned users, and demo accounts
     if (!isCurrentUserAdmin) {
       result = result.filter(post => {
         // Filter out hidden/flagged posts
         if (post.status === 'hidden' || post.status === 'flagged') {
           return false;
         }
-        // Filter out posts from banned users
         const authorAccount = getAccount(post.authorEmail);
+        // Filter out posts from banned users
         if (authorAccount?.banned) {
+          return false;
+        }
+        // Filter out posts from demo/test accounts
+        if (authorAccount?.isDemo) {
           return false;
         }
         return true;
@@ -724,7 +728,8 @@ export default function Feed() {
     statusVisible: lang === 'ar' ? 'مرئي' : 'Visible',
     statusHidden: lang === 'ar' ? 'مخفي' : 'Hidden',
     statusFlagged: lang === 'ar' ? 'مُبلغ عنه' : 'Flagged',
-    bannedUser: lang === 'ar' ? 'مستخدم محظور' : 'Banned User'
+    bannedUser: lang === 'ar' ? 'مستخدم محظور' : 'Banned User',
+    demoAccount: lang === 'ar' ? 'حساب تجريبي' : 'Demo Account'
   };
 
   const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
@@ -1029,6 +1034,15 @@ export default function Feed() {
                                   data-testid={`badge-banned-${post.id}`}
                                 >
                                   {tr.bannedUser}
+                                </Badge>
+                              )}
+                              {getAccount(post.authorEmail)?.isDemo && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-[10px] px-1.5 py-0 border-blue-500/30 text-blue-500 bg-blue-500/10"
+                                  data-testid={`badge-demo-${post.id}`}
+                                >
+                                  {tr.demoAccount}
                                 </Badge>
                               )}
                             </>

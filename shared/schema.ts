@@ -42,6 +42,7 @@ export interface UserAccount {
   biometricEnabled?: boolean;
   banned?: boolean;
   bannedReason?: string;
+  isDemo?: boolean;
 }
 
 // User profile for localStorage

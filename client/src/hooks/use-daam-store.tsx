@@ -359,7 +359,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
           role: 'student' as const,
           verified: true,
           rememberMe: false,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          isDemo: true
+        };
+        hasNewData = true;
+      } else if (!updatedAccounts[demoUser.email].isDemo) {
+        updatedAccounts[demoUser.email] = {
+          ...updatedAccounts[demoUser.email],
+          isDemo: true
         };
         hasNewData = true;
       }
