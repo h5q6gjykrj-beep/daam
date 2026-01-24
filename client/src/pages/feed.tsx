@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import { Link, useSearch } from "wouter";
 import { useDaamStore, ADMIN_EMAILS, type ReportReason } from "@/hooks/use-daam-store";
+import { isAdminEmail } from "@/config/admin";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type LocalReply, type PostType, type Attachment } from "@shared/schema";
+import { type LocalReply, type PostType, type Attachment, type PostStatus } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,7 +39,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount } = useDaamStore();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const filterParam = searchParams.get('filter');
@@ -582,9 +583,28 @@ export default function Feed() {
   const getLikeCount = (postId: string) => posts.find(p => p.id === postId)?.likedBy?.length || 0;
   const getReplyCount = (postId: string) => posts.find(p => p.id === postId)?.replies?.length || 0;
 
+  const isCurrentUserAdmin = isAdminEmail(user?.email);
+
   // Apply URL-based and type filters
   const filteredPosts = useMemo(() => {
     let result = posts;
+
+    // Admin override: show ALL posts including hidden/flagged and from banned users
+    // Non-admin users: filter out hidden/flagged posts and posts from banned users
+    if (!isCurrentUserAdmin) {
+      result = result.filter(post => {
+        // Filter out hidden/flagged posts
+        if (post.status === 'hidden' || post.status === 'flagged') {
+          return false;
+        }
+        // Filter out posts from banned users
+        const authorAccount = getAccount(post.authorEmail);
+        if (authorAccount?.banned) {
+          return false;
+        }
+        return true;
+      });
+    }
 
     // Filter by subject param from URL
     if (subjectParam) {
@@ -611,7 +631,7 @@ export default function Feed() {
     // 'top' filter is handled by sorting, not filtering
 
     return result;
-  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo]);
+  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserAdmin, getAccount]);
 
   const sortedPosts = useMemo(() => {
     const result = [...filteredPosts];
@@ -700,7 +720,11 @@ export default function Feed() {
     reasonHate: lang === 'ar' ? 'خطاب كراهية' : 'Hate Speech',
     reasonImpersonation: lang === 'ar' ? 'انتحال شخصية' : 'Impersonation',
     reasonInappropriate: lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate Content',
-    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other'
+    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other',
+    statusVisible: lang === 'ar' ? 'مرئي' : 'Visible',
+    statusHidden: lang === 'ar' ? 'مخفي' : 'Hidden',
+    statusFlagged: lang === 'ar' ? 'مُبلغ عنه' : 'Flagged',
+    bannedUser: lang === 'ar' ? 'مستخدم محظور' : 'Banned User'
   };
 
   const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
@@ -982,6 +1006,32 @@ export default function Feed() {
                               <Shield className="w-2.5 h-2.5 me-0.5" />
                               {tr.moderator}
                             </Badge>
+                          )}
+                          {isCurrentUserAdmin && (
+                            <>
+                              {(post.status === 'hidden' || post.status === 'flagged') && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-[10px] px-1.5 py-0 ${
+                                    post.status === 'hidden' 
+                                      ? 'border-gray-500/30 text-gray-500 bg-gray-500/10' 
+                                      : 'border-red-500/30 text-red-500 bg-red-500/10'
+                                  }`}
+                                  data-testid={`badge-status-${post.id}`}
+                                >
+                                  {post.status === 'hidden' ? tr.statusHidden : tr.statusFlagged}
+                                </Badge>
+                              )}
+                              {getAccount(post.authorEmail)?.banned && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-[10px] px-1.5 py-0 border-red-500/30 text-red-500 bg-red-500/10"
+                                  data-testid={`badge-banned-${post.id}`}
+                                >
+                                  {tr.bannedUser}
+                                </Badge>
+                              )}
+                            </>
                           )}
                         </div>
                         
