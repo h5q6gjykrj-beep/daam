@@ -80,6 +80,8 @@ export interface Attachment {
   size: number; // bytes
 }
 
+export type PostStatus = 'visible' | 'hidden' | 'flagged';
+
 export interface LocalPost {
   id: string;
   authorEmail: string;
@@ -93,6 +95,7 @@ export interface LocalPost {
   savedBy: string[];
   imageUrl?: string;
   attachments?: Attachment[];
+  status?: PostStatus;
 }
 
 export type Language = 'ar' | 'en';
