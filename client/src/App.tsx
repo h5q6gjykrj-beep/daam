@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useDaamStore, DaamStoreProvider } from "@/hooks/use-daam-store";
 import { LayoutShell } from "@/components/layout-shell";
 import { Loader2 } from "lucide-react";
+import { isAdminEmail } from "@/config/admin";
+import { Forbidden } from "@/components/admin/Forbidden";
 
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
@@ -50,6 +52,16 @@ function RootRedirect() {
   return user ? <Redirect to="/dashboard" /> : <Redirect to="/login" />;
 }
 
+function AdminRoute() {
+  const { user } = useDaamStore();
+  
+  if (!user || !isAdminEmail(user.email)) {
+    return <Forbidden />;
+  }
+  
+  return <Admin />;
+}
+
 function Router() {
   const { user } = useDaamStore();
   
@@ -62,7 +74,7 @@ function Router() {
             <Route path="/feed" component={Feed} />
             <Route path="/tutor" component={Tutor} />
             <Route path="/profile/:email?" component={Profile} />
-            <Route path="/admin" component={Admin} />
+            <Route path="/admin" component={AdminRoute} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>

@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
+import { isAdminEmail } from "@/config/admin";
 
 interface LayoutShellProps {
   children: ReactNode;
@@ -55,13 +56,20 @@ export function LayoutShell({ children }: LayoutShellProps) {
     login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
   };
 
-  const navItems = [
-    { path: '/dashboard', label: tr.home, icon: Home },
-    { path: '/feed', label: tr.feed, icon: MessageSquare },
-    { path: '/tutor', label: tr.tutor, icon: Bot },
-    { path: '/profile', label: tr.profile, icon: User },
-    { path: '/admin', label: tr.admin, icon: Settings },
-  ];
+  const isAdmin = isAdminEmail(user?.email);
+  
+  const navItems = useMemo(() => {
+    const items = [
+      { path: '/dashboard', label: tr.home, icon: Home },
+      { path: '/feed', label: tr.feed, icon: MessageSquare },
+      { path: '/tutor', label: tr.tutor, icon: Bot },
+      { path: '/profile', label: tr.profile, icon: User },
+    ];
+    if (isAdmin) {
+      items.push({ path: '/admin', label: tr.admin, icon: Settings });
+    }
+    return items;
+  }, [tr.home, tr.feed, tr.tutor, tr.profile, tr.admin, isAdmin]);
 
   const isActive = (path: string) => {
     if (path === '/profile') return location.startsWith('/profile');
