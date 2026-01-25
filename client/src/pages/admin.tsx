@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
 type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
-type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended';
+type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended' | 'domain_added' | 'domain_removed';
 type ReportPriority = 'low' | 'medium' | 'high';
 type ReportSortOption = 'newest' | 'oldest' | 'priority';
 
@@ -155,7 +155,7 @@ const computePriority = (reason: string): ReportPriority => {
 };
 
 export default function Admin() {
-  const { lang, user, reports: storeReports, updateReportStatus } = useDaamStore();
+  const { lang, user, reports: storeReports, updateReportStatus, allowedDomains, addAllowedDomain, removeAllowedDomain } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
   
@@ -218,6 +218,7 @@ export default function Admin() {
   const [userDetailTab, setUserDetailTab] = useState<'account' | 'actions' | 'activity' | 'moderation' | 'notes'>('account');
   const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
+  const [newDomainInput, setNewDomainInput] = useState('');
 
   const isRTL = lang === 'ar';
   const currentUser = user?.email || 'admin@utas.edu.om';
@@ -339,6 +340,8 @@ export default function Admin() {
       report_status_changed: lang === 'ar' ? 'تغيير حالة بلاغ' : 'Report Status Changed',
       target_hidden: lang === 'ar' ? 'إخفاء الهدف' : 'Target Hidden',
       author_suspended: lang === 'ar' ? 'إيقاف المؤلف' : 'Author Suspended',
+      domain_added: lang === 'ar' ? 'إضافة نطاق' : 'Domain Added',
+      domain_removed: lang === 'ar' ? 'حذف نطاق' : 'Domain Removed',
     },
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
@@ -385,6 +388,16 @@ export default function Admin() {
     universityFilter: lang === 'ar' ? 'الجامعة' : 'University',
     domainFilter: lang === 'ar' ? 'النطاق' : 'Domain',
     exportCSV: lang === 'ar' ? 'تصدير CSV' : 'Export CSV',
+    universities: lang === 'ar' ? 'الجامعات' : 'Universities',
+    allowedDomains: lang === 'ar' ? 'نطاقات البريد المسموحة' : 'Allowed Email Domains',
+    addDomain: lang === 'ar' ? 'إضافة نطاق' : 'Add Domain',
+    domainPlaceholder: lang === 'ar' ? 'مثال: university.edu.om' : 'e.g., university.edu.om',
+    domainAdded: lang === 'ar' ? 'تم إضافة النطاق بنجاح' : 'Domain added successfully',
+    domainRemoved: lang === 'ar' ? 'تم حذف النطاق بنجاح' : 'Domain removed successfully',
+    domainExists: lang === 'ar' ? 'النطاق موجود مسبقاً' : 'Domain already exists',
+    invalidDomain: lang === 'ar' ? 'نطاق غير صالح' : 'Invalid domain format',
+    cannotRemoveLast: lang === 'ar' ? 'لا يمكن حذف آخر نطاق' : 'Cannot remove the last domain',
+    removeDomain: lang === 'ar' ? 'حذف النطاق' : 'Remove Domain',
   };
 
   const navItems = [
@@ -392,6 +405,7 @@ export default function Admin() {
     { id: 'users', label: tr.users, icon: Users },
     { id: 'content', label: tr.content, icon: FileText },
     { id: 'reports', label: tr.reports, icon: Flag },
+    { id: 'universities', label: tr.universities, icon: Building },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
 
@@ -720,6 +734,25 @@ export default function Admin() {
     link.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  // Domain management handlers
+  const handleAddDomain = () => {
+    const normalized = newDomainInput.toLowerCase().trim().replace(/^@/, '');
+    if (!normalized) return;
+    
+    const success = addAllowedDomain(normalized);
+    if (success) {
+      addAuditLog('domain_added', 'user', normalized, normalized);
+      setNewDomainInput('');
+    }
+  };
+
+  const handleRemoveDomain = (domain: string) => {
+    const success = removeAllowedDomain(domain);
+    if (success) {
+      addAuditLog('domain_removed', 'user', domain, domain);
+    }
   };
 
   const filteredPosts = useMemo(() => {
@@ -1392,6 +1425,65 @@ export default function Admin() {
               )}
             </tbody>
           </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderUniversities = () => (
+    <Card className="border-white/10 bg-card/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Building className="w-5 h-5" />
+          {tr.allowedDomains}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Add Domain Form */}
+          <div className="flex gap-2 flex-wrap">
+            <Input
+              value={newDomainInput}
+              onChange={(e) => setNewDomainInput(e.target.value)}
+              placeholder={tr.domainPlaceholder}
+              className={`flex-1 min-w-48 bg-background/50 border-white/10 ${isRTL ? 'text-right' : 'text-left'}`}
+              data-testid="input-new-domain"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddDomain()}
+            />
+            <Button onClick={handleAddDomain} data-testid="button-add-domain">
+              <Plus className="w-4 h-4 me-2" />
+              {tr.addDomain}
+            </Button>
+          </div>
+
+          {/* Domain List */}
+          <div className="space-y-2">
+            {allowedDomains.map(domain => (
+              <div 
+                key={domain} 
+                className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10"
+              >
+                <div className="flex items-center gap-3">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{domain}</span>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => handleRemoveDomain(domain)}
+                  className="text-red-400"
+                  disabled={allowedDomains.length <= 1}
+                  data-testid={`button-remove-domain-${domain}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {allowedDomains.length <= 1 && (
+            <p className="text-xs text-muted-foreground">{tr.cannotRemoveLast}</p>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -2161,6 +2253,7 @@ export default function Admin() {
                 {activeTab === 'users' && renderUsers()}
                 {activeTab === 'content' && renderContent()}
                 {activeTab === 'reports' && renderReports()}
+                {activeTab === 'universities' && renderUniversities()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>
             </AnimatePresence>

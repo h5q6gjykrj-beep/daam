@@ -29,8 +29,11 @@ const KEYS = {
   ACCOUNTS: 'daam_accounts',
   PENDING_VERIFICATION: 'daam_pending_verification',
   REPORTS: 'daam_reports_v1',
-  REPORTS_OLD: 'daam_reports'
+  REPORTS_OLD: 'daam_reports',
+  ALLOWED_DOMAINS: 'daam_allowed_domains_v1'
 };
+
+const DEFAULT_ALLOWED_DOMAINS = ['utas.edu.om'];
 
 export type ReportReason = 'spam' | 'harassment' | 'hate' | 'impersonation' | 'inappropriate' | 'other';
 export type ReportTargetType = 'post' | 'comment' | 'user';
@@ -167,6 +170,10 @@ interface DaamStoreContextType {
   reports: Report[];
   submitReport: (targetType: ReportTargetType, targetId: string, targetTitle: string, reason: ReportReason, note?: string) => void;
   updateReportStatus: (reportId: string, status: ReportStatus, resolutionReason?: string) => void;
+  allowedDomains: string[];
+  addAllowedDomain: (domain: string) => boolean;
+  removeAllowedDomain: (domain: string) => boolean;
+  isEmailDomainAllowed: (email: string) => boolean;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -192,6 +199,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Record<string, UserAccount>>({});
   const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [allowedDomains, setAllowedDomains] = useState<string[]>(DEFAULT_ALLOWED_DOMAINS);
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize from localStorage
@@ -202,6 +210,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const storedProfiles = localStorage.getItem(KEYS.PROFILES);
     const storedAccounts = localStorage.getItem(KEYS.ACCOUNTS);
     const storedPendingVerification = localStorage.getItem(KEYS.PENDING_VERIFICATION);
+    const storedAllowedDomains = localStorage.getItem(KEYS.ALLOWED_DOMAINS);
 
     if (storedProfiles) {
       try {
@@ -400,6 +409,18 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
       localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
     }
+
+    // Load allowed domains from localStorage
+    if (storedAllowedDomains) {
+      try {
+        const parsedDomains = JSON.parse(storedAllowedDomains);
+        if (Array.isArray(parsedDomains) && parsedDomains.length > 0) {
+          setAllowedDomains(parsedDomains);
+        }
+      } catch (e) {
+        console.error("Failed to parse allowed domains", e);
+      }
+    }
     
     setIsLoading(false);
   }, []);
@@ -472,15 +493,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
     }
     
-    // Validate email domain
+    // Validate email domain against allowed domains
     const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
-    const isUniversityEmail = data.email.endsWith('@utas.edu.om');
+    const emailDomain = emailLower.split('@')[1];
+    const isDomainAllowed = emailDomain && allowedDomains.includes(emailDomain);
     
-    if (!isModerator && !isUniversityEmail) {
-      throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي صحيح @utas.edu.om' : 'Please use a valid @utas.edu.om email');
+    if (!isModerator && !isDomainAllowed) {
+      throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي معتمد' : 'Please use an approved university email');
     }
     
-    // Reject other hotmail emails
+    // Reject other hotmail emails (unless moderator)
     if (!isModerator && data.email.toLowerCase().includes('@hotmail.')) {
       throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
     }
@@ -901,6 +923,43 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
   }, [reports]);
 
+  // Domain management functions
+  const addAllowedDomain = useCallback((domain: string): boolean => {
+    const normalized = domain.toLowerCase().trim().replace(/^@/, '');
+    if (!normalized || !/^[a-z0-9]+([\-.][a-z0-9]+)*\.[a-z]{2,}$/i.test(normalized)) {
+      return false; // Invalid format
+    }
+    if (allowedDomains.includes(normalized)) {
+      return false; // Already exists
+    }
+    const updated = [...allowedDomains, normalized];
+    setAllowedDomains(updated);
+    localStorage.setItem(KEYS.ALLOWED_DOMAINS, JSON.stringify(updated));
+    return true;
+  }, [allowedDomains]);
+
+  const removeAllowedDomain = useCallback((domain: string): boolean => {
+    const normalized = domain.toLowerCase().trim();
+    if (!allowedDomains.includes(normalized)) {
+      return false;
+    }
+    if (allowedDomains.length <= 1) {
+      return false; // Cannot remove last domain
+    }
+    const updated = allowedDomains.filter(d => d !== normalized);
+    setAllowedDomains(updated);
+    localStorage.setItem(KEYS.ALLOWED_DOMAINS, JSON.stringify(updated));
+    return true;
+  }, [allowedDomains]);
+
+  const isEmailDomainAllowed = useCallback((email: string): boolean => {
+    const domain = email.toLowerCase().split('@')[1];
+    if (!domain) return false;
+    // Always allow moderator email
+    if (email.toLowerCase() === MODERATOR_EMAIL.toLowerCase()) return true;
+    return allowedDomains.includes(domain);
+  }, [allowedDomains]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -935,7 +994,11 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     editReply,
     reports,
     submitReport,
-    updateReportStatus
+    updateReportStatus,
+    allowedDomains,
+    addAllowedDomain,
+    removeAllowedDomain,
+    isEmailDomainAllowed
   };
 
   return (

@@ -147,7 +147,7 @@ export default function Register() {
     name: lang === 'ar' ? 'الاسم الكامل' : 'Full Name',
     namePlaceholder: lang === 'ar' ? 'اسمك الكامل' : 'Your full name',
     email: lang === 'ar' ? 'البريد الإلكتروني' : 'Email',
-    emailPlaceholder: lang === 'ar' ? 'البريد الجامعي (@utas.edu.om)' : 'University Email (@utas.edu.om)',
+    emailPlaceholder: lang === 'ar' ? 'البريد الجامعي' : 'University Email',
     password: lang === 'ar' ? 'كلمة المرور' : 'Password',
     confirmPassword: lang === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password',
     phone: lang === 'ar' ? 'رقم الهاتف' : 'Phone Number',
