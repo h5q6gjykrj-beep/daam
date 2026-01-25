@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
 type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
-type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed';
+type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed';
 
 interface AdminUser {
   id: string;
@@ -74,6 +74,7 @@ interface Report {
   reporterEmail: string;
   status: ReportStatus;
   createdAt: string;
+  resolutionReason?: string;
 }
 
 interface AuditLogEntry {
@@ -131,8 +132,15 @@ export default function Admin() {
   const [comments, setComments] = useState<AdminComment[]>(initialComments);
   const [files, setFiles] = useState<AdminFile[]>(initialFiles);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [localDemoReports, setLocalDemoReports] = useState<Report[]>(initialReports);
   
-  // Merge store reports with initial demo reports for display
+  const [reasonModalOpen, setReasonModalOpen] = useState(false);
+  const [reasonModalAction, setReasonModalAction] = useState<{ reportId: string; targetStatus: ReportStatus } | null>(null);
+  const [actionReason, setActionReason] = useState('');
+  const [editStatusMode, setEditStatusMode] = useState(false);
+  const [selectedEditStatus, setSelectedEditStatus] = useState<ReportStatus>('open');
+  
+  // Merge store reports with local demo reports for display
   const reports: Report[] = useMemo(() => {
     const storeReportsMapped: Report[] = storeReports.map(r => ({
       id: r.id,
@@ -143,11 +151,12 @@ export default function Admin() {
       reporter: r.reporter,
       reporterEmail: r.reporterEmail,
       status: r.status,
-      createdAt: r.createdAt
+      createdAt: r.createdAt,
+      resolutionReason: (r as any).resolutionReason
     }));
-    // Combine store reports (new) with initial demo reports
-    return [...storeReportsMapped, ...initialReports.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
-  }, [storeReports]);
+    // Combine store reports (new) with local demo reports
+    return [...storeReportsMapped, ...localDemoReports.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
+  }, [storeReports, localDemoReports]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -210,6 +219,22 @@ export default function Admin() {
     delete: lang === 'ar' ? 'حذف' : 'Delete',
     resolve: lang === 'ar' ? 'حل' : 'Resolve',
     dismiss: lang === 'ar' ? 'رفض' : 'Dismiss',
+    reopen: lang === 'ar' ? 'إعادة فتح' : 'Reopen',
+    editStatus: lang === 'ar' ? 'تعديل الحالة' : 'Edit Status',
+    changeStatus: lang === 'ar' ? 'تغيير الحالة' : 'Change Status',
+    selectStatus: lang === 'ar' ? 'اختر الحالة' : 'Select Status',
+    reasonRequired: lang === 'ar' ? 'السبب مطلوب' : 'Reason is required',
+    enterReason: lang === 'ar' ? 'أدخل السبب...' : 'Enter reason...',
+    reasonForAction: lang === 'ar' ? 'سبب الإجراء' : 'Reason for Action',
+    confirm: lang === 'ar' ? 'تأكيد' : 'Confirm',
+    cancel: lang === 'ar' ? 'إلغاء' : 'Cancel',
+    save: lang === 'ar' ? 'حفظ' : 'Save',
+    reportDetails: lang === 'ar' ? 'تفاصيل البلاغ' : 'Report Details',
+    resolutionReason: lang === 'ar' ? 'سبب القرار' : 'Resolution Reason',
+    targetTypePost: lang === 'ar' ? 'منشور' : 'Post',
+    targetTypeComment: lang === 'ar' ? 'تعليق' : 'Comment',
+    targetTypeUser: lang === 'ar' ? 'مستخدم' : 'User',
+    openReports: lang === 'ar' ? 'البلاغات المفتوحة' : 'Open Reports',
     viewDetails: lang === 'ar' ? 'عرض التفاصيل' : 'View Details',
     close: lang === 'ar' ? 'إغلاق' : 'Close',
     totalUsers: lang === 'ar' ? 'إجمالي المستخدمين' : 'Total Users',
@@ -254,6 +279,8 @@ export default function Admin() {
       file_deleted: lang === 'ar' ? 'حذف ملف' : 'File Deleted',
       report_resolved: lang === 'ar' ? 'حل بلاغ' : 'Report Resolved',
       report_dismissed: lang === 'ar' ? 'رفض بلاغ' : 'Report Dismissed',
+      report_reopened: lang === 'ar' ? 'إعادة فتح بلاغ' : 'Report Reopened',
+      report_status_changed: lang === 'ar' ? 'تغيير حالة بلاغ' : 'Report Status Changed',
     }
   };
 
@@ -316,19 +343,77 @@ export default function Admin() {
     }
   };
 
-  const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss') => {
+  const openReasonModal = (reportId: string, targetStatus: ReportStatus) => {
+    setReasonModalAction({ reportId, targetStatus });
+    setActionReason('');
+    setReasonModalOpen(true);
+  };
+
+  const executeReportStatusChange = (reportId: string, newStatus: ReportStatus, reason?: string) => {
     const report = reports.find(r => r.id === reportId);
-    if (report) {
-      const newStatus: StoreReportStatus = action === 'resolve' ? 'resolved' : 'dismissed';
-      const actionType: ActionType = action === 'resolve' ? 'report_resolved' : 'report_dismissed';
-      addAuditLog(actionType, 'report', report.id, report.targetTitle);
-      // Update in store (persists to localStorage)
-      if (reportId.startsWith('report-')) {
-        // This is a store report, update via store
-        updateReportStatus(reportId, newStatus);
-      }
-      // Note: Demo reports (r1, r2, r3) are read-only placeholders
+    if (!report) return;
+    
+    const oldStatus = report.status;
+    let actionType: ActionType;
+    
+    if (newStatus === 'resolved') {
+      actionType = 'report_resolved';
+    } else if (newStatus === 'dismissed') {
+      actionType = 'report_dismissed';
+    } else if (newStatus === 'open' && (oldStatus === 'resolved' || oldStatus === 'dismissed')) {
+      actionType = 'report_reopened';
+    } else {
+      actionType = 'report_status_changed';
     }
+    
+    const details = reason ? `${oldStatus} → ${newStatus}: ${reason}` : `${oldStatus} → ${newStatus}`;
+    addAuditLog(actionType, 'report', report.id, report.targetTitle, details);
+    
+    if (reportId.startsWith('report-')) {
+      updateReportStatus(reportId, newStatus, reason);
+    } else {
+      setLocalDemoReports(prev => prev.map(r => 
+        r.id === reportId 
+          ? { ...r, status: newStatus, resolutionReason: reason } 
+          : r
+      ));
+    }
+  };
+
+  const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss' | 'reopen') => {
+    if (action === 'reopen') {
+      executeReportStatusChange(reportId, 'open');
+    } else {
+      const targetStatus: ReportStatus = action === 'resolve' ? 'resolved' : 'dismissed';
+      openReasonModal(reportId, targetStatus);
+    }
+  };
+
+  const confirmReasonModal = () => {
+    if (!reasonModalAction) return;
+    const { reportId, targetStatus } = reasonModalAction;
+    
+    if ((targetStatus === 'resolved' || targetStatus === 'dismissed') && !actionReason.trim()) {
+      return;
+    }
+    
+    executeReportStatusChange(reportId, targetStatus, actionReason.trim() || undefined);
+    setReasonModalOpen(false);
+    setReasonModalAction(null);
+    setActionReason('');
+  };
+
+  const handleEditStatusSubmit = () => {
+    if (!selectedItem) return;
+    
+    if ((selectedEditStatus === 'resolved' || selectedEditStatus === 'dismissed') && !actionReason.trim()) {
+      return;
+    }
+    
+    executeReportStatusChange(selectedItem.id, selectedEditStatus, actionReason.trim() || undefined);
+    setEditStatusMode(false);
+    setActionReason('');
+    setDetailModalOpen(false);
   };
 
   const openDetailModal = (item: any, type: string) => {
@@ -877,7 +962,7 @@ export default function Admin() {
                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(r, 'report')} data-testid={`button-view-report-${r.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {r.status === 'open' && (
+                        {(r.status === 'open' || r.status === 'in_review') && (
                           <>
                             <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'resolve')} className="text-green-400" data-testid={`button-resolve-report-${r.id}`}>
                               <CheckCircle className="w-4 h-4" />
@@ -886,6 +971,11 @@ export default function Admin() {
                               <XCircle className="w-4 h-4" />
                             </Button>
                           </>
+                        )}
+                        {(r.status === 'resolved' || r.status === 'dismissed') && (
+                          <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'reopen')} className="text-amber-400" data-testid={`button-reopen-report-${r.id}`}>
+                            <AlertTriangle className="w-4 h-4" />
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -1166,7 +1256,7 @@ export default function Admin() {
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">{tr.type}</p>
                       <Badge variant="outline">
-                        {selectedItem.targetType === 'post' ? tr.posts : selectedItem.targetType === 'comment' ? tr.comments : tr.users}
+                        {selectedItem.targetType === 'post' ? tr.targetTypePost : selectedItem.targetType === 'comment' ? tr.targetTypeComment : tr.targetTypeUser}
                       </Badge>
                     </div>
                     <div>
@@ -1182,15 +1272,73 @@ export default function Admin() {
                       <p>{selectedItem.createdAt}</p>
                     </div>
                   </div>
+                  {selectedItem.resolutionReason && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">{tr.resolutionReason}</p>
+                      <p className="font-medium p-3 bg-white/5 rounded-lg">{selectedItem.resolutionReason}</p>
+                    </div>
+                  )}
                 </div>
-                {selectedItem.status === 'open' && (
-                  <div className="flex gap-2 pt-4 border-t border-white/10">
-                    <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'resolve'); setDetailModalOpen(false); }} className="text-green-400 border-green-500/30">
-                      <CheckCircle className="w-4 h-4 me-2" /> {tr.resolve}
+                
+                {editStatusMode ? (
+                  <div className="space-y-3 pt-4 border-t border-white/10">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">{tr.selectStatus}</p>
+                      <Select value={selectedEditStatus} onValueChange={(v) => setSelectedEditStatus(v as ReportStatus)}>
+                        <SelectTrigger data-testid="select-edit-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">{tr.open}</SelectItem>
+                          <SelectItem value="in_review">{tr.in_review}</SelectItem>
+                          <SelectItem value="resolved">{tr.resolved}</SelectItem>
+                          <SelectItem value="dismissed">{tr.dismissed}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(selectedEditStatus === 'resolved' || selectedEditStatus === 'dismissed') && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">{tr.reasonForAction} *</p>
+                        <Input 
+                          value={actionReason} 
+                          onChange={(e) => setActionReason(e.target.value)}
+                          placeholder={tr.enterReason}
+                          data-testid="input-action-reason"
+                        />
+                        {!actionReason.trim() && (
+                          <p className="text-xs text-red-400 mt-1">{tr.reasonRequired}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={handleEditStatusSubmit} disabled={(selectedEditStatus === 'resolved' || selectedEditStatus === 'dismissed') && !actionReason.trim()} data-testid="button-save-status">
+                        {tr.save}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditStatusMode(false); setActionReason(''); }} data-testid="button-cancel-edit">
+                        {tr.cancel}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedEditStatus(selectedItem.status); setEditStatusMode(true); }} data-testid="button-edit-status">
+                      {tr.editStatus}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'dismiss'); setDetailModalOpen(false); }} className="text-gray-400 border-gray-500/30">
-                      <XCircle className="w-4 h-4 me-2" /> {tr.dismiss}
-                    </Button>
+                    {(selectedItem.status === 'open' || selectedItem.status === 'in_review') && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'resolve')} className="text-green-400 border-green-500/30" data-testid="button-modal-resolve">
+                          <CheckCircle className="w-4 h-4 me-2" /> {tr.resolve}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'dismiss')} className="text-gray-400 border-gray-500/30" data-testid="button-modal-dismiss">
+                          <XCircle className="w-4 h-4 me-2" /> {tr.dismiss}
+                        </Button>
+                      </>
+                    )}
+                    {(selectedItem.status === 'resolved' || selectedItem.status === 'dismissed') && (
+                      <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'reopen'); setDetailModalOpen(false); }} className="text-amber-400 border-amber-500/30" data-testid="button-modal-reopen">
+                        <AlertTriangle className="w-4 h-4 me-2" /> {tr.reopen}
+                      </Button>
+                    )}
                   </div>
                 )}
               </>
@@ -1270,6 +1418,38 @@ export default function Admin() {
       </motion.div>
 
       {renderDetailModal()}
+      
+      <Dialog open={reasonModalOpen} onOpenChange={(open) => { if (!open) { setReasonModalOpen(false); setReasonModalAction(null); setActionReason(''); } }}>
+        <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>{tr.reasonForAction}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                {reasonModalAction?.targetStatus === 'resolved' ? tr.resolve : tr.dismiss}
+              </p>
+              <Input 
+                value={actionReason} 
+                onChange={(e) => setActionReason(e.target.value)}
+                placeholder={tr.enterReason}
+                data-testid="input-reason-modal"
+              />
+              {!actionReason.trim() && (
+                <p className="text-xs text-red-400 mt-1">{tr.reasonRequired}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => { setReasonModalOpen(false); setReasonModalAction(null); setActionReason(''); }} data-testid="button-reason-cancel">
+              {tr.cancel}
+            </Button>
+            <Button onClick={confirmReasonModal} disabled={!actionReason.trim()} data-testid="button-reason-confirm">
+              {tr.confirm}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

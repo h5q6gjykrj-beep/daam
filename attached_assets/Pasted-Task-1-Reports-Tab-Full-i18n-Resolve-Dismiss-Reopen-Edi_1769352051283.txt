@@ -1,0 +1,51 @@
+Task 1 — Reports Tab: Full i18n + Resolve/Dismiss/Reopen + Edit Status + Audit Log
+
+Allowed files (STRICT):
+- client/src/pages/admin.tsx ONLY
+Do NOT touch store or other pages.
+
+Goal:
+1) Reports tab fully translates to EN/AR (including table headers, filters, badges, modal text, empty states).
+2) Implement professional report workflow:
+   status: open | in_review | resolved | dismissed
+   actions: Resolve, Dismiss, Reopen, Edit status
+   with mandatory reason when resolving/dismissing.
+3) Every action writes an AuditLogEntry and appears in Audit Log tab immediately.
+
+Requirements:
+A) i18n:
+- Create/extend `tr` object in admin.tsx to include ALL strings used in Reports UI.
+- Remove any hardcoded Arabic/English strings in Reports.
+- When lang='en' => 0 Arabic strings visible in Reports.
+- When lang='ar' => 0 English strings visible in Reports.
+
+B) Workflow:
+- In Reports table:
+  - For status=open or in_review: show buttons Resolve + Dismiss.
+  - For status=resolved or dismissed: show button Reopen.
+  - Also provide "View details" to open a Modal.
+- In Modal:
+  - Show report details.
+  - Provide "Edit status" dropdown with the 4 statuses.
+  - If target status is resolved/dismissed => reason is mandatory (input required).
+  - Reopen reason optional.
+- Update report state locally inside admin.tsx (it already reads from store; use store update function if available, otherwise local state in admin must reflect changes immediately).
+  Important: do not break existing reading from store.
+
+C) Audit Log:
+- On every report status change, append AuditLogEntry:
+  action, reportId, fromStatus, toStatus, timestamp, reason
+- Ensure it displays in Audit Log tab.
+
+Acceptance Criteria (must pass):
+- AC1: Switch to EN -> Reports tab fully English (headers/filters/buttons/badges/modal).
+- AC2: Switch to AR -> Reports tab fully Arabic.
+- AC3: Resolve changes status immediately + logs entry + saves reason.
+- AC4: Dismiss same.
+- AC5: Reopen works + logs entry.
+- AC6: Edit status enforces mandatory reason for resolved/dismissed (cannot save without it).
+- AC7: No regression: existing tables still render, RTL/LTR still correct.
+
+After completion:
+- Describe exactly what you changed in admin.tsx.
+- Provide quick manual test steps.
