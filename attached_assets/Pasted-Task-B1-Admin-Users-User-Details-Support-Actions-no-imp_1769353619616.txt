@@ -1,0 +1,59 @@
+Task B1 — Admin Users: User Details + Support Actions (no impersonation)
+
+Allowed files (STRICT):
+- client/src/pages/admin.tsx ONLY
+No routing/store changes, no new libraries.
+
+Goal:
+Add a professional "User Details" view for support/moderation WITHOUT logging in as the user.
+
+Requirements:
+
+A) Users tab upgrades:
+1) In Users table, add a "View" action that opens a Drawer/Modal: User Details.
+2) Ensure full AR/EN i18n for all new UI strings via `tr`.
+
+B) User Details Drawer/Modal must include sections:
+
+1) Account:
+- Email, display name (if exists), university/domain (if available), createdAt, lastActive (placeholder ok)
+- Status badge: active | suspended | banned
+
+2) Support Actions (safe actions only):
+- Suspend / Unsuspend
+- Ban / Unban
+- Force logout (UI only; since no backend, just log action + mark flag on user)
+- Reset user settings (UI only; log action + mark flag)
+
+All actions must:
+- Update UI immediately (local state used in admin.tsx)
+- Create an AuditLogEntry
+
+3) Activity (read-only):
+- List user’s recent public activity:
+  - Posts (count + last items placeholder ok)
+  - Comments (count + last items placeholder ok)
+  - Reports involving this user (as target or author) (read from existing reports list where possible)
+This section MUST NOT show private messages.
+
+4) Moderation History:
+- Show log entries from Audit Log that involve this user (filter audit log by user email/id).
+
+5) Admin Notes (internal):
+- A simple notes list tied to this user (local state in admin.tsx is enough).
+- Add note button + timestamp + admin name "Super Admin" (placeholder).
+- Notes are not visible to normal users (admin-only UI).
+
+C) i18n Acceptance:
+- Switch to EN: all User Details strings are English (0 Arabic strings inside this feature).
+- Switch to AR: all strings Arabic.
+
+Acceptance Criteria:
+- AC1: Clicking View opens User Details with the 5 sections above.
+- AC2: Suspend/Ban toggles update status immediately and create Audit Log entries.
+- AC3: Notes can be added, displayed per user, and do not leak outside admin.
+- AC4: AR/EN complete.
+
+After completion:
+- Summarize what was added in Users tab.
+- Provide exact manual test steps.

@@ -9,16 +9,25 @@ import { useDaamStore, type Report as StoreReport, type ReportStatus as StoreRep
 import { 
   Users, MessageSquare, FileText, Flag, ClipboardList, LayoutDashboard,
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
-  User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle
+  User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
+  LogOut, RotateCcw, StickyNote, Plus, Activity, History
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
 type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
-type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended';
+type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended';
 type ReportPriority = 'low' | 'medium' | 'high';
 type ReportSortOption = 'newest' | 'oldest' | 'priority';
+
+interface AdminNote {
+  id: string;
+  userEmail: string;
+  note: string;
+  addedBy: string;
+  addedAt: string;
+}
 
 interface AdminUser {
   id: string;
@@ -29,6 +38,10 @@ interface AdminUser {
   joinedAt: string;
   postsCount: number;
   commentsCount: number;
+  university?: string;
+  lastActive?: string;
+  forceLogoutFlag?: boolean;
+  settingsResetFlag?: boolean;
 }
 
 interface AdminPost {
@@ -195,6 +208,13 @@ export default function Admin() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailType, setDetailType] = useState<string>('');
+  
+  // User Details state
+  const [userDetailModalOpen, setUserDetailModalOpen] = useState(false);
+  const [selectedUserDetail, setSelectedUserDetail] = useState<AdminUser | null>(null);
+  const [userDetailTab, setUserDetailTab] = useState<'account' | 'actions' | 'activity' | 'moderation' | 'notes'>('account');
+  const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]);
+  const [newNoteText, setNewNoteText] = useState('');
 
   const isRTL = lang === 'ar';
   const currentUser = user?.email || 'admin@utas.edu.om';
@@ -300,6 +320,10 @@ export default function Admin() {
       user_suspended: lang === 'ar' ? 'إيقاف مستخدم' : 'User Suspended',
       user_banned: lang === 'ar' ? 'حظر مستخدم' : 'User Banned',
       user_activated: lang === 'ar' ? 'تفعيل مستخدم' : 'User Activated',
+      user_unsuspended: lang === 'ar' ? 'إلغاء إيقاف مستخدم' : 'User Unsuspended',
+      user_unbanned: lang === 'ar' ? 'إلغاء حظر مستخدم' : 'User Unbanned',
+      user_force_logout: lang === 'ar' ? 'تسجيل خروج إجباري' : 'Force Logout',
+      user_settings_reset: lang === 'ar' ? 'إعادة تعيين الإعدادات' : 'Settings Reset',
       post_hidden: lang === 'ar' ? 'إخفاء منشور' : 'Post Hidden',
       post_deleted: lang === 'ar' ? 'حذف منشور' : 'Post Deleted',
       post_restored: lang === 'ar' ? 'استعادة منشور' : 'Post Restored',
@@ -326,6 +350,34 @@ export default function Admin() {
     // Sort options
     sortBy: lang === 'ar' ? 'ترتيب حسب' : 'Sort by',
     highestPriority: lang === 'ar' ? 'الأعلى أولوية' : 'Highest Priority',
+    // User Details translations
+    userDetails: lang === 'ar' ? 'تفاصيل المستخدم' : 'User Details',
+    accountInfo: lang === 'ar' ? 'معلومات الحساب' : 'Account',
+    supportActions: lang === 'ar' ? 'إجراءات الدعم' : 'Support Actions',
+    activityTab: lang === 'ar' ? 'النشاط' : 'Activity',
+    moderationHistory: lang === 'ar' ? 'سجل الإشراف' : 'Moderation History',
+    adminNotes: lang === 'ar' ? 'ملاحظات الإدارة' : 'Admin Notes',
+    displayName: lang === 'ar' ? 'الاسم المعروض' : 'Display Name',
+    university: lang === 'ar' ? 'الجامعة' : 'University',
+    lastActive: lang === 'ar' ? 'آخر نشاط' : 'Last Active',
+    unsuspend: lang === 'ar' ? 'إلغاء الإيقاف' : 'Unsuspend',
+    unban: lang === 'ar' ? 'إلغاء الحظر' : 'Unban',
+    forceLogout: lang === 'ar' ? 'تسجيل خروج إجباري' : 'Force Logout',
+    resetSettings: lang === 'ar' ? 'إعادة تعيين الإعدادات' : 'Reset Settings',
+    recentPosts: lang === 'ar' ? 'المنشورات الأخيرة' : 'Recent Posts',
+    recentComments: lang === 'ar' ? 'التعليقات الأخيرة' : 'Recent Comments',
+    relatedReports: lang === 'ar' ? 'البلاغات المتعلقة' : 'Related Reports',
+    noActivity: lang === 'ar' ? 'لا يوجد نشاط' : 'No activity',
+    noModerationHistory: lang === 'ar' ? 'لا يوجد سجل إشراف' : 'No moderation history',
+    noNotes: lang === 'ar' ? 'لا توجد ملاحظات' : 'No notes',
+    addNote: lang === 'ar' ? 'إضافة ملاحظة' : 'Add Note',
+    noteAdded: lang === 'ar' ? 'تمت إضافة الملاحظة' : 'Note added',
+    superAdmin: lang === 'ar' ? 'المشرف العام' : 'Super Admin',
+    forceLogoutMarked: lang === 'ar' ? 'تم وضع علامة تسجيل الخروج الإجباري' : 'Force logout flag set',
+    settingsResetMarked: lang === 'ar' ? 'تم وضع علامة إعادة التعيين' : 'Settings reset flag set',
+    asTarget: lang === 'ar' ? 'كهدف' : 'As Target',
+    asAuthor: lang === 'ar' ? 'ككاتب' : 'As Author',
+    enterNote: lang === 'ar' ? 'أدخل ملاحظة...' : 'Enter note...',
   };
 
   const navItems = [
@@ -485,6 +537,106 @@ export default function Admin() {
       r.id === reportId ? { ...r, userAction: 'suspended' as const } : r
     ));
   };
+
+  // User Details: Open modal
+  const openUserDetail = (user: AdminUser) => {
+    setSelectedUserDetail(user);
+    setUserDetailTab('account');
+    setNewNoteText('');
+    setUserDetailModalOpen(true);
+  };
+
+  // User Details: Support Actions
+  const handleUserDetailAction = (userId: string, action: 'suspend' | 'unsuspend' | 'ban' | 'unban' | 'forceLogout' | 'resetSettings') => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        let newStatus = u.status;
+        let actionType: ActionType;
+        let updatedUser = { ...u };
+        
+        switch (action) {
+          case 'suspend':
+            newStatus = 'suspended';
+            actionType = 'user_suspended';
+            break;
+          case 'unsuspend':
+            newStatus = 'active';
+            actionType = 'user_unsuspended';
+            break;
+          case 'ban':
+            newStatus = 'banned';
+            actionType = 'user_banned';
+            break;
+          case 'unban':
+            newStatus = 'active';
+            actionType = 'user_unbanned';
+            break;
+          case 'forceLogout':
+            actionType = 'user_force_logout';
+            updatedUser.forceLogoutFlag = true;
+            break;
+          case 'resetSettings':
+            actionType = 'user_settings_reset';
+            updatedUser.settingsResetFlag = true;
+            break;
+          default:
+            return u;
+        }
+        
+        addAuditLog(actionType, 'user', u.id, u.name);
+        updatedUser.status = newStatus;
+        
+        // Update selected user detail if open
+        if (selectedUserDetail?.id === userId) {
+          setSelectedUserDetail(updatedUser);
+        }
+        
+        return updatedUser;
+      }
+      return u;
+    }));
+  };
+
+  // User Details: Add admin note
+  const addAdminNote = (userEmail: string) => {
+    if (!newNoteText.trim()) return;
+    
+    const note: AdminNote = {
+      id: `note-${Date.now()}`,
+      userEmail,
+      note: newNoteText.trim(),
+      addedBy: tr.superAdmin,
+      addedAt: new Date().toISOString().split('T')[0]
+    };
+    
+    setAdminNotes(prev => [note, ...prev]);
+    setNewNoteText('');
+  };
+
+  // User Details: Get user's posts
+  const getUserPosts = (userEmail: string) => posts.filter(p => p.authorEmail === userEmail);
+
+  // User Details: Get user's comments
+  const getUserComments = (userEmail: string) => comments.filter(c => c.authorEmail === userEmail);
+
+  // User Details: Get related reports (as target or author)
+  const getUserRelatedReports = (user: AdminUser) => {
+    return reports.filter(r => 
+      (r.targetType === 'user' && r.targetId === user.id) || 
+      r.reporterEmail === user.email ||
+      r.authorEmail === user.email
+    );
+  };
+
+  // User Details: Get moderation history for user
+  const getUserModerationHistory = (user: AdminUser) => {
+    return auditLog.filter(log => 
+      log.targetType === 'user' && (log.targetId === user.id || log.targetName === user.name || log.targetId === user.email)
+    );
+  };
+
+  // User Details: Get notes for user
+  const getUserNotes = (userEmail: string) => adminNotes.filter(n => n.userEmail === userEmail);
 
   const handleEditStatusSubmit = () => {
     if (!selectedItem) return;
@@ -802,7 +954,7 @@ export default function Admin() {
                     <td className="p-3 text-muted-foreground">{u.joinedAt}</td>
                     <td className="p-3">
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openDetailModal(u, 'user')} data-testid={`button-view-user-${u.id}`}>
+                        <Button size="sm" variant="ghost" onClick={() => openUserDetail(u)} data-testid={`button-view-user-${u.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
                         {u.status === 'active' && (
@@ -1560,6 +1712,314 @@ export default function Admin() {
     );
   };
 
+  // User Details Modal
+  const renderUserDetailModal = () => {
+    if (!selectedUserDetail) return null;
+    
+    const userPosts = getUserPosts(selectedUserDetail.email);
+    const userComments = getUserComments(selectedUserDetail.email);
+    const relatedReports = getUserRelatedReports(selectedUserDetail);
+    const moderationHistory = getUserModerationHistory(selectedUserDetail);
+    const userNotes = getUserNotes(selectedUserDetail.email);
+
+    const tabs = [
+      { id: 'account', label: tr.accountInfo, icon: UserIcon },
+      { id: 'actions', label: tr.supportActions, icon: Shield },
+      { id: 'activity', label: tr.activityTab, icon: Activity },
+      { id: 'moderation', label: tr.moderationHistory, icon: History },
+      { id: 'notes', label: tr.adminNotes, icon: StickyNote },
+    ];
+
+    return (
+      <Dialog open={userDetailModalOpen} onOpenChange={setUserDetailModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserIcon className="w-5 h-5" />
+              {tr.userDetails}: {selectedUserDetail.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Tab Navigation */}
+          <div className="flex gap-1 overflow-x-auto border-b border-white/10 pb-2">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setUserDetailTab(tab.id as typeof userDetailTab)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${
+                  userDetailTab === tab.id
+                    ? 'bg-primary/20 text-primary'
+                    : 'hover:bg-white/5 text-muted-foreground'
+                }`}
+                data-testid={`tab-user-detail-${tab.id}`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto py-4">
+            {/* Account Tab */}
+            {userDetailTab === 'account' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.email}</p>
+                    <p className="font-medium">{selectedUserDetail.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.displayName}</p>
+                    <p className="font-medium">{selectedUserDetail.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.university}</p>
+                    <p className="font-medium">{selectedUserDetail.university || selectedUserDetail.email.split('@')[1] || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.joinedAt}</p>
+                    <p className="font-medium">{selectedUserDetail.joinedAt}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.lastActive}</p>
+                    <p className="font-medium">{selectedUserDetail.lastActive || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.status}</p>
+                    {getStatusBadge(selectedUserDetail.status, 'user')}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.role}</p>
+                    <Badge variant="outline" className={selectedUserDetail.role === 'moderator' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : ''}>
+                      {selectedUserDetail.role === 'moderator' ? tr.moderator : tr.user}
+                    </Badge>
+                  </div>
+                </div>
+                {/* Flags */}
+                {(selectedUserDetail.forceLogoutFlag || selectedUserDetail.settingsResetFlag) && (
+                  <div className="p-3 bg-white/5 rounded-lg space-y-1">
+                    {selectedUserDetail.forceLogoutFlag && (
+                      <p className="text-sm text-amber-400">{tr.forceLogoutMarked}</p>
+                    )}
+                    {selectedUserDetail.settingsResetFlag && (
+                      <p className="text-sm text-purple-400">{tr.settingsResetMarked}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Support Actions Tab */}
+            {userDetailTab === 'actions' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Suspend / Unsuspend */}
+                  {selectedUserDetail.status === 'active' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleUserDetailAction(selectedUserDetail.id, 'suspend')}
+                      className="text-amber-400 border-amber-500/30"
+                      data-testid="button-detail-suspend"
+                    >
+                      <Ban className="w-4 h-4 me-2" /> {tr.suspend}
+                    </Button>
+                  )}
+                  {selectedUserDetail.status === 'suspended' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleUserDetailAction(selectedUserDetail.id, 'unsuspend')}
+                      className="text-green-400 border-green-500/30"
+                      data-testid="button-detail-unsuspend"
+                    >
+                      <CheckCircle className="w-4 h-4 me-2" /> {tr.unsuspend}
+                    </Button>
+                  )}
+                  
+                  {/* Ban / Unban */}
+                  {selectedUserDetail.status !== 'banned' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleUserDetailAction(selectedUserDetail.id, 'ban')}
+                      className="text-red-400 border-red-500/30"
+                      data-testid="button-detail-ban"
+                    >
+                      <XCircle className="w-4 h-4 me-2" /> {tr.ban}
+                    </Button>
+                  )}
+                  {selectedUserDetail.status === 'banned' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleUserDetailAction(selectedUserDetail.id, 'unban')}
+                      className="text-green-400 border-green-500/30"
+                      data-testid="button-detail-unban"
+                    >
+                      <CheckCircle className="w-4 h-4 me-2" /> {tr.unban}
+                    </Button>
+                  )}
+                  
+                  {/* Force Logout */}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleUserDetailAction(selectedUserDetail.id, 'forceLogout')}
+                    className="text-orange-400 border-orange-500/30"
+                    disabled={selectedUserDetail.forceLogoutFlag}
+                    data-testid="button-detail-force-logout"
+                  >
+                    <LogOut className="w-4 h-4 me-2" /> {tr.forceLogout}
+                  </Button>
+                  
+                  {/* Reset Settings */}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleUserDetailAction(selectedUserDetail.id, 'resetSettings')}
+                    className="text-purple-400 border-purple-500/30"
+                    disabled={selectedUserDetail.settingsResetFlag}
+                    data-testid="button-detail-reset-settings"
+                  >
+                    <RotateCcw className="w-4 h-4 me-2" /> {tr.resetSettings}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Activity Tab */}
+            {userDetailTab === 'activity' && (
+              <div className="space-y-4">
+                {/* Recent Posts */}
+                <div>
+                  <p className="text-sm font-medium mb-2">{tr.recentPosts} ({userPosts.length})</p>
+                  {userPosts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{tr.noActivity}</p>
+                  ) : (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {userPosts.slice(0, 5).map(p => (
+                        <div key={p.id} className="p-2 bg-white/5 rounded-lg flex items-center justify-between gap-2">
+                          <span className="text-sm truncate">{p.title}</span>
+                          {getStatusBadge(p.status, 'post')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Recent Comments */}
+                <div>
+                  <p className="text-sm font-medium mb-2">{tr.recentComments} ({userComments.length})</p>
+                  {userComments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{tr.noActivity}</p>
+                  ) : (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {userComments.slice(0, 5).map(c => (
+                        <div key={c.id} className="p-2 bg-white/5 rounded-lg flex items-center justify-between gap-2">
+                          <span className="text-sm truncate">{c.content}</span>
+                          {getStatusBadge(c.status, 'post')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Related Reports */}
+                <div>
+                  <p className="text-sm font-medium mb-2">{tr.relatedReports} ({relatedReports.length})</p>
+                  {relatedReports.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{tr.noActivity}</p>
+                  ) : (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {relatedReports.slice(0, 5).map(r => (
+                        <div key={r.id} className="p-2 bg-white/5 rounded-lg flex items-center justify-between gap-2">
+                          <span className="text-sm truncate">{r.targetTitle}</span>
+                          <div className="flex gap-1">
+                            {getStatusBadge(r.status, 'report')}
+                            <Badge variant="outline" className="text-xs">
+                              {r.targetType === 'user' && r.targetId === selectedUserDetail.id ? tr.asTarget : tr.asAuthor}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Moderation History Tab */}
+            {userDetailTab === 'moderation' && (
+              <div className="space-y-2">
+                {moderationHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">{tr.noModerationHistory}</p>
+                ) : (
+                  moderationHistory.map(log => (
+                    <div key={log.id} className="p-3 bg-white/5 rounded-lg flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {tr.actionLabels[log.action]}
+                        </Badge>
+                        {log.details && (
+                          <span className="text-xs text-muted-foreground truncate max-w-xs">{log.details}</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{log.performedAt}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Admin Notes Tab */}
+            {userDetailTab === 'notes' && (
+              <div className="space-y-4">
+                {/* Add Note */}
+                <div className="flex gap-2">
+                  <Input 
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder={tr.enterNote}
+                    className="flex-1"
+                    data-testid="input-admin-note"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => addAdminNote(selectedUserDetail.email)}
+                    disabled={!newNoteText.trim()}
+                    data-testid="button-add-note"
+                  >
+                    <Plus className="w-4 h-4 me-2" /> {tr.addNote}
+                  </Button>
+                </div>
+                
+                {/* Notes List */}
+                <div className="space-y-2">
+                  {userNotes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">{tr.noNotes}</p>
+                  ) : (
+                    userNotes.map(note => (
+                      <div key={note.id} className="p-3 bg-white/5 rounded-lg">
+                        <p className="text-sm">{note.note}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <span>{note.addedBy}</span>
+                          <span>•</span>
+                          <span>{note.addedAt}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUserDetailModalOpen(false)}>
+              {tr.close}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="min-h-screen pb-20" dir={isRTL ? 'rtl' : 'ltr'} data-testid="admin-page">
       <motion.div
@@ -1623,6 +2083,7 @@ export default function Admin() {
       </motion.div>
 
       {renderDetailModal()}
+      {renderUserDetailModal()}
       
       <Dialog open={reasonModalOpen} onOpenChange={(open) => { if (!open) { setReasonModalOpen(false); setReasonModalAction(null); setActionReason(''); } }}>
         <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
