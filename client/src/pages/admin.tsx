@@ -10,7 +10,7 @@ import {
   Users, MessageSquare, FileText, Flag, ClipboardList, LayoutDashboard,
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
-  LogOut, RotateCcw, StickyNote, Plus, Activity, History
+  LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -204,6 +204,8 @@ export default function Admin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [universityFilter, setUniversityFilter] = useState<string>('all');
+  const [domainFilter, setDomainFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -380,6 +382,9 @@ export default function Admin() {
     asAuthor: lang === 'ar' ? 'ككاتب' : 'As Author',
     enterNote: lang === 'ar' ? 'أدخل ملاحظة...' : 'Enter note...',
     phone: lang === 'ar' ? 'رقم الهاتف' : 'Phone',
+    universityFilter: lang === 'ar' ? 'الجامعة' : 'University',
+    domainFilter: lang === 'ar' ? 'النطاق' : 'Domain',
+    exportCSV: lang === 'ar' ? 'تصدير CSV' : 'Export CSV',
   };
 
   const navItems = [
@@ -659,19 +664,63 @@ export default function Admin() {
     setDetailModalOpen(true);
   };
 
+  // Derived lists for university and domain filters
+  const universityList = useMemo(() => {
+    const unis = new Set<string>();
+    users.forEach(u => {
+      const uni = u.university || u.email.split('@')[1] || '';
+      if (uni) unis.add(uni);
+    });
+    return Array.from(unis).sort();
+  }, [users]);
+
+  const domainList = useMemo(() => {
+    const domains = new Set<string>();
+    users.forEach(u => {
+      const domain = u.email.split('@')[1];
+      if (domain) domains.add(domain);
+    });
+    return Array.from(domains).sort();
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
     return users
       .filter(u => {
         const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               u.email.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const userUniversity = u.university || u.email.split('@')[1] || '';
+        const matchesUniversity = universityFilter === 'all' || userUniversity === universityFilter;
+        const userDomain = u.email.split('@')[1] || '';
+        const matchesDomain = domainFilter === 'all' || userDomain === domainFilter;
+        return matchesSearch && matchesStatus && matchesUniversity && matchesDomain;
       })
       .sort((a, b) => sortOrder === 'desc' ? 
         new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime() :
         new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
       );
-  }, [users, searchQuery, statusFilter, sortOrder]);
+  }, [users, searchQuery, statusFilter, universityFilter, domainFilter, sortOrder]);
+
+  // CSV Export function
+  const exportUsersCSV = () => {
+    const headers = ['email', 'displayName', 'university', 'status', 'role', 'createdAt', 'lastActive'];
+    const rows = filteredUsers.map(u => [
+      u.email,
+      u.name,
+      u.university || u.email.split('@')[1] || '',
+      u.status,
+      u.role,
+      u.joinedAt,
+      u.lastActive || ''
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   const filteredPosts = useMemo(() => {
     return posts
@@ -919,14 +968,45 @@ export default function Admin() {
 
   const renderUsers = () => (
     <Card className="border-white/10 bg-card/50">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
         <CardTitle className="flex items-center gap-2">
           <Users className="w-5 h-5" />
           {tr.users}
         </CardTitle>
+        <Button variant="outline" size="sm" onClick={exportUsersCSV} className="border-white/10" data-testid="button-export-csv">
+          <Download className="w-4 h-4 me-2" />
+          {tr.exportCSV}
+        </Button>
       </CardHeader>
       <CardContent>
         <SearchAndFilters showStatusFilter statusOptions={['active', 'suspended', 'banned']} />
+        {/* Additional Filters: University and Domain */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Select value={universityFilter} onValueChange={setUniversityFilter}>
+            <SelectTrigger className="w-40 bg-background/50 border-white/10" data-testid="select-university-filter">
+              <Building className="w-4 h-4 me-2" />
+              <SelectValue placeholder={tr.universityFilter} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              {universityList.map(uni => (
+                <SelectItem key={uni} value={uni}>{uni}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={domainFilter} onValueChange={setDomainFilter}>
+            <SelectTrigger className="w-40 bg-background/50 border-white/10" data-testid="select-domain-filter">
+              <Globe className="w-4 h-4 me-2" />
+              <SelectValue placeholder={tr.domainFilter} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              {domainList.map(domain => (
+                <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
