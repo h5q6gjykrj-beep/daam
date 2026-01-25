@@ -40,6 +40,7 @@ interface AdminUser {
   commentsCount: number;
   university?: string;
   lastActive?: string;
+  phone?: string;
   forceLogoutFlag?: boolean;
   settingsResetFlag?: boolean;
 }
@@ -108,11 +109,11 @@ interface AuditLogEntry {
 }
 
 const initialUsers: AdminUser[] = [
-  { id: '1', email: 'ahmed@utas.edu.om', name: 'أحمد الحارثي', status: 'active', role: 'user', joinedAt: '2024-01-15', postsCount: 12, commentsCount: 45 },
-  { id: '2', email: 'fatima@utas.edu.om', name: 'فاطمة البلوشي', status: 'active', role: 'user', joinedAt: '2024-02-20', postsCount: 8, commentsCount: 23 },
-  { id: '3', email: 'mohammed@utas.edu.om', name: 'محمد الكندي', status: 'suspended', role: 'user', joinedAt: '2024-03-10', postsCount: 3, commentsCount: 15 },
-  { id: '4', email: 'sara@utas.edu.om', name: 'سارة المعمري', status: 'active', role: 'user', joinedAt: '2024-01-25', postsCount: 20, commentsCount: 67 },
-  { id: '5', email: 'omar@utas.edu.om', name: 'عمر الراشدي', status: 'banned', role: 'user', joinedAt: '2024-04-05', postsCount: 1, commentsCount: 2 },
+  { id: '1', email: 'ahmed@utas.edu.om', name: 'أحمد الحارثي', status: 'active', role: 'user', joinedAt: '2024-01-15', postsCount: 12, commentsCount: 45, phone: '+968 9123 4567', lastActive: '2024-12-20' },
+  { id: '2', email: 'fatima@utas.edu.om', name: 'فاطمة البلوشي', status: 'active', role: 'user', joinedAt: '2024-02-20', postsCount: 8, commentsCount: 23, phone: '+968 9234 5678', lastActive: '2024-12-18' },
+  { id: '3', email: 'mohammed@utas.edu.om', name: 'محمد الكندي', status: 'suspended', role: 'user', joinedAt: '2024-03-10', postsCount: 3, commentsCount: 15, phone: '+968 9345 6789', lastActive: '2024-12-15' },
+  { id: '4', email: 'sara@utas.edu.om', name: 'سارة المعمري', status: 'active', role: 'user', joinedAt: '2024-01-25', postsCount: 20, commentsCount: 67, phone: '+968 9456 7890', lastActive: '2024-12-21' },
+  { id: '5', email: 'omar@utas.edu.om', name: 'عمر الراشدي', status: 'banned', role: 'user', joinedAt: '2024-04-05', postsCount: 1, commentsCount: 2, phone: '+968 9567 8901', lastActive: '2024-11-20' },
   { id: '6', email: 'w.qq89@hotmail.com', name: 'المشرف العام', status: 'active', role: 'moderator', joinedAt: '2024-01-01', postsCount: 5, commentsCount: 100 },
 ];
 
@@ -378,6 +379,7 @@ export default function Admin() {
     asTarget: lang === 'ar' ? 'كهدف' : 'As Target',
     asAuthor: lang === 'ar' ? 'ككاتب' : 'As Author',
     enterNote: lang === 'ar' ? 'أدخل ملاحظة...' : 'Enter note...',
+    phone: lang === 'ar' ? 'رقم الهاتف' : 'Phone',
   };
 
   const navItems = [
@@ -1794,6 +1796,10 @@ export default function Admin() {
                     <Badge variant="outline" className={selectedUserDetail.role === 'moderator' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : ''}>
                       {selectedUserDetail.role === 'moderator' ? tr.moderator : tr.user}
                     </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{tr.phone}</p>
+                    <p className="font-medium">{selectedUserDetail.phone || '-'}</p>
                   </div>
                 </div>
                 {/* Flags */}
