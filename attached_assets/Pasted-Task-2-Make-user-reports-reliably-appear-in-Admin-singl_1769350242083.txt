@@ -1,0 +1,70 @@
+Task 2 — Make user reports reliably appear in Admin (single shared source)
+
+المشكلة / Problem:
+البلاغات تُنشأ من واجهة المستخدم، لكنها لا تظهر بشكل موثوق في لوحة الإدارة،
+أو تختفي بعد Refresh بسبب اعتماد State محلي/مؤقت.
+
+الهدف / Goal:
+أي بلاغ يُنشأ من المستخدم يظهر فورًا في /admin → Reports
+ويبقى موجودًا بعد Refresh (بدون Back-end حاليًا).
+
+النطاق المسموح / Allowed files:
+- client/src/hooks/use-daam-store.ts (or the existing global store)
+- client/src/pages/admin.tsx
+- ملف/ملفات إنشاء البلاغ من الواجهة (Post/Comment report modal ONLY)
+ممنوع / Do NOT:
+- تغيير نظام التوجيه
+- إضافة مكتبات جديدة
+- تعديل admin.tsx خارج منطق قراءة البلاغات
+
+التنفيذ المطلوب / Implementation:
+
+1) Store مشترك للبلاغات / Shared store:
+   أضف في store:
+   - reports: Report[]
+   - addReport(report: Report)
+   - updateReport(id, patch)
+   - hydrateReports()  // تحميل من localStorage
+   - persistReports() // حفظ إلى localStorage
+
+2) LocalStorage (مؤقت واقتصادي):
+   استخدم مفتاح ثابت:
+   - "daam_reports_v1"
+   السلوك:
+   - عند بدء التطبيق: hydrateReports()
+   - عند add/update: persistReports()
+
+3) إنشاء البلاغ من الواجهة / Creating a report:
+   عند إرسال البلاغ من المستخدم:
+   - لا تستخدم local component state
+   - استدعِ store.addReport(...)
+   - بنية Report:
+     {
+       id: string (Date.now() أو uuid),
+       targetType: "post" | "comment" | "user" | "file",
+       targetId: string,
+       reason: string,
+       note?: string,
+       reporterEmail?: string,
+       createdAt: number,
+       status: "open"
+     }
+
+4) Admin → Reports:
+   - اقرأ reports من store فقط (لا placeholder arrays)
+   - عدّاد البلاغات المعلقة يعتمد على status === "open"
+
+معايير القبول / Acceptance Criteria:
+- AC1: إرسال بلاغ من منشور → يظهر فورًا في /admin → Reports بدون Refresh.
+- AC2: Refresh الصفحة → البلاغ يبقى موجودًا.
+- AC3: عدّاد البلاغات المعلقة يتحدّث فورًا.
+- AC4: لا يوجد duplicate state (مصدر واحد فقط).
+
+خطوات الاختبار / Test Steps:
+1) سجّل كمستخدم عادي وأرسل بلاغًا.
+2) سجّل كمشرف وافتح /admin → Reports (يجب أن يظهر البلاغ فورًا).
+3) حدّث الصفحة Refresh (يجب أن يبقى البلاغ).
+
+بعد التنفيذ / After completion:
+- اذكر الملفات التي عُدلت.
+- اشرح أين تم توحيد مصدر البلاغات.
