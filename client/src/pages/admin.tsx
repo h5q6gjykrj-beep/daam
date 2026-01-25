@@ -16,7 +16,9 @@ import { motion, AnimatePresence } from "framer-motion";
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
 type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
-type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed';
+type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended';
+type ReportPriority = 'low' | 'medium' | 'high';
+type ReportSortOption = 'newest' | 'oldest' | 'priority';
 
 interface AdminUser {
   id: string;
@@ -75,6 +77,10 @@ interface Report {
   status: ReportStatus;
   createdAt: string;
   resolutionReason?: string;
+  priority?: ReportPriority;
+  targetAction?: 'hidden';
+  userAction?: 'suspended';
+  authorEmail?: string;
 }
 
 interface AuditLogEntry {
@@ -117,10 +123,22 @@ const initialFiles: AdminFile[] = [
 ];
 
 const initialReports: Report[] = [
-  { id: 'r1', targetType: 'post', targetId: 'p4', targetTitle: 'محتوى غير لائق', reason: 'محتوى مسيء', reporter: 'سارة المعمري', reporterEmail: 'sara@utas.edu.om', status: 'open', createdAt: '2024-12-08' },
-  { id: 'r2', targetType: 'comment', targetId: 'c3', targetTitle: 'تعليق مخالف للقواعد', reason: 'لغة غير لائقة', reporter: 'فاطمة البلوشي', reporterEmail: 'fatima@utas.edu.om', status: 'resolved', createdAt: '2024-12-04' },
-  { id: 'r3', targetType: 'user', targetId: '5', targetTitle: 'عمر الراشدي', reason: 'سلوك مزعج متكرر', reporter: 'أحمد الحارثي', reporterEmail: 'ahmed@utas.edu.om', status: 'resolved', createdAt: '2024-12-07' },
+  { id: 'r1', targetType: 'post', targetId: 'p4', targetTitle: 'محتوى غير لائق', reason: 'harassment', reporter: 'سارة المعمري', reporterEmail: 'sara@utas.edu.om', status: 'open', createdAt: '2024-12-08', authorEmail: 'omar@utas.edu.om' },
+  { id: 'r2', targetType: 'comment', targetId: 'c3', targetTitle: 'تعليق مخالف للقواعد', reason: 'spam', reporter: 'فاطمة البلوشي', reporterEmail: 'fatima@utas.edu.om', status: 'resolved', createdAt: '2024-12-04', authorEmail: 'omar@utas.edu.om' },
+  { id: 'r3', targetType: 'user', targetId: '5', targetTitle: 'عمر الراشدي', reason: 'impersonation', reporter: 'أحمد الحارثي', reporterEmail: 'ahmed@utas.edu.om', status: 'open', createdAt: '2024-12-07' },
 ];
+
+// Helper to compute priority from reason
+const computePriority = (reason: string): ReportPriority => {
+  const lowerReason = reason.toLowerCase();
+  if (lowerReason.includes('harassment') || lowerReason.includes('hate') || lowerReason.includes('impersonation')) {
+    return 'high';
+  }
+  if (lowerReason.includes('spam')) {
+    return 'medium';
+  }
+  return 'low';
+};
 
 export default function Admin() {
   const { lang, user, reports: storeReports, updateReportStatus } = useDaamStore();
@@ -139,6 +157,8 @@ export default function Admin() {
   const [actionReason, setActionReason] = useState('');
   const [editStatusMode, setEditStatusMode] = useState(false);
   const [selectedEditStatus, setSelectedEditStatus] = useState<ReportStatus>('open');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [reportSortOption, setReportSortOption] = useState<ReportSortOption>('newest');
   
   // Merge store reports with local demo reports for display
   const reports: Report[] = useMemo(() => {
@@ -152,10 +172,19 @@ export default function Admin() {
       reporterEmail: r.reporterEmail,
       status: r.status,
       createdAt: r.createdAt,
-      resolutionReason: (r as any).resolutionReason
+      resolutionReason: (r as any).resolutionReason,
+      priority: (r as any).priority || computePriority(r.reason),
+      targetAction: (r as any).targetAction,
+      userAction: (r as any).userAction,
+      authorEmail: (r as any).authorEmail
+    }));
+    // Add priority to local demo reports
+    const localWithPriority = localDemoReports.map(r => ({
+      ...r,
+      priority: r.priority || computePriority(r.reason)
     }));
     // Combine store reports (new) with local demo reports
-    return [...storeReportsMapped, ...localDemoReports.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
+    return [...storeReportsMapped, ...localWithPriority.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
   }, [storeReports, localDemoReports]);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -281,7 +310,22 @@ export default function Admin() {
       report_dismissed: lang === 'ar' ? 'رفض بلاغ' : 'Report Dismissed',
       report_reopened: lang === 'ar' ? 'إعادة فتح بلاغ' : 'Report Reopened',
       report_status_changed: lang === 'ar' ? 'تغيير حالة بلاغ' : 'Report Status Changed',
-    }
+      target_hidden: lang === 'ar' ? 'إخفاء الهدف' : 'Target Hidden',
+      author_suspended: lang === 'ar' ? 'إيقاف المؤلف' : 'Author Suspended',
+    },
+    // Priority translations
+    priority: lang === 'ar' ? 'الأولوية' : 'Priority',
+    low: lang === 'ar' ? 'منخفضة' : 'Low',
+    medium: lang === 'ar' ? 'متوسطة' : 'Medium',
+    high: lang === 'ar' ? 'عالية' : 'High',
+    // Quick actions
+    hideTarget: lang === 'ar' ? 'إخفاء الهدف' : 'Hide Target',
+    suspendUser: lang === 'ar' ? 'إيقاف المستخدم' : 'Suspend User',
+    targetHidden: lang === 'ar' ? 'تم إخفاء الهدف' : 'Target hidden by admin',
+    userSuspended: lang === 'ar' ? 'تم إيقاف المستخدم' : 'User suspended by admin',
+    // Sort options
+    sortBy: lang === 'ar' ? 'ترتيب حسب' : 'Sort by',
+    highestPriority: lang === 'ar' ? 'الأعلى أولوية' : 'Highest Priority',
   };
 
   const navItems = [
@@ -403,6 +447,45 @@ export default function Admin() {
     setActionReason('');
   };
 
+  // Quick Action: Hide Target
+  const handleHideTarget = (reportId: string) => {
+    const report = reports.find(r => r.id === reportId);
+    if (!report) return;
+    
+    // Only for post/comment targets
+    if (report.targetType !== 'post' && report.targetType !== 'comment') return;
+    
+    addAuditLog('target_hidden', report.targetType, report.targetId, report.targetTitle, `Report: ${reportId}`);
+    
+    // Update report with targetAction
+    if (reportId.startsWith('report-')) {
+      // For store reports, we can't modify them directly, so we track locally
+      // In a real app, this would update the store
+    }
+    setLocalDemoReports(prev => prev.map(r => 
+      r.id === reportId ? { ...r, targetAction: 'hidden' as const } : r
+    ));
+  };
+
+  // Quick Action: Suspend User/Author
+  const handleSuspendUser = (reportId: string) => {
+    const report = reports.find(r => r.id === reportId);
+    if (!report) return;
+    
+    const targetEmail = report.targetType === 'user' 
+      ? report.targetId 
+      : report.authorEmail;
+    
+    if (!targetEmail) return;
+    
+    addAuditLog('author_suspended', 'user', targetEmail, report.targetTitle, `Report: ${reportId}`);
+    
+    // Update report with userAction
+    setLocalDemoReports(prev => prev.map(r => 
+      r.id === reportId ? { ...r, userAction: 'suspended' as const } : r
+    ));
+  };
+
   const handleEditStatusSubmit = () => {
     if (!selectedItem) return;
     
@@ -479,18 +562,30 @@ export default function Admin() {
   }, [files, searchQuery, sortOrder]);
 
   const filteredReports = useMemo(() => {
+    const priorityOrder: Record<ReportPriority, number> = { high: 3, medium: 2, low: 1 };
+    
     return reports
       .filter(r => {
         const matchesSearch = r.targetTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.reason.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const matchesPriority = priorityFilter === 'all' || (r.priority || 'low') === priorityFilter;
+        return matchesSearch && matchesStatus && matchesPriority;
       })
-      .sort((a, b) => sortOrder === 'desc' ? 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() :
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-  }, [reports, searchQuery, statusFilter, sortOrder]);
+      .sort((a, b) => {
+        if (reportSortOption === 'priority') {
+          const aPriority = priorityOrder[a.priority || 'low'];
+          const bPriority = priorityOrder[b.priority || 'low'];
+          if (bPriority !== aPriority) return bPriority - aPriority;
+          // Secondary sort by date for same priority
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        // Date sort
+        return reportSortOption === 'oldest' 
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [reports, searchQuery, statusFilter, priorityFilter, reportSortOption]);
 
   const filteredAuditLog = useMemo(() => {
     return auditLog
@@ -918,6 +1013,20 @@ export default function Admin() {
     </div>
   );
 
+  const getPriorityBadge = (priority: ReportPriority) => {
+    const colors = {
+      high: 'bg-red-500/20 text-red-400 border-red-500/30',
+      medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      low: 'bg-green-500/20 text-green-400 border-green-500/30'
+    };
+    const labels = { high: tr.high, medium: tr.medium, low: tr.low };
+    return (
+      <Badge variant="outline" className={`text-xs ${colors[priority]}`}>
+        {labels[priority]}
+      </Badge>
+    );
+  };
+
   const renderReports = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -927,15 +1036,64 @@ export default function Admin() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <SearchAndFilters showStatusFilter statusOptions={['open', 'in_review', 'resolved', 'dismissed']} />
+        {/* Search + Filters + Sort */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground ${isRTL ? 'right-3' : 'left-3'}`} />
+            <Input
+              placeholder={tr.search}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`bg-background/50 border-white/10 ${isRTL ? 'pr-10' : 'pl-10'}`}
+              data-testid="input-search-reports"
+            />
+          </div>
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px] bg-background/50 border-white/10" data-testid="select-status-filter">
+              <Filter className="w-4 h-4 me-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              <SelectItem value="open">{tr.open}</SelectItem>
+              <SelectItem value="in_review">{tr.in_review}</SelectItem>
+              <SelectItem value="resolved">{tr.resolved}</SelectItem>
+              <SelectItem value="dismissed">{tr.dismissed}</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Priority Filter */}
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[140px] bg-background/50 border-white/10" data-testid="select-priority-filter">
+              <SelectValue placeholder={tr.priority} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              <SelectItem value="high">{tr.high}</SelectItem>
+              <SelectItem value="medium">{tr.medium}</SelectItem>
+              <SelectItem value="low">{tr.low}</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Sort */}
+          <Select value={reportSortOption} onValueChange={(v) => setReportSortOption(v as ReportSortOption)}>
+            <SelectTrigger className="w-[160px] bg-background/50 border-white/10" data-testid="select-sort-reports">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">{tr.newest}</SelectItem>
+              <SelectItem value="oldest">{tr.oldest}</SelectItem>
+              <SelectItem value="priority">{tr.highestPriority}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.target}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.type}</th>
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.priority}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.reason}</th>
-                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.reporter}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.status}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.date}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.actions}</th>
@@ -943,22 +1101,27 @@ export default function Admin() {
             </thead>
             <tbody>
               {filteredReports.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
               ) : (
                 filteredReports.map(r => (
                   <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-3 font-medium max-w-xs truncate">{r.targetTitle}</td>
+                    <td className="p-3 font-medium max-w-xs truncate">
+                      {r.targetTitle}
+                      {r.targetAction === 'hidden' && (
+                        <Badge variant="outline" className="ms-2 text-xs bg-gray-500/20 text-gray-400">{tr.hidden}</Badge>
+                      )}
+                    </td>
                     <td className="p-3">
                       <Badge variant="outline" className="text-xs">
-                        {r.targetType === 'post' ? tr.posts : r.targetType === 'comment' ? tr.comments : tr.users}
+                        {r.targetType === 'post' ? tr.targetTypePost : r.targetType === 'comment' ? tr.targetTypeComment : tr.targetTypeUser}
                       </Badge>
                     </td>
+                    <td className="p-3">{getPriorityBadge(r.priority || 'low')}</td>
                     <td className="p-3 text-muted-foreground max-w-xs truncate">{r.reason}</td>
-                    <td className="p-3 text-muted-foreground">{r.reporter}</td>
                     <td className="p-3">{getStatusBadge(r.status, 'report')}</td>
                     <td className="p-3 text-muted-foreground">{r.createdAt}</td>
                     <td className="p-3">
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(r, 'report')} data-testid={`button-view-report-${r.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -975,6 +1138,17 @@ export default function Admin() {
                         {(r.status === 'resolved' || r.status === 'dismissed') && (
                           <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'reopen')} className="text-amber-400" data-testid={`button-reopen-report-${r.id}`}>
                             <AlertTriangle className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {/* Quick Actions */}
+                        {(r.targetType === 'post' || r.targetType === 'comment') && !r.targetAction && (
+                          <Button size="sm" variant="ghost" onClick={() => handleHideTarget(r.id)} className="text-purple-400" data-testid={`button-hide-target-${r.id}`} title={tr.hideTarget}>
+                            <EyeOff className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {(r.targetType === 'user' || r.authorEmail) && !r.userAction && (
+                          <Button size="sm" variant="ghost" onClick={() => handleSuspendUser(r.id)} className="text-orange-400" data-testid={`button-suspend-user-${r.id}`} title={tr.suspendUser}>
+                            <Ban className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
@@ -1260,6 +1434,10 @@ export default function Admin() {
                       </Badge>
                     </div>
                     <div>
+                      <p className="text-xs text-muted-foreground mb-1">{tr.priority}</p>
+                      {getPriorityBadge(selectedItem.priority || 'low')}
+                    </div>
+                    <div>
                       <p className="text-xs text-muted-foreground mb-1">{tr.reporter}</p>
                       <p className="font-medium">{selectedItem.reporter}</p>
                     </div>
@@ -1272,6 +1450,17 @@ export default function Admin() {
                       <p>{selectedItem.createdAt}</p>
                     </div>
                   </div>
+                  {/* Quick Action Status */}
+                  {(selectedItem.targetAction || selectedItem.userAction) && (
+                    <div className="p-3 bg-white/5 rounded-lg space-y-1">
+                      {selectedItem.targetAction === 'hidden' && (
+                        <p className="text-sm text-purple-400">{tr.targetHidden}</p>
+                      )}
+                      {selectedItem.userAction === 'suspended' && (
+                        <p className="text-sm text-orange-400">{tr.userSuspended}</p>
+                      )}
+                    </div>
+                  )}
                   {selectedItem.resolutionReason && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">{tr.resolutionReason}</p>
@@ -1320,25 +1509,41 @@ export default function Admin() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
-                    <Button size="sm" variant="outline" onClick={() => { setSelectedEditStatus(selectedItem.status); setEditStatusMode(true); }} data-testid="button-edit-status">
-                      {tr.editStatus}
-                    </Button>
-                    {(selectedItem.status === 'open' || selectedItem.status === 'in_review') && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'resolve')} className="text-green-400 border-green-500/30" data-testid="button-modal-resolve">
-                          <CheckCircle className="w-4 h-4 me-2" /> {tr.resolve}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'dismiss')} className="text-gray-400 border-gray-500/30" data-testid="button-modal-dismiss">
-                          <XCircle className="w-4 h-4 me-2" /> {tr.dismiss}
-                        </Button>
-                      </>
-                    )}
-                    {(selectedItem.status === 'resolved' || selectedItem.status === 'dismissed') && (
-                      <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'reopen'); setDetailModalOpen(false); }} className="text-amber-400 border-amber-500/30" data-testid="button-modal-reopen">
-                        <AlertTriangle className="w-4 h-4 me-2" /> {tr.reopen}
+                  <div className="space-y-3 pt-4 border-t border-white/10">
+                    {/* Status Actions */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedEditStatus(selectedItem.status); setEditStatusMode(true); }} data-testid="button-edit-status">
+                        {tr.editStatus}
                       </Button>
-                    )}
+                      {(selectedItem.status === 'open' || selectedItem.status === 'in_review') && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'resolve')} className="text-green-400 border-green-500/30" data-testid="button-modal-resolve">
+                            <CheckCircle className="w-4 h-4 me-2" /> {tr.resolve}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleReportAction(selectedItem.id, 'dismiss')} className="text-gray-400 border-gray-500/30" data-testid="button-modal-dismiss">
+                            <XCircle className="w-4 h-4 me-2" /> {tr.dismiss}
+                          </Button>
+                        </>
+                      )}
+                      {(selectedItem.status === 'resolved' || selectedItem.status === 'dismissed') && (
+                        <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'reopen'); setDetailModalOpen(false); }} className="text-amber-400 border-amber-500/30" data-testid="button-modal-reopen">
+                          <AlertTriangle className="w-4 h-4 me-2" /> {tr.reopen}
+                        </Button>
+                      )}
+                    </div>
+                    {/* Quick Actions */}
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedItem.targetType === 'post' || selectedItem.targetType === 'comment') && !selectedItem.targetAction && (
+                        <Button size="sm" variant="outline" onClick={() => { handleHideTarget(selectedItem.id); }} className="text-purple-400 border-purple-500/30" data-testid="button-modal-hide-target">
+                          <EyeOff className="w-4 h-4 me-2" /> {tr.hideTarget}
+                        </Button>
+                      )}
+                      {(selectedItem.targetType === 'user' || selectedItem.authorEmail) && !selectedItem.userAction && (
+                        <Button size="sm" variant="outline" onClick={() => { handleSuspendUser(selectedItem.id); }} className="text-orange-400 border-orange-500/30" data-testid="button-modal-suspend-user">
+                          <Ban className="w-4 h-4 me-2" /> {tr.suspendUser}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </>

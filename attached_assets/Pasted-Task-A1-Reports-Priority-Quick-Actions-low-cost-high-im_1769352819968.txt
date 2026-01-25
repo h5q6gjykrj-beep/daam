@@ -1,0 +1,51 @@
+Task A1 — Reports: Priority + Quick Actions (low-cost, high impact)
+
+Allowed files (STRICT):
+- client/src/pages/admin.tsx ONLY
+No store changes, no routing changes, no new libraries.
+
+Goal:
+Enhance Reports to be operationally complete:
+1) Add Priority (low/medium/high) to each report with filter/sort.
+2) Add Quick Actions to act on the target (Hide target) and the author (Suspend user).
+3) Log all actions in Audit Log.
+
+Implementation details:
+
+A) Priority:
+- Add `priority` field to report model used in admin UI:
+  "low" | "medium" | "high"
+- Default priority when missing:
+  - If reason indicates spam -> medium
+  - If harassment/hate/impersonation -> high
+  - Otherwise -> low
+  (Keep it simple; no heavy logic.)
+- In Reports table:
+  - Add a Priority column with a small badge.
+  - Add a Priority filter (All/Low/Medium/High) fully translated AR/EN.
+  - Add a Sort option: newest first (default) + highest priority first.
+
+B) Quick Actions:
+- Inside the report row actions AND in the report details modal add:
+  1) "Hide Target" (only for targetType post/comment/file)
+  2) "Suspend User" (for targetType user OR when report has an authorEmail/authorId available)
+- Since we are not touching store/back-end:
+  - Implement "Hide Target" as a local admin action that marks the report with `targetAction: "hidden"` and adds a note in the report details.
+  - Implement "Suspend User" similarly: mark `userAction: "suspended"` on the report.
+  - Reflect these actions visually in the report details modal (e.g., “Target hidden by admin”, “User suspended by admin”).
+- Both actions must append an AuditLogEntry with:
+  action, reportId, targetType, targetId, timestamp.
+
+C) i18n:
+- All new labels must be in `tr` for AR/EN.
+- Ensure 0 Arabic strings appear when EN is active, and vice versa.
+
+Acceptance Criteria:
+- AC1: Priority column appears + filter works + sort works.
+- AC2: Clicking Hide Target updates the report UI immediately + audit log entry exists.
+- AC3: Clicking Suspend User updates UI immediately + audit log entry exists.
+- AC4: Works in AR and EN fully translated.
+
+After completion:
+- Summarize exactly what was added in Reports.
+- Provide test steps (AR + EN).
