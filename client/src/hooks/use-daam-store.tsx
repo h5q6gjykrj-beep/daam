@@ -28,12 +28,13 @@ const KEYS = {
   THEME: 'daam_theme',
   ACCOUNTS: 'daam_accounts',
   PENDING_VERIFICATION: 'daam_pending_verification',
-  REPORTS: 'daam_reports'
+  REPORTS: 'daam_reports_v1',
+  REPORTS_OLD: 'daam_reports'
 };
 
 export type ReportReason = 'spam' | 'harassment' | 'hate' | 'impersonation' | 'inappropriate' | 'other';
 export type ReportTargetType = 'post' | 'comment' | 'user';
-export type ReportStatus = 'pending' | 'resolved' | 'dismissed';
+export type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
 
 export interface Report {
   id: string;
@@ -228,10 +229,31 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    const storedReports = localStorage.getItem(KEYS.REPORTS);
+    let storedReports = localStorage.getItem(KEYS.REPORTS);
+    if (!storedReports) {
+      const oldReports = localStorage.getItem(KEYS.REPORTS_OLD);
+      if (oldReports) {
+        try {
+          const parsed = JSON.parse(oldReports);
+          const migrated = parsed.map((r: any) => ({
+            ...r,
+            status: r.status === 'pending' ? 'open' : r.status
+          }));
+          localStorage.setItem(KEYS.REPORTS, JSON.stringify(migrated));
+          storedReports = JSON.stringify(migrated);
+        } catch (e) {
+          console.error("Failed to migrate old reports", e);
+        }
+      }
+    }
     if (storedReports) {
       try {
-        setReports(JSON.parse(storedReports));
+        const parsed = JSON.parse(storedReports);
+        const normalized = parsed.map((r: any) => ({
+          ...r,
+          status: r.status === 'pending' ? 'open' : r.status
+        }));
+        setReports(normalized);
       } catch (e) {
         console.error("Failed to parse reports", e);
       }
@@ -860,7 +882,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       note,
       reporter: reporterName,
       reporterEmail: user.email,
-      status: 'pending',
+      status: 'open',
       createdAt: new Date().toISOString().split('T')[0]
     };
     

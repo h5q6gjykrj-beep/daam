@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
-type ReportStatus = 'pending' | 'resolved' | 'dismissed';
+type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
 type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed';
 
 interface AdminUser {
@@ -116,7 +116,7 @@ const initialFiles: AdminFile[] = [
 ];
 
 const initialReports: Report[] = [
-  { id: 'r1', targetType: 'post', targetId: 'p4', targetTitle: 'محتوى غير لائق', reason: 'محتوى مسيء', reporter: 'سارة المعمري', reporterEmail: 'sara@utas.edu.om', status: 'pending', createdAt: '2024-12-08' },
+  { id: 'r1', targetType: 'post', targetId: 'p4', targetTitle: 'محتوى غير لائق', reason: 'محتوى مسيء', reporter: 'سارة المعمري', reporterEmail: 'sara@utas.edu.om', status: 'open', createdAt: '2024-12-08' },
   { id: 'r2', targetType: 'comment', targetId: 'c3', targetTitle: 'تعليق مخالف للقواعد', reason: 'لغة غير لائقة', reporter: 'فاطمة البلوشي', reporterEmail: 'fatima@utas.edu.om', status: 'resolved', createdAt: '2024-12-04' },
   { id: 'r3', targetType: 'user', targetId: '5', targetTitle: 'عمر الراشدي', reason: 'سلوك مزعج متكرر', reporter: 'أحمد الحارثي', reporterEmail: 'ahmed@utas.edu.om', status: 'resolved', createdAt: '2024-12-07' },
 ];
@@ -194,7 +194,8 @@ export default function Admin() {
     visible: lang === 'ar' ? 'مرئي' : 'Visible',
     hidden: lang === 'ar' ? 'مخفي' : 'Hidden',
     deleted: lang === 'ar' ? 'محذوف' : 'Deleted',
-    pending: lang === 'ar' ? 'قيد الانتظار' : 'Pending',
+    open: lang === 'ar' ? 'مفتوح' : 'Open',
+    in_review: lang === 'ar' ? 'قيد المراجعة' : 'In Review',
     resolved: lang === 'ar' ? 'تم الحل' : 'Resolved',
     dismissed: lang === 'ar' ? 'مرفوض' : 'Dismissed',
     question: lang === 'ar' ? 'سؤال' : 'Question',
@@ -268,7 +269,7 @@ export default function Admin() {
     { label: tr.totalUsers, value: users.length, icon: Users, color: 'from-violet-600 to-purple-500' },
     { label: tr.totalPosts, value: posts.filter(p => p.status !== 'deleted').length, icon: MessageSquare, color: 'from-blue-600 to-cyan-500' },
     { label: tr.totalComments, value: comments.filter(c => c.status !== 'deleted').length, icon: FileText, color: 'from-green-600 to-emerald-500' },
-    { label: tr.totalReports, value: reports.filter(r => r.status === 'pending').length, icon: Flag, color: 'from-amber-600 to-orange-500' },
+    { label: tr.totalReports, value: reports.filter(r => r.status === 'open').length, icon: Flag, color: 'from-amber-600 to-orange-500' },
   ];
 
   const handleUserAction = (userId: string, action: 'suspend' | 'ban' | 'activate') => {
@@ -433,7 +434,8 @@ export default function Admin() {
       visible: 'bg-green-500/20 text-green-400 border-green-500/30',
       hidden: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
       deleted: 'bg-red-500/20 text-red-400 border-red-500/30',
-      pending: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      open: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      in_review: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       resolved: 'bg-green-500/20 text-green-400 border-green-500/30',
       dismissed: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     };
@@ -444,7 +446,8 @@ export default function Admin() {
       visible: tr.visible,
       hidden: tr.hidden,
       deleted: tr.deleted,
-      pending: tr.pending,
+      open: tr.open,
+      in_review: tr.in_review,
       resolved: tr.resolved,
       dismissed: tr.dismissed,
     };
@@ -839,7 +842,7 @@ export default function Admin() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <SearchAndFilters showStatusFilter statusOptions={['pending', 'resolved', 'dismissed']} />
+        <SearchAndFilters showStatusFilter statusOptions={['open', 'in_review', 'resolved', 'dismissed']} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -874,7 +877,7 @@ export default function Admin() {
                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(r, 'report')} data-testid={`button-view-report-${r.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {r.status === 'pending' && (
+                        {r.status === 'open' && (
                           <>
                             <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'resolve')} className="text-green-400" data-testid={`button-resolve-report-${r.id}`}>
                               <CheckCircle className="w-4 h-4" />
@@ -1180,7 +1183,7 @@ export default function Admin() {
                     </div>
                   </div>
                 </div>
-                {selectedItem.status === 'pending' && (
+                {selectedItem.status === 'open' && (
                   <div className="flex gap-2 pt-4 border-t border-white/10">
                     <Button size="sm" variant="outline" onClick={() => { handleReportAction(selectedItem.id, 'resolve'); setDetailModalOpen(false); }} className="text-green-400 border-green-500/30">
                       <CheckCircle className="w-4 h-4 me-2" /> {tr.resolve}
@@ -1234,9 +1237,9 @@ export default function Admin() {
                     >
                       <item.icon className="w-4 h-4 flex-shrink-0" />
                       <span>{item.label}</span>
-                      {item.id === 'reports' && reports.filter(r => r.status === 'pending').length > 0 && (
+                      {item.id === 'reports' && reports.filter(r => r.status === 'open').length > 0 && (
                         <Badge variant="destructive" className="ms-auto text-xs px-1.5 py-0">
-                          {reports.filter(r => r.status === 'pending').length}
+                          {reports.filter(r => r.status === 'open').length}
                         </Badge>
                       )}
                     </button>
