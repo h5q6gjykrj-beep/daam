@@ -28,6 +28,7 @@ import { ar, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
+import { CampaignBanner } from "@/components/campaigns/CampaignBanner";
 
 const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
   { value: 'question', labelAr: 'سؤال', labelEn: 'Question' },
@@ -760,6 +761,7 @@ export default function Feed() {
 
   return (
     <div className="max-w-2xl mx-auto pb-20">
+      <CampaignBanner placement="feed" />
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold gradient-text">{tr.pageTitle}</h1>
         <p className="text-muted-foreground text-sm mt-2">{tr.pageSubtitle}</p>

@@ -154,25 +154,50 @@ export function saveDismissal(dismissal: CampaignDismissal): void {
   localStorage.setItem(STORAGE_KEYS.DISMISSALS, JSON.stringify(dismissals));
 }
 
-export function getVisitorSeenCampaigns(): string[] {
+interface SeenCampaignEntry {
+  campaignId: string;
+  seenUntil: number;
+}
+
+export function getVisitorSeenCampaignsWithTTL(): SeenCampaignEntry[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.VISITOR_SEEN);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+      return parsed.map((id: string) => ({ campaignId: id, seenUntil: Date.now() + 24 * 60 * 60 * 1000 }));
+    }
+    return parsed as SeenCampaignEntry[];
   } catch {
     return [];
   }
 }
 
-export function markCampaignAsSeen(campaignId: string): void {
-  const seen = getVisitorSeenCampaigns();
-  if (!seen.includes(campaignId)) {
-    seen.push(campaignId);
-    localStorage.setItem(STORAGE_KEYS.VISITOR_SEEN, JSON.stringify(seen));
+export function getVisitorSeenCampaigns(): string[] {
+  const now = Date.now();
+  return getVisitorSeenCampaignsWithTTL()
+    .filter(entry => entry.seenUntil > now)
+    .map(entry => entry.campaignId);
+}
+
+export function markCampaignAsSeen(campaignId: string, ttlHours: number = 24): void {
+  const seen = getVisitorSeenCampaignsWithTTL().filter(e => e.seenUntil > Date.now());
+  const existingIndex = seen.findIndex(e => e.campaignId === campaignId);
+  const seenUntil = Date.now() + ttlHours * 60 * 60 * 1000;
+  
+  if (existingIndex >= 0) {
+    seen[existingIndex].seenUntil = seenUntil;
+  } else {
+    seen.push({ campaignId, seenUntil });
   }
+  localStorage.setItem(STORAGE_KEYS.VISITOR_SEEN, JSON.stringify(seen));
 }
 
 export function hasCampaignBeenSeen(campaignId: string): boolean {
-  return getVisitorSeenCampaigns().includes(campaignId);
+  const now = Date.now();
+  return getVisitorSeenCampaignsWithTTL().some(
+    entry => entry.campaignId === campaignId && entry.seenUntil > now
+  );
 }
 
 export function getCampaignStats(campaignId: string): CampaignStats {
