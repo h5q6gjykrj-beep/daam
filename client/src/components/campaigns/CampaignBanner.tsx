@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Bug, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { X, Bug, Sparkles, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,16 +25,24 @@ interface DebugInfo {
   lastRejected: { title: string; reason: string } | null;
 }
 
+interface MediaState {
+  videoUrl: string | null;
+  imageUrl: string | null;
+  loadError: boolean;
+}
+
 const translations = {
   ar: {
     sponsored: 'مُموّل',
     explore: 'اكتشف',
     hide: 'إخفاء',
+    loadError: 'لا يمكن تحميل المعاينة',
   },
   en: {
     sponsored: 'Sponsored',
     explore: 'Explore',
     hide: 'Hide',
+    loadError: 'Cannot load preview',
   }
 };
 
@@ -42,12 +50,12 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   const { lang, user } = useDaamStore();
   const t = translations[lang];
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [media, setMedia] = useState<MediaState>({ videoUrl: null, imageUrl: null, loadError: false });
   const [dismissed, setDismissed] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const impressionTracked = useRef(false);
+  const mediaUrlsRef = useRef<string[]>([]);
   const isRTL = lang === 'ar';
 
   const isDebugMode = useMemo(() => {
@@ -58,7 +66,6 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   }, [user?.email]);
 
   useEffect(() => {
-    const visitorId = getVisitorId();
     const campaigns = getCampaigns();
     
     let lastRejected: { title: string; reason: string } | null = null;
@@ -120,22 +127,77 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     }
   }, [campaign, placement]);
 
+  const revokeAllUrls = useCallback(() => {
+    mediaUrlsRef.current.forEach(url => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        // ignore
+      }
+    });
+    mediaUrlsRef.current = [];
+  }, []);
+
   useEffect(() => {
-    if (!campaign) return;
+    if (!campaign) {
+      revokeAllUrls();
+      setMedia({ videoUrl: null, imageUrl: null, loadError: false });
+      return;
+    }
+
+    let cancelled = false;
+    revokeAllUrls();
 
     const loadMedia = async () => {
-      if (campaign.video?.id) {
-        const blob = await getCampaignMedia(campaign.video.id);
-        if (blob) {
-          setVideoUrl(URL.createObjectURL(blob));
-        }
-      }
+      let newVideoUrl: string | null = null;
+      let newImageUrl: string | null = null;
+      let hasError = false;
 
-      const firstImage = campaign.attachments?.find(a => a.kind === 'image');
-      if (firstImage) {
-        const blob = await getCampaignAttachmentBlob(firstImage.id);
-        if (blob) {
-          setImageUrl(URL.createObjectURL(blob));
+      try {
+        if (campaign.video?.id) {
+          const blob = await getCampaignMedia(campaign.video.id);
+          if (blob && !cancelled) {
+            newVideoUrl = URL.createObjectURL(blob);
+            mediaUrlsRef.current.push(newVideoUrl);
+          } else if (!blob) {
+            hasError = true;
+          }
+        }
+
+        if (!newVideoUrl) {
+          const firstImage = campaign.attachments?.find(a => a.kind === 'image');
+          const firstVideo = campaign.attachments?.find(a => a.kind === 'video');
+
+          if (firstVideo) {
+            const blob = await getCampaignAttachmentBlob(firstVideo.id);
+            if (blob && !cancelled) {
+              newVideoUrl = URL.createObjectURL(blob);
+              mediaUrlsRef.current.push(newVideoUrl);
+            } else if (!blob) {
+              hasError = true;
+            }
+          } else if (firstImage) {
+            const blob = await getCampaignAttachmentBlob(firstImage.id);
+            if (blob && !cancelled) {
+              newImageUrl = URL.createObjectURL(blob);
+              mediaUrlsRef.current.push(newImageUrl);
+            } else if (!blob) {
+              hasError = true;
+            }
+          }
+        }
+
+        if (!cancelled) {
+          setMedia({
+            videoUrl: newVideoUrl,
+            imageUrl: newImageUrl,
+            loadError: hasError && !newVideoUrl && !newImageUrl
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load campaign media:', err);
+        if (!cancelled) {
+          setMedia({ videoUrl: null, imageUrl: null, loadError: true });
         }
       }
     };
@@ -143,10 +205,15 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     loadMedia();
 
     return () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      cancelled = true;
     };
-  }, [campaign?.id, campaign?.video?.id, campaign?.attachments]);
+  }, [campaign?.id, revokeAllUrls]);
+
+  useEffect(() => {
+    return () => {
+      revokeAllUrls();
+    };
+  }, [revokeAllUrls]);
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -202,6 +269,7 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
+  const hasMediaAttachments = campaign.video || campaign.attachments?.some(a => a.kind === 'image' || a.kind === 'video');
 
   return (
     <>
@@ -232,26 +300,33 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             </Button>
           </div>
 
-          {(videoUrl || imageUrl) && (
+          {(media.videoUrl || media.imageUrl) && (
             <div className="mb-3 rounded-lg overflow-hidden bg-muted/30">
-              {videoUrl ? (
+              {media.videoUrl ? (
                 <video
-                  src={videoUrl}
+                  src={media.videoUrl}
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="w-full max-h-48 object-cover"
+                  className="max-h-48 w-full object-cover rounded-lg border"
                   data-testid="campaign-card-video"
                 />
-              ) : imageUrl ? (
+              ) : media.imageUrl ? (
                 <img
-                  src={imageUrl}
+                  src={media.imageUrl}
                   alt=""
-                  className="w-full max-h-48 object-cover"
+                  className="max-h-48 w-full object-cover rounded-lg border"
                   data-testid="campaign-card-image"
                 />
               ) : null}
+            </div>
+          )}
+
+          {media.loadError && hasMediaAttachments && (
+            <div className="mb-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <ImageOff className="w-8 h-8 opacity-50" />
+              <span className="text-xs">{t.loadError}</span>
             </div>
           )}
 
