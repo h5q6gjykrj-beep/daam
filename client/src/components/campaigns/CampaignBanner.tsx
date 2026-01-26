@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Bug, Sparkles, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,9 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { useDaamStore } from '@/hooks/use-daam-store';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
 import { getCampaigns, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
-import { getCampaignMedia, getCampaignAttachmentBlob } from '@/lib/campaign-media';
+import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
-import { getVisitorId, isCampaignActive } from '@/lib/campaign-helpers';
+import { isCampaignActive } from '@/lib/campaign-helpers';
 import { ADMIN_EMAILS } from '@/config/admin';
 import { CampaignModal } from './CampaignModal';
 
@@ -23,12 +23,6 @@ interface DebugInfo {
   matchingPlacement: number;
   blockedBySeen: number;
   lastRejected: { title: string; reason: string } | null;
-}
-
-interface MediaState {
-  videoUrl: string | null;
-  imageUrl: string | null;
-  loadError: boolean;
 }
 
 const translations = {
@@ -50,13 +44,15 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   const { lang, user } = useDaamStore();
   const t = translations[lang];
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [media, setMedia] = useState<MediaState>({ videoUrl: null, imageUrl: null, loadError: false });
   const [dismissed, setDismissed] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const impressionTracked = useRef(false);
-  const mediaUrlsRef = useRef<string[]>([]);
   const isRTL = lang === 'ar';
+
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbType, setThumbType] = useState<'image' | 'video' | null>(null);
+  const [thumbErr, setThumbErr] = useState<string | null>(null);
 
   const isDebugMode = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -127,93 +123,77 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     }
   }, [campaign, placement]);
 
-  const revokeAllUrls = useCallback(() => {
-    mediaUrlsRef.current.forEach(url => {
-      try {
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        // ignore
-      }
-    });
-    mediaUrlsRef.current = [];
-  }, []);
+  const videoMediaId = campaign?.video?.id;
+  const attachmentsKey = campaign?.attachments?.map(a => a.id).join(',') || '';
 
   useEffect(() => {
-    if (!campaign) {
-      revokeAllUrls();
-      setMedia({ videoUrl: null, imageUrl: null, loadError: false });
+    let cancelled = false;
+    let currentUrl: string | null = null;
+
+    setThumbUrl(null);
+    setThumbType(null);
+    setThumbErr(null);
+
+    if (!campaign) return;
+
+    const imageAtt = campaign.attachments?.find(a => a.kind === 'image');
+    const videoAtt = campaign.attachments?.find(a => a.kind === 'video');
+
+    let chosenId: string | null = null;
+    let chosenKind: 'image' | 'video' | null = null;
+
+    if (imageAtt) {
+      chosenId = imageAtt.id;
+      chosenKind = 'image';
+    } else if (videoAtt) {
+      chosenId = videoAtt.id;
+      chosenKind = 'video';
+    } else if (videoMediaId) {
+      chosenId = videoMediaId;
+      chosenKind = 'video';
+    }
+
+    if (!chosenId || !chosenKind) {
       return;
     }
 
-    let cancelled = false;
-    revokeAllUrls();
-
-    const loadMedia = async () => {
-      let newVideoUrl: string | null = null;
-      let newImageUrl: string | null = null;
-      let hasError = false;
-
+    const loadThumb = async () => {
       try {
-        if (campaign.video?.id) {
-          const blob = await getCampaignMedia(campaign.video.id);
-          if (blob && !cancelled) {
-            newVideoUrl = URL.createObjectURL(blob);
-            mediaUrlsRef.current.push(newVideoUrl);
-          } else if (!blob) {
-            hasError = true;
-          }
+        const blob = await getCampaignAttachmentBlob(chosenId!);
+        
+        if (cancelled) return;
+
+        if (!blob) {
+          setThumbErr(`blob_null:${chosenKind}`);
+          return;
         }
 
-        if (!newVideoUrl) {
-          const firstImage = campaign.attachments?.find(a => a.kind === 'image');
-          const firstVideo = campaign.attachments?.find(a => a.kind === 'video');
-
-          if (firstVideo) {
-            const blob = await getCampaignAttachmentBlob(firstVideo.id);
-            if (blob && !cancelled) {
-              newVideoUrl = URL.createObjectURL(blob);
-              mediaUrlsRef.current.push(newVideoUrl);
-            } else if (!blob) {
-              hasError = true;
-            }
-          } else if (firstImage) {
-            const blob = await getCampaignAttachmentBlob(firstImage.id);
-            if (blob && !cancelled) {
-              newImageUrl = URL.createObjectURL(blob);
-              mediaUrlsRef.current.push(newImageUrl);
-            } else if (!blob) {
-              hasError = true;
-            }
-          }
+        const url = URL.createObjectURL(blob);
+        
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
         }
 
-        if (!cancelled) {
-          setMedia({
-            videoUrl: newVideoUrl,
-            imageUrl: newImageUrl,
-            loadError: hasError && !newVideoUrl && !newImageUrl
-          });
-        }
+        currentUrl = url;
+        setThumbUrl(url);
+        setThumbType(chosenKind);
       } catch (err) {
-        console.error('Failed to load campaign media:', err);
         if (!cancelled) {
-          setMedia({ videoUrl: null, imageUrl: null, loadError: true });
+          setThumbErr(`exception:${chosenKind}:${String(err)}`);
         }
       }
     };
 
-    loadMedia();
+    loadThumb();
 
     return () => {
       cancelled = true;
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
     };
-  }, [campaign?.id, revokeAllUrls]);
-
-  useEffect(() => {
-    return () => {
-      revokeAllUrls();
-    };
-  }, [revokeAllUrls]);
+  }, [campaign?.id, campaign?.updatedAt, videoMediaId, attachmentsKey]);
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -259,6 +239,12 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             <span className="text-green-400">Showing: "{campaign.title.en}"</span>
           </>
         )}
+        {thumbErr && (
+          <>
+            <span className="text-zinc-400">|</span>
+            <span className="text-orange-400">ThumbErr: {thumbErr}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -300,33 +286,40 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             </Button>
           </div>
 
-          {(media.videoUrl || media.imageUrl) && (
+          {thumbUrl && thumbType === 'image' && (
             <div className="mb-3 rounded-lg overflow-hidden bg-muted/30">
-              {media.videoUrl ? (
-                <video
-                  src={media.videoUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="max-h-48 w-full object-cover rounded-lg border"
-                  data-testid="campaign-card-video"
-                />
-              ) : media.imageUrl ? (
-                <img
-                  src={media.imageUrl}
-                  alt=""
-                  className="max-h-48 w-full object-cover rounded-lg border"
-                  data-testid="campaign-card-image"
-                />
-              ) : null}
+              <img
+                src={thumbUrl}
+                alt=""
+                className="max-h-48 w-full object-cover rounded-lg border"
+                onError={() => setThumbErr('img_onError')}
+                data-testid="campaign-card-image"
+              />
             </div>
           )}
 
-          {media.loadError && hasMediaAttachments && (
+          {thumbUrl && thumbType === 'video' && (
+            <div className="mb-3 rounded-lg overflow-hidden bg-muted/30">
+              <video
+                src={thumbUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="max-h-48 w-full object-cover rounded-lg border"
+                onError={() => setThumbErr('video_onError')}
+                data-testid="campaign-card-video"
+              />
+            </div>
+          )}
+
+          {thumbErr && hasMediaAttachments && (
             <div className="mb-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
               <ImageOff className="w-8 h-8 opacity-50" />
               <span className="text-xs">{t.loadError}</span>
+              {isDebugMode && (
+                <span className="text-[10px] text-red-400 font-mono">{thumbErr}</span>
+              )}
             </div>
           )}
 

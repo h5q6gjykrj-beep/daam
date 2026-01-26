@@ -1,0 +1,59 @@
+[Fix v2 (Deterministic) | Thumbnail ما زال مكسور | اجعل التحميل محصّن + اعرض سبب الفشل]
+قيود:
+- لا تغيّر routing أو storage أو tracking.
+- عدّل فقط: client/src/components/campaigns/CampaignBanner.tsx
+- لا تلمس CampaignModal.
+
+المطلوب داخل InFeedCampaignCard:
+
+1) استبدل منطق thumbnail الحالي بالكامل بمنطق بسيط وحاسم:
+- state:
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbType, setThumbType] = useState<"image"|"video"|null>(null);
+  const [thumbErr, setThumbErr] = useState<string | null>(null);
+
+- useEffect يعتمد على selectedCampaign?.id و selectedCampaign?.updatedAt و attachments/video ids:
+  داخل useEffect:
+    let cancelled = false;
+    setThumbUrl(null); setThumbType(null); setThumbErr(null);
+
+    احسب المرشح:
+    - videoId = campaign.video?.id أو أول attachment.kind==="video"
+    - imageId = أول attachment.kind==="image"
+    - prefer image thumbnail أولاً ثم video (للشكل الأفضل)
+    - chosenId + chosenKind
+
+    إذا لا يوجد مرشح: return;
+
+    استرجع blob:
+      const blob = await getCampaignAttachmentBlob(chosenId);
+      إذا blob == null:
+        if (!cancelled) setThumbErr(`blob_null:${chosenKind}`);
+        return;
+
+    أنشئ url:
+      const url = URL.createObjectURL(blob);
+      إذا cancelled:
+        URL.revokeObjectURL(url); return;
+      setThumbUrl(url);
+      setThumbType(chosenKind);
+
+    cleanup:
+      cancelled = true;
+      if (thumbUrl) URL.revokeObjectURL(thumbUrl);
+
+ملاحظة مهمة: تجنب استخدام useRef list نهائياً.
+
+2) في JSX:
+- إذا thumbUrl && thumbType==="image": <img src={thumbUrl} ... onError={() => setThumbErr("img_onError")} />
+- إذا thumbUrl && thumbType==="video": <video src={thumbUrl} muted loop playsInline ... onError={() => setThumbErr("video_onError")} />
+- إذا thumbErr:
+  اعرض placeholder واضح + نص السبب (فقط في debug/super admin):
+    "لا يمكن تحميل المعاينة" + (thumbErr)
+
+3) تأكد أن placeholder لا يظهر للمستخدم العادي:
+- سبب الخطأ يظهر فقط إذا isDebugMode==true.
+
+بعد التنفيذ:
+- اذكر أين تم تعديل المنطق.
+- اطلب مني إعادة رفع صورة جديدة للحملة إذا كانت blob_null (حتى نتحقق من IndexedDB فعلياً).
