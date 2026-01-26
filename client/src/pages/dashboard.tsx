@@ -23,7 +23,6 @@ import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
-import { CampaignBanner } from "@/components/campaigns/CampaignBanner";
 
 export default function Dashboard() {
   const { posts, lang, getProfile, profiles, user } = useDaamStore();
@@ -158,7 +157,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-20" data-testid="dashboard-page">
-      <CampaignBanner placement="home" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
