@@ -1,0 +1,59 @@
+[DAAM | Step 6/6 | Campaign Modal لعرض المرفقات عند الضغط على Banner | بدون تغيير Routes]
+قيود صارمة:
+- ممنوع تغيير routing أو إضافة routes.
+- ممنوع تعديل صفحات dashboard/feed إلا إذا احتجت استيراد مكوّن فقط (يفضل عدم لمسها).
+- التعديل يكون بإضافة Component جديد + تعديل محدود داخل CampaignBanner فقط.
+- لا تغيّر admin.tsx في هذه الخطوة.
+
+المطلوب:
+
+1) إنشاء مكوّن جديد:
+client/src/components/campaigns/CampaignModal.tsx
+
+المكوّن يستقبل:
+- open: boolean
+- onOpenChange: (v:boolean)=>void
+- campaign: Campaign
+- lang: "ar"|"en" (أو استخرجه من i18n الحالي)
+ويعرض داخل Dialog/Modal:
+- العنوان + المحتوى حسب اللغة
+- المرفقات (attachments) إن وجدت:
+  A) الصور (kind="image"):
+     - اعرض thumbnails بسيطة (grid)
+  B) الفيديو (kind="video" أو campaign.video للتوافق):
+     - اعرض <video controls muted> مع ObjectURL
+  C) الملفات PDF (kind="file"):
+     - لكل ملف زر "فتح/تحميل"
+     - عند الضغط: اجلب Blob عبر getCampaignAttachmentBlob ثم أنشئ ObjectURL ثم افتح في تبويب جديد أو نزّل (anchor download)
+     - revokeObjectURL بعد الاستخدام
+- الاستبيان (survey) إن وجد:
+  - زر يفتح survey.url في تبويب جديد
+- أزرار: إغلاق
+
+Tracking:
+- عند فتح modal لأول مرة للحملة: لا تسجل impression إضافي (impression موجود من banner).
+- عند الضغط على PDF أو رابط الاستبيان: trackClick(campaign.id)
+- عند إغلاق modal: لا تعتبر dismissal (dismissal فقط لزر X في banner)
+
+2) تعديل CampaignBanner.tsx:
+- أضف state:
+  - const [open, setOpen] = useState(false)
+- اجعل banner قابل للنقر (أو زر "عرض") لفتح modal:
+  - onClick => setOpen(true)
+- استورد CampaignModal واعرضه:
+  <CampaignModal open={open} onOpenChange={setOpen} campaign={selectedCampaign} ... />
+- لا تغيّر منطق اختيار الحملة أو tracking أو seen/TTL.
+
+3) دعم التوافق مع الفيديو القديم:
+- إذا campaign.attachments لا تحتوي فيديو ولكن campaign.video موجود:
+  - اعرضه في modal كفيديو أيضًا باستخدام getCampaignMedia أو getCampaignAttachmentBlob حسب الموجود.
+
+4) i18n:
+- ترجم النصوص داخل modal (عرض/إغلاق/فتح ملف/تحميل/استبيان) AR/EN باستخدام نظام الترجمة الحالي.
+
+5) في النهاية:
+- اطبع الملفات التي أضفتها/عدّلتها.
+- أكّد عدم تغيير routes.
+- اذكر كيف يتم فتح الـ modal (click على banner أو زر عرض).
+
+ابدأ الآن.

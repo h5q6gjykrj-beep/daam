@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Bug } from 'lucide-react';
+import { X, Bug, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
@@ -8,6 +8,7 @@ import { getCampaignMedia } from '@/lib/campaign-media';
 import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
 import { getVisitorId, isCampaignActive } from '@/lib/campaign-helpers';
 import { ADMIN_EMAILS } from '@/config/admin';
+import { CampaignModal } from './CampaignModal';
 
 interface CampaignBannerProps {
   placement: CampaignPlacement;
@@ -28,8 +29,16 @@ export function CampaignBanner({ placement }: CampaignBannerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const impressionTracked = useRef(false);
   const isRTL = lang === 'ar';
+
+  // Check if campaign has additional content worth viewing in modal
+  const hasModalContent = campaign && (
+    (campaign.attachments && campaign.attachments.length > 0) ||
+    campaign.video ||
+    campaign.survey?.url
+  );
 
   // Check if debug mode should be enabled
   const isDebugMode = useMemo(() => {
@@ -171,6 +180,7 @@ export function CampaignBanner({ placement }: CampaignBannerProps) {
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
+  const viewLabel = lang === 'ar' ? 'عرض' : 'View';
 
   return (
     <>
@@ -180,41 +190,68 @@ export function CampaignBanner({ placement }: CampaignBannerProps) {
         dir={isRTL ? 'rtl' : 'ltr'}
         data-testid="campaign-banner"
       >
-      <div className="max-w-7xl mx-auto flex items-center gap-4 flex-wrap">
-        {videoUrl && (
-          <video
-            src={videoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-            data-testid="campaign-banner-video"
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          {title && (
-            <p className="font-semibold text-sm text-foreground" data-testid="campaign-banner-title">
-              {title}
-            </p>
+        <div className="max-w-7xl mx-auto flex items-center gap-4 flex-wrap">
+          {videoUrl && (
+            <video
+              src={videoUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+              data-testid="campaign-banner-video"
+            />
           )}
-          {content && (
-            <p className="text-xs text-muted-foreground line-clamp-2" data-testid="campaign-banner-content">
-              {content}
-            </p>
-          )}
+          <div 
+            className={`flex-1 min-w-0 ${hasModalContent ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+            onClick={hasModalContent ? () => setModalOpen(true) : undefined}
+            role={hasModalContent ? 'button' : undefined}
+            tabIndex={hasModalContent ? 0 : undefined}
+            onKeyDown={hasModalContent ? (e) => e.key === 'Enter' && setModalOpen(true) : undefined}
+          >
+            {title && (
+              <p className="font-semibold text-sm text-foreground" data-testid="campaign-banner-title">
+                {title}
+              </p>
+            )}
+            {content && (
+              <p className="text-xs text-muted-foreground line-clamp-2" data-testid="campaign-banner-content">
+                {content}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasModalContent && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModalOpen(true)}
+                className="gap-1"
+                data-testid="button-view-campaign"
+              >
+                <Eye className="w-3 h-3" />
+                {viewLabel}
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleDismiss}
+              data-testid="button-dismiss-banner"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={handleDismiss}
-          className="flex-shrink-0"
-          data-testid="button-dismiss-banner"
-        >
-          <X className="w-4 h-4" />
-        </Button>
       </div>
-      </div>
+      
+      {campaign && (
+        <CampaignModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          campaign={campaign}
+        />
+      )}
     </>
   );
 }
