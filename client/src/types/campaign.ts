@@ -13,6 +13,11 @@ export interface CampaignAttachment {
   durationSec?: number;
 }
 
+export interface CampaignSurvey {
+  url: string;
+  label?: { ar: string; en: string };
+}
+
 export interface Campaign {
   id: string;
   title: {
@@ -48,6 +53,7 @@ export interface Campaign {
     sizeBytes: number;
   };
   attachments?: CampaignAttachment[];
+  survey?: CampaignSurvey;
 }
 
 export interface CampaignImpression {

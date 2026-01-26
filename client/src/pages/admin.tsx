@@ -258,7 +258,12 @@ export default function Admin() {
     priority: 1,
     showOnce: false,
     dismissible: true,
+    surveyUrl: '',
+    surveyLabelAr: '',
+    surveyLabelEn: '',
+    surveyEnabled: false,
   });
+  const [mediaToolbarTab, setMediaToolbarTab] = useState<'video' | 'images' | 'files' | 'survey'>('video');
 
   const isRTL = lang === 'ar';
   const currentUser = user?.email || 'admin@utas.edu.om';
@@ -474,6 +479,15 @@ export default function Admin() {
     noAttachments: lang === 'ar' ? 'لا توجد مرفقات' : 'No attachments',
     attachmentError: lang === 'ar' ? 'خطأ في رفع المرفق' : 'Error uploading attachment',
     videoRequirements: lang === 'ar' ? 'MP4/WebM، أقصى 10 ثواني، 8MB' : 'MP4/WebM, max 10 sec, 8MB',
+    mediaToolbar: lang === 'ar' ? 'الوسائط والمرفقات' : 'Media & Attachments',
+    survey: lang === 'ar' ? 'استبيان' : 'Survey',
+    surveyUrl: lang === 'ar' ? 'رابط الاستبيان' : 'Survey URL',
+    surveyLabel: lang === 'ar' ? 'نص الزر' : 'Button Label',
+    surveyLabelPlaceholderAr: lang === 'ar' ? 'شارك برأيك' : 'Share your opinion',
+    surveyLabelPlaceholderEn: lang === 'ar' ? 'Share your feedback' : 'Share your feedback',
+    removeSurvey: lang === 'ar' ? 'إزالة الاستبيان' : 'Remove Survey',
+    saveFirstAlert: lang === 'ar' ? 'احفظ الحملة أولاً ثم ارفع المرفقات من شاشة التعديل.' : 'Save the campaign first, then upload attachments from Edit.',
+    addSurvey: lang === 'ar' ? 'إضافة استبيان' : 'Add Survey',
     startDate: lang === 'ar' ? 'تاريخ البدء' : 'Start Date',
     endDate: lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date',
     impressions: lang === 'ar' ? 'المشاهدات' : 'Impressions',
@@ -1561,9 +1575,14 @@ export default function Admin() {
       priority: 1,
       showOnce: false,
       dismissible: true,
+      surveyUrl: '',
+      surveyLabelAr: '',
+      surveyLabelEn: '',
+      surveyEnabled: false,
     });
     setCampaignVideoFile(null);
     setCampaignVideoPreview(null);
+    setMediaToolbarTab('video');
   };
 
   const openNewCampaignDialog = () => {
@@ -1588,7 +1607,12 @@ export default function Admin() {
       priority: campaign.priority,
       showOnce: campaign.showOnce,
       dismissible: campaign.dismissible,
+      surveyUrl: campaign.survey?.url || '',
+      surveyLabelAr: campaign.survey?.label?.ar || '',
+      surveyLabelEn: campaign.survey?.label?.en || '',
+      surveyEnabled: !!campaign.survey?.url,
     });
+    setMediaToolbarTab('video');
     setCampaignVideoFile(null);
     if (campaign.video?.id) {
       getCampaignMedia(campaign.video.id).then(blob => {
@@ -1707,6 +1731,13 @@ export default function Admin() {
         showOnce: campaignForm.showOnce,
         dismissible: campaignForm.dismissible,
         createdBy: currentUser,
+        survey: campaignForm.surveyEnabled && campaignForm.surveyUrl ? {
+          url: campaignForm.surveyUrl,
+          label: (campaignForm.surveyLabelAr || campaignForm.surveyLabelEn) ? {
+            ar: campaignForm.surveyLabelAr || 'شارك برأيك',
+            en: campaignForm.surveyLabelEn || 'Share your feedback'
+          } : undefined
+        } : undefined,
       };
 
       let savedCampaign: Campaign;
@@ -1753,6 +1784,7 @@ export default function Admin() {
       showOnce: campaign.showOnce,
       dismissible: campaign.dismissible,
       createdBy: currentUser,
+      survey: campaign.survey ? { ...campaign.survey } : undefined,
     });
     addAuditLog('campaign_duplicated', 'campaign', newCampaign.id, newCampaign.title.en);
     refreshCampaigns();
@@ -2072,9 +2104,58 @@ export default function Admin() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">{tr.campaignVideo}</label>
-                <p className="text-xs text-muted-foreground mb-2">{tr.videoRequirements}</p>
+              {/* Media & Attachments Toolbar */}
+              <div className="border-t border-white/10 pt-4">
+                <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                  <Paperclip className="w-4 h-4" />
+                  {tr.mediaToolbar}
+                </label>
+                
+                {/* Toolbar Tabs */}
+                <div className="flex flex-wrap gap-1 mb-4 p-1 bg-muted/50 rounded-lg">
+                  <Button
+                    size="sm"
+                    variant={mediaToolbarTab === 'video' ? 'default' : 'ghost'}
+                    onClick={() => setMediaToolbarTab('video')}
+                    className="gap-1"
+                    data-testid="toolbar-tab-video"
+                  >
+                    <Video className="w-4 h-4" />
+                    {tr.campaignVideo}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={mediaToolbarTab === 'images' ? 'default' : 'ghost'}
+                    onClick={() => setMediaToolbarTab('images')}
+                    className="gap-1"
+                    data-testid="toolbar-tab-images"
+                  >
+                    <Image className="w-4 h-4" />
+                    {tr.uploadImages.split(' ')[0]}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={mediaToolbarTab === 'files' ? 'default' : 'ghost'}
+                    onClick={() => setMediaToolbarTab('files')}
+                    className="gap-1"
+                    data-testid="toolbar-tab-files"
+                  >
+                    <File className="w-4 h-4" />
+                    PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={mediaToolbarTab === 'survey' ? 'default' : 'ghost'}
+                    onClick={() => setMediaToolbarTab('survey')}
+                    className="gap-1"
+                    data-testid="toolbar-tab-survey"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {tr.survey}
+                  </Button>
+                </div>
+
+                {/* Hidden file inputs */}
                 <input
                   ref={videoInputRef}
                   type="file"
@@ -2083,120 +2164,210 @@ export default function Admin() {
                   className="hidden"
                   data-testid="input-campaign-video"
                 />
-                {campaignVideoPreview ? (
-                  <div className="space-y-2">
-                    <video src={campaignVideoPreview} controls className="w-full max-h-40 rounded-lg bg-black" />
-                    <Button size="sm" variant="outline" onClick={handleRemoveCampaignVideo} data-testid="button-remove-campaign-video">
-                      <X className="w-3 h-3 me-1" />
-                      {tr.removeVideo}
-                    </Button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  multiple
+                  onChange={(e) => handleAttachmentUpload(e, 'image')}
+                  className="hidden"
+                  data-testid="input-campaign-images"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  onChange={(e) => handleAttachmentUpload(e, 'file')}
+                  className="hidden"
+                  data-testid="input-campaign-files"
+                />
+
+                {/* Video Tab Content */}
+                {mediaToolbarTab === 'video' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">{tr.videoLimit}</p>
+                    {!editingCampaign ? (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <p className="text-sm text-amber-400">{tr.saveFirstAlert}</p>
+                      </div>
+                    ) : campaignVideoPreview ? (
+                      <div className="space-y-2">
+                        <video src={campaignVideoPreview} controls className="w-full max-h-40 rounded-lg bg-black" />
+                        <Button size="sm" variant="outline" onClick={handleRemoveCampaignVideo} data-testid="button-remove-campaign-video">
+                          <X className="w-3 h-3 me-1" />
+                          {tr.removeVideo}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => videoInputRef.current?.click()} data-testid="button-upload-campaign-video">
+                        <Video className="w-3 h-3 me-1" />
+                        {tr.uploadVideo}
+                      </Button>
+                    )}
                   </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => videoInputRef.current?.click()} data-testid="button-upload-campaign-video">
-                    <Video className="w-3 h-3 me-1" />
-                    {tr.uploadVideo}
-                  </Button>
+                )}
+
+                {/* Images Tab Content */}
+                {mediaToolbarTab === 'images' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">{tr.imagesLimit}</p>
+                    {!editingCampaign ? (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <p className="text-sm text-amber-400">{tr.saveFirstAlert}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'image') >= ATTACHMENT_LIMITS.image.maxCount}
+                          data-testid="button-upload-campaign-images"
+                        >
+                          <Image className="w-3 h-3 me-1" />
+                          {tr.uploadImages} ({getAttachmentCountByKind(editingCampaign, 'image')}/{ATTACHMENT_LIMITS.image.maxCount})
+                        </Button>
+                        
+                        {/* Images list */}
+                        {editingCampaign.attachments?.filter(a => a.kind === 'image').map((attachment) => (
+                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-background/50 rounded-md border border-white/5">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Image className="w-4 h-4 shrink-0" />
+                              <span className="text-sm truncate">{attachment.name}</span>
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {formatFileSize(attachment.sizeBytes)}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
+                              className="shrink-0 text-destructive hover:text-destructive"
+                              data-testid={`button-remove-attachment-${attachment.id}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {attachmentUploading && (
+                      <p className="text-sm text-primary animate-pulse">{lang === 'ar' ? 'جاري الرفع...' : 'Uploading...'}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Files Tab Content */}
+                {mediaToolbarTab === 'files' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">{tr.filesLimit}</p>
+                    {!editingCampaign ? (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <p className="text-sm text-amber-400">{tr.saveFirstAlert}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'file') >= ATTACHMENT_LIMITS.file.maxCount}
+                          data-testid="button-upload-campaign-files"
+                        >
+                          <File className="w-3 h-3 me-1" />
+                          {tr.uploadFiles} ({getAttachmentCountByKind(editingCampaign, 'file')}/{ATTACHMENT_LIMITS.file.maxCount})
+                        </Button>
+                        
+                        {/* Files list */}
+                        {editingCampaign.attachments?.filter(a => a.kind === 'file').map((attachment) => (
+                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-background/50 rounded-md border border-white/5">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <File className="w-4 h-4 shrink-0" />
+                              <span className="text-sm truncate">{attachment.name}</span>
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {formatFileSize(attachment.sizeBytes)}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
+                              className="shrink-0 text-destructive hover:text-destructive"
+                              data-testid={`button-remove-attachment-${attachment.id}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {attachmentUploading && (
+                      <p className="text-sm text-primary animate-pulse">{lang === 'ar' ? 'جاري الرفع...' : 'Uploading...'}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Survey Tab Content */}
+                {mediaToolbarTab === 'survey' && (
+                  <div className="space-y-3">
+                    {campaignForm.surveyEnabled ? (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">{tr.surveyUrl} *</label>
+                          <Input
+                            type="url"
+                            placeholder="https://forms.google.com/..."
+                            value={campaignForm.surveyUrl}
+                            onChange={e => setCampaignForm(f => ({ ...f, surveyUrl: e.target.value }))}
+                            data-testid="input-survey-url"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium">{tr.surveyLabel} (AR)</label>
+                            <Input
+                              placeholder={tr.surveyLabelPlaceholderAr}
+                              value={campaignForm.surveyLabelAr}
+                              onChange={e => setCampaignForm(f => ({ ...f, surveyLabelAr: e.target.value }))}
+                              data-testid="input-survey-label-ar"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium">{tr.surveyLabel} (EN)</label>
+                            <Input
+                              placeholder={tr.surveyLabelPlaceholderEn}
+                              value={campaignForm.surveyLabelEn}
+                              onChange={e => setCampaignForm(f => ({ ...f, surveyLabelEn: e.target.value }))}
+                              data-testid="input-survey-label-en"
+                            />
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => setCampaignForm(f => ({ ...f, surveyEnabled: false, surveyUrl: '', surveyLabelAr: '', surveyLabelEn: '' }))}
+                          className="text-destructive"
+                          data-testid="button-remove-survey"
+                        >
+                          <X className="w-3 h-3 me-1" />
+                          {tr.removeSurvey}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setCampaignForm(f => ({ ...f, surveyEnabled: true }))}
+                        data-testid="button-add-survey"
+                      >
+                        <FileText className="w-3 h-3 me-1" />
+                        {tr.addSurvey}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {/* Attachments Section - Only visible when editing existing campaign */}
-              {editingCampaign && (
-                <div className="border-t border-white/10 pt-4">
-                  <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                    <Paperclip className="w-4 h-4" />
-                    {tr.attachments}
-                  </label>
-                  
-                  {/* Upload buttons */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/webp"
-                      multiple
-                      onChange={(e) => handleAttachmentUpload(e, 'image')}
-                      className="hidden"
-                      data-testid="input-campaign-images"
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/pdf"
-                      multiple
-                      onChange={(e) => handleAttachmentUpload(e, 'file')}
-                      className="hidden"
-                      data-testid="input-campaign-files"
-                    />
-                    
-                    <div className="flex flex-col gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => imageInputRef.current?.click()}
-                        disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'image') >= ATTACHMENT_LIMITS.image.maxCount}
-                        data-testid="button-upload-campaign-images"
-                      >
-                        <Image className="w-3 h-3 me-1" />
-                        {tr.uploadImages} ({getAttachmentCountByKind(editingCampaign, 'image')}/{ATTACHMENT_LIMITS.image.maxCount})
-                      </Button>
-                      <span className="text-xs text-muted-foreground">{tr.imagesLimit}</span>
-                    </div>
-                    
-                    <div className="flex flex-col gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'file') >= ATTACHMENT_LIMITS.file.maxCount}
-                        data-testid="button-upload-campaign-files"
-                      >
-                        <File className="w-3 h-3 me-1" />
-                        {tr.uploadFiles} ({getAttachmentCountByKind(editingCampaign, 'file')}/{ATTACHMENT_LIMITS.file.maxCount})
-                      </Button>
-                      <span className="text-xs text-muted-foreground">{tr.filesLimit}</span>
-                    </div>
-                  </div>
-
-                  {/* Attachments list */}
-                  {editingCampaign.attachments && editingCampaign.attachments.length > 0 ? (
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {editingCampaign.attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center justify-between p-2 bg-background/50 rounded-md border border-white/5">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {getAttachmentIcon(attachment.kind)}
-                            <span className="text-sm truncate">{attachment.name}</span>
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              {formatFileSize(attachment.sizeBytes)}
-                            </Badge>
-                            {attachment.durationSec && (
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                {attachment.durationSec}s
-                              </Badge>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
-                            className="shrink-0 text-destructive hover:text-destructive"
-                            data-testid={`button-remove-attachment-${attachment.id}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{tr.noAttachments}</p>
-                  )}
-
-                  {attachmentUploading && (
-                    <p className="text-sm text-primary animate-pulse mt-2">
-                      {lang === 'ar' ? 'جاري الرفع...' : 'Uploading...'}
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCampaignDialogOpen(false)}>{tr.cancel}</Button>

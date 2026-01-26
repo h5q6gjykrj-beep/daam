@@ -1,0 +1,55 @@
+[UI | شريط خيارات: فيديو + صور + ملفات + استبيان (اقتصادي) | بدون تغيير Routes]
+قيود صارمة:
+- ممنوع تغيير routing أو إضافة routes.
+- لا تغيّر dashboard/feed أو أي صفحات المستخدم الآن.
+- التعديل الأساسي في: client/src/pages/admin.tsx
+- مسموح تعديل خفيف في: client/src/types/campaign.ts + client/src/lib/campaign-storage.ts فقط لإضافة حقول رابط الاستبيان داخل Campaign.
+- لا تبني نظام Queue في الإنشاء لتقليل التكلفة.
+
+المطلوب:
+
+1) داخل نموذج إنشاء/تعديل الحملة في تبويب "الحملات" (admin.tsx):
+أنشئ شريط أفقي واحد (toolbar) في نفس مكان قسم "فيديو" الحالي، يحتوي 4 أزرار/خيارات متجاورة:
+- 🎥 فيديو
+- 🖼️ صور
+- 📄 ملفات (PDF)
+- 📝 استبيان
+
+2) فيديو:
+- يبقى كما هو (رفع mp4/webm + تحقق <=10s و<=8MB)
+- يعمل فقط في Edit (campaign موجود).
+- في Create (قبل الحفظ): اعرض تنبيه صغير:
+  AR: "احفظ الحملة أولاً ثم ارفع المرفقات من شاشة التعديل."
+  EN: "Save the campaign first, then upload attachments from Edit."
+
+3) صور:
+- أضف input file متعدد للصور (accept="image/png,image/jpeg,image/webp")
+- في Edit فقط:
+  عند اختيار الصور: ارفع كل صورة على حدة باستخدام attachCampaignAttachment(campaign.id, file, "image")
+  مع احترام limits الحالية (حتى 5 صور، 2MB لكل صورة).
+- اعرض قائمة الصور المرفوعة (name + size) مع زر إزالة يستدعي removeCampaignAttachment(campaign.id, attachmentId)
+
+4) ملفات (PDF):
+- أضف input file متعدد (accept="application/pdf,.pdf")
+- في Edit فقط:
+  ارفع كل ملف باستخدام attachCampaignAttachment(campaign.id, file, "file")
+  مع احترام limits الحالية (حتى 3 ملفات، 10MB لكل ملف).
+- اعرض قائمة ملفات PDF المرفوعة (name + size) مع زر إزالة removeCampaignAttachment
+
+5) استبيان (حل اقتصادي):
+- لا تبني استبيان داخل التطبيق الآن.
+- اجعل زر "استبيان" يفتح/يُظهر حقول بسيطة داخل نفس النموذج:
+  - surveyUrl (required إذا فعّل الاستبيان)
+  - surveyLabel AR/EN (اختياري، افتراضي: "شارك برأيك" / "Share your feedback")
+- أضف في types:
+  في client/src/types/campaign.ts داخل Campaign:
+  survey?: { url: string; label?: { ar: string; en: string } }
+- حدّث create/update في storage لا يحتاج تغيير خاص لأن campaign object يُحفظ كما هو.
+- اعرض زر "إزالة الاستبيان" يمسح campaign.survey.
+
+6) ترجمة AR/EN:
+- أضف النصوص الجديدة (صور/ملفات/استبيان/التنبيه) داخل tr object.
+
+7) بعد التنفيذ:
+- اذكر بالضبط أين تم وضع toolbar داخل admin.tsx
+- أكّد عدم تغيير routes.
