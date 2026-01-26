@@ -12,14 +12,15 @@ import {
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
-  Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X
+  Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip
 } from "lucide-react";
-import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats } from "@/types/campaign";
+import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
   getCampaigns, createCampaign, updateCampaign, deleteCampaign, 
-  updateCampaignStatus, getCampaignStats, attachCampaignVideo, removeCampaignVideo 
+  updateCampaignStatus, getCampaignStats, attachCampaignVideo, removeCampaignVideo,
+  attachCampaignAttachment, removeCampaignAttachment, getAttachmentCountByKind, ATTACHMENT_LIMITS
 } from "@/lib/campaign-storage";
-import { getCampaignMedia } from "@/lib/campaign-media";
+import { getCampaignMedia, detectAttachmentKind, validateAttachment } from "@/lib/campaign-media";
 import { CAMPAIGN_TRANSLATIONS, formatCampaignDate, getCampaignStatusColor } from "@/lib/campaign-helpers";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -239,7 +240,10 @@ export default function Admin() {
   const [campaignVideoFile, setCampaignVideoFile] = useState<File | null>(null);
   const [campaignVideoPreview, setCampaignVideoPreview] = useState<string | null>(null);
   const [campaignSaving, setCampaignSaving] = useState(false);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [campaignForm, setCampaignForm] = useState({
     titleAr: '',
     titleEn: '',
@@ -460,6 +464,15 @@ export default function Admin() {
     noVideo: lang === 'ar' ? 'لا' : 'No',
     uploadVideo: lang === 'ar' ? 'رفع فيديو' : 'Upload Video',
     removeVideo: lang === 'ar' ? 'إزالة الفيديو' : 'Remove Video',
+    attachments: lang === 'ar' ? 'المرفقات' : 'Attachments',
+    uploadImages: lang === 'ar' ? 'رفع صور' : 'Upload Images',
+    uploadFiles: lang === 'ar' ? 'رفع ملفات PDF' : 'Upload PDF Files',
+    removeAttachment: lang === 'ar' ? 'إزالة' : 'Remove',
+    imagesLimit: lang === 'ar' ? `الحد: 5 صور، 2MB لكل صورة (PNG/JPG/WebP)` : `Limit: 5 images, 2MB each (PNG/JPG/WebP)`,
+    filesLimit: lang === 'ar' ? `الحد: 3 ملفات PDF، 10MB لكل ملف` : `Limit: 3 PDF files, 10MB each`,
+    videoLimit: lang === 'ar' ? `الحد: فيديو واحد، 10 ثواني، 8MB (MP4/WebM)` : `Limit: 1 video, 10 seconds, 8MB (MP4/WebM)`,
+    noAttachments: lang === 'ar' ? 'لا توجد مرفقات' : 'No attachments',
+    attachmentError: lang === 'ar' ? 'خطأ في رفع المرفق' : 'Error uploading attachment',
     videoRequirements: lang === 'ar' ? 'MP4/WebM، أقصى 10 ثواني، 8MB' : 'MP4/WebM, max 10 sec, 8MB',
     startDate: lang === 'ar' ? 'تاريخ البدء' : 'Start Date',
     endDate: lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date',
@@ -1611,6 +1624,71 @@ export default function Admin() {
     }
   };
 
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>, kind: CampaignAttachmentKind) => {
+    if (!editingCampaign) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setAttachmentUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const currentCount = getAttachmentCountByKind(editingCampaign, kind);
+        const validation = await validateAttachment(file, kind, currentCount);
+        
+        if (!validation.ok) {
+          alert(lang === 'ar' ? validation.reasonAr : validation.reason);
+          continue;
+        }
+        
+        await attachCampaignAttachment(editingCampaign.id, file, kind);
+        addAuditLog('campaign_updated', 'campaign', editingCampaign.id, `Attachment added: ${file.name}`);
+      }
+      refreshCampaigns();
+      // Update editingCampaign to reflect new attachments
+      const updatedCampaign = getCampaigns().find(c => c.id === editingCampaign.id);
+      if (updatedCampaign) {
+        setEditingCampaign(updatedCampaign);
+      }
+    } catch (err) {
+      alert(tr.attachmentError);
+    } finally {
+      setAttachmentUploading(false);
+      // Reset inputs
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = async (attachmentId: string, attachmentName: string) => {
+    if (!editingCampaign) return;
+    
+    try {
+      await removeCampaignAttachment(editingCampaign.id, attachmentId);
+      addAuditLog('campaign_updated', 'campaign', editingCampaign.id, `Attachment removed: ${attachmentName}`);
+      refreshCampaigns();
+      // Update editingCampaign
+      const updatedCampaign = getCampaigns().find(c => c.id === editingCampaign.id);
+      if (updatedCampaign) {
+        setEditingCampaign(updatedCampaign);
+      }
+    } catch {}
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const getAttachmentIcon = (kind: CampaignAttachmentKind) => {
+    switch (kind) {
+      case 'image': return <Image className="w-4 h-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'file': return <File className="w-4 h-4" />;
+    }
+  };
+
   const handleSaveCampaign = async () => {
     if (!campaignForm.titleAr || !campaignForm.titleEn) return;
     
@@ -2020,6 +2098,105 @@ export default function Admin() {
                   </Button>
                 )}
               </div>
+
+              {/* Attachments Section - Only visible when editing existing campaign */}
+              {editingCampaign && (
+                <div className="border-t border-white/10 pt-4">
+                  <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                    <Paperclip className="w-4 h-4" />
+                    {tr.attachments}
+                  </label>
+                  
+                  {/* Upload buttons */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      multiple
+                      onChange={(e) => handleAttachmentUpload(e, 'image')}
+                      className="hidden"
+                      data-testid="input-campaign-images"
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      onChange={(e) => handleAttachmentUpload(e, 'file')}
+                      className="hidden"
+                      data-testid="input-campaign-files"
+                    />
+                    
+                    <div className="flex flex-col gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'image') >= ATTACHMENT_LIMITS.image.maxCount}
+                        data-testid="button-upload-campaign-images"
+                      >
+                        <Image className="w-3 h-3 me-1" />
+                        {tr.uploadImages} ({getAttachmentCountByKind(editingCampaign, 'image')}/{ATTACHMENT_LIMITS.image.maxCount})
+                      </Button>
+                      <span className="text-xs text-muted-foreground">{tr.imagesLimit}</span>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={attachmentUploading || getAttachmentCountByKind(editingCampaign, 'file') >= ATTACHMENT_LIMITS.file.maxCount}
+                        data-testid="button-upload-campaign-files"
+                      >
+                        <File className="w-3 h-3 me-1" />
+                        {tr.uploadFiles} ({getAttachmentCountByKind(editingCampaign, 'file')}/{ATTACHMENT_LIMITS.file.maxCount})
+                      </Button>
+                      <span className="text-xs text-muted-foreground">{tr.filesLimit}</span>
+                    </div>
+                  </div>
+
+                  {/* Attachments list */}
+                  {editingCampaign.attachments && editingCampaign.attachments.length > 0 ? (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {editingCampaign.attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-2 bg-background/50 rounded-md border border-white/5">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {getAttachmentIcon(attachment.kind)}
+                            <span className="text-sm truncate">{attachment.name}</span>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {formatFileSize(attachment.sizeBytes)}
+                            </Badge>
+                            {attachment.durationSec && (
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {attachment.durationSec}s
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
+                            className="shrink-0 text-destructive hover:text-destructive"
+                            data-testid={`button-remove-attachment-${attachment.id}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{tr.noAttachments}</p>
+                  )}
+
+                  {attachmentUploading && (
+                    <p className="text-sm text-primary animate-pulse mt-2">
+                      {lang === 'ar' ? 'جاري الرفع...' : 'Uploading...'}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCampaignDialogOpen(false)}>{tr.cancel}</Button>

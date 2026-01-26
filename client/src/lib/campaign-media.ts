@@ -1,8 +1,30 @@
+import type { CampaignAttachment, CampaignAttachmentKind } from '@/types/campaign';
+
 const DB_NAME = 'daam_media_db_v1';
 const STORE_NAME = 'campaign_media';
 const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+// Attachment validation limits
+export const ATTACHMENT_LIMITS = {
+  image: {
+    maxSizeBytes: 2 * 1024 * 1024, // 2MB
+    maxCount: 5,
+    allowedMimes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+  },
+  file: {
+    maxSizeBytes: 10 * 1024 * 1024, // 10MB
+    maxCount: 3,
+    allowedMimes: ['application/pdf']
+  },
+  video: {
+    maxSizeBytes: 8 * 1024 * 1024, // 8MB
+    maxCount: 1,
+    maxDurationSec: 10,
+    allowedMimes: ['video/mp4', 'video/webm']
+  }
+};
 
 function openDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -159,3 +181,144 @@ export const VIDEO_VALIDATION_LIMITS = {
   maxDurationSec: MAX_DURATION_SEC,
   allowedMimes: ALLOWED_MIMES
 };
+
+// Attachment validation
+interface AttachmentValidationSuccess {
+  ok: true;
+  meta: {
+    kind: CampaignAttachmentKind;
+    name: string;
+    mime: string;
+    sizeBytes: number;
+    durationSec?: number;
+  };
+}
+
+interface AttachmentValidationFailure {
+  ok: false;
+  reason: string;
+  reasonAr: string;
+}
+
+type AttachmentValidationResult = AttachmentValidationSuccess | AttachmentValidationFailure;
+
+export function detectAttachmentKind(file: File): CampaignAttachmentKind | null {
+  if (ATTACHMENT_LIMITS.image.allowedMimes.includes(file.type)) return 'image';
+  if (ATTACHMENT_LIMITS.file.allowedMimes.includes(file.type)) return 'file';
+  if (ATTACHMENT_LIMITS.video.allowedMimes.includes(file.type)) return 'video';
+  return null;
+}
+
+export async function validateAttachment(
+  file: File,
+  kind: CampaignAttachmentKind,
+  currentCount: number
+): Promise<AttachmentValidationResult> {
+  const limits = ATTACHMENT_LIMITS[kind];
+  
+  // Check mime type
+  if (!limits.allowedMimes.includes(file.type)) {
+    return {
+      ok: false,
+      reason: `Invalid format. Allowed: ${limits.allowedMimes.join(', ')}`,
+      reasonAr: `صيغة غير مدعومة. المسموح: ${limits.allowedMimes.join(', ')}`
+    };
+  }
+  
+  // Check size
+  if (file.size > limits.maxSizeBytes) {
+    const maxMB = limits.maxSizeBytes / (1024 * 1024);
+    const fileMB = (file.size / (1024 * 1024)).toFixed(2);
+    return {
+      ok: false,
+      reason: `File size exceeds ${maxMB}MB limit (${fileMB}MB)`,
+      reasonAr: `حجم الملف يتجاوز الحد ${maxMB}MB (${fileMB}MB)`
+    };
+  }
+  
+  // Check count
+  if (currentCount >= limits.maxCount) {
+    return {
+      ok: false,
+      reason: `Maximum ${limits.maxCount} ${kind}(s) allowed`,
+      reasonAr: `الحد الأقصى ${limits.maxCount} ${kind === 'image' ? 'صور' : kind === 'file' ? 'ملفات' : 'فيديو'}`
+    };
+  }
+  
+  // For video, check duration
+  if (kind === 'video') {
+    try {
+      const durationSec = await getVideoDuration(file);
+      if (durationSec > ATTACHMENT_LIMITS.video.maxDurationSec) {
+        return {
+          ok: false,
+          reason: `Video duration exceeds ${ATTACHMENT_LIMITS.video.maxDurationSec} seconds (${durationSec.toFixed(1)}s)`,
+          reasonAr: `مدة الفيديو تتجاوز ${ATTACHMENT_LIMITS.video.maxDurationSec} ثواني (${durationSec.toFixed(1)}ث)`
+        };
+      }
+      return {
+        ok: true,
+        meta: {
+          kind,
+          name: file.name,
+          mime: file.type,
+          sizeBytes: file.size,
+          durationSec: Math.round(durationSec * 10) / 10
+        }
+      };
+    } catch {
+      return {
+        ok: false,
+        reason: 'Failed to read video duration',
+        reasonAr: 'فشل قراءة مدة الفيديو'
+      };
+    }
+  }
+  
+  return {
+    ok: true,
+    meta: {
+      kind,
+      name: file.name,
+      mime: file.type,
+      sizeBytes: file.size
+    }
+  };
+}
+
+export async function saveCampaignAttachment(file: File): Promise<CampaignAttachment> {
+  const kind = detectAttachmentKind(file);
+  if (!kind) {
+    throw new Error('Unsupported file type');
+  }
+  
+  const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+  const mediaId = await saveCampaignMedia(blob);
+  
+  let durationSec: number | undefined;
+  if (kind === 'video') {
+    try {
+      durationSec = await getVideoDuration(file);
+      durationSec = Math.round(durationSec * 10) / 10;
+    } catch {
+      // Duration unknown
+    }
+  }
+  
+  return {
+    id: mediaId,
+    kind,
+    name: file.name,
+    mime: file.type,
+    sizeBytes: file.size,
+    durationSec
+  };
+}
+
+export async function getCampaignAttachmentBlob(mediaId: string): Promise<Blob | null> {
+  return getCampaignMedia(mediaId);
+}
+
+export async function deleteCampaignAttachment(mediaId: string): Promise<void> {
+  return deleteCampaignMedia(mediaId);
+}

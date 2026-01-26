@@ -1,0 +1,56 @@
+[DAAM | Step 5/6 | Campaign Attachments (صور + ملفات + فيديو) باستخدام IndexedDB بدون لمس Routes]
+قيود صارمة:
+- ممنوع تغيير routing أو إضافة routes جديدة.
+- لا تغيّر صفحات dashboard/feed الآن.
+- مسموح تعديل admin.tsx فقط لإضافة حقول رفع المرفقات داخل تبويب الحملات.
+- أي ملفات ثنائية (image/pdf/video) تُخزن في IndexedDB فقط، وليس LocalStorage.
+
+المطلوب:
+
+1) تحديث Types:
+في client/src/types/campaign.ts
+أضف:
+- type CampaignAttachmentKind = "image" | "video" | "file"
+- interface CampaignAttachment {
+    id: string;         // mediaId في IndexedDB
+    kind: CampaignAttachmentKind
+    name: string
+    mime: string
+    sizeBytes: number
+    durationSec?: number // للفيديو فقط
+  }
+- داخل Campaign:
+  attachments?: CampaignAttachment[]
+ملاحظة: احتفظ بحقل video? الحالي للتوافق، لكن اجعله لاحقًا يُعامل كمرفق video أيضًا (لا تحذفه الآن).
+
+2) توسيع campaign-media.ts ليصبح عامًا لكل وسائط الحملات:
+- أضف دوال:
+  saveCampaignAttachment(file: File): Promise<CampaignAttachment>
+  getCampaignAttachmentBlob(mediaId: string): Promise<Blob|null>
+  deleteCampaignAttachment(mediaId: string): Promise<void>
+- أضف validate عام حسب النوع:
+  - صور: png/jpg/webp + حد 2MB لكل صورة + حد 5 صور للحملة
+  - ملفات: application/pdf فقط + حد 10MB لكل ملف + حد 3 ملفات للحملة
+  - فيديو: نفس قواعدكم (mp4/webm <=10s <=8MB)
+
+3) تحديث campaign-storage.ts:
+- أضف:
+  attachCampaignAttachment(campaignId: string, file: File, kind: "image"|"video"|"file"): Promise<Campaign>
+  removeCampaignAttachment(campaignId: string, attachmentId: string): Promise<Campaign>
+- عند deleteCampaign: احذف كل attachments من IndexedDB قبل حذف الحملة.
+- عند duplicateCampaign: انسخ metadata فقط بدون نسخ blobs (أو انسخ blobs إذا سهل، لكن metadata-only مقبول اقتصاديًا).
+
+4) تحديث admin.tsx (تبويب الحملات) لإدارة المرفقات:
+- في نموذج إنشاء/تعديل:
+  - قسم "المرفقات"
+  - Upload صور متعددة (حتى 5)
+  - Upload PDF (حتى 3)
+  - Upload فيديو واحد (حتى 10s)
+- عرض قائمة المرفقات الحالية (اسم + نوع + حجم) مع زر إزالة لكل مرفق.
+- عند الرفع استخدم attachCampaignAttachment.
+- عند الإزالة استخدم removeCampaignAttachment.
+- ترجمة AR/EN لكل النصوص ورسائل القيود.
+
+5) في النهاية:
+- اطبع الملفات التي عُدلت.
+- أكّد عدم تغيير أي routes.

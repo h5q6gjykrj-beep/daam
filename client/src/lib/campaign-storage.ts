@@ -5,9 +5,20 @@ import type {
   CampaignDismissal,
   CampaignStats,
   CampaignFilters,
-  CampaignStatus
+  CampaignStatus,
+  CampaignAttachment,
+  CampaignAttachmentKind
 } from '@/types/campaign';
-import { deleteCampaignMedia, saveCampaignMedia, validateCampaignVideo } from './campaign-media';
+import { 
+  deleteCampaignMedia, 
+  saveCampaignMedia, 
+  validateCampaignVideo,
+  validateAttachment,
+  detectAttachmentKind,
+  saveCampaignAttachment as saveAttachmentToIndexedDB,
+  deleteCampaignAttachment as deleteAttachmentFromIndexedDB,
+  ATTACHMENT_LIMITS
+} from './campaign-media';
 
 const STORAGE_KEYS = {
   CAMPAIGNS: 'daam_campaigns_v1',
@@ -67,11 +78,23 @@ export async function deleteCampaign(id: string): Promise<boolean> {
   const campaign = campaigns.find(c => c.id === id);
   if (!campaign) return false;
   
+  // Delete video from IndexedDB
   if (campaign.video?.id) {
     try {
       await deleteCampaignMedia(campaign.video.id);
     } catch {
       // Continue even if media deletion fails
+    }
+  }
+  
+  // Delete all attachments from IndexedDB
+  if (campaign.attachments && campaign.attachments.length > 0) {
+    for (const attachment of campaign.attachments) {
+      try {
+        await deleteAttachmentFromIndexedDB(attachment.id);
+      } catch {
+        // Continue even if attachment deletion fails
+      }
     }
   }
   
@@ -284,5 +307,90 @@ export async function removeCampaignVideo(campaignId: string): Promise<Campaign>
   saveCampaigns(campaigns);
   return campaigns[index];
 }
+
+// Attachment management functions
+export async function attachCampaignAttachment(
+  campaignId: string, 
+  file: File, 
+  kind: CampaignAttachmentKind
+): Promise<Campaign> {
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) {
+    throw new Error('Campaign not found');
+  }
+  
+  const campaign = campaigns[index];
+  const currentAttachments = campaign.attachments || [];
+  const currentKindCount = currentAttachments.filter(a => a.kind === kind).length;
+  
+  // Validate the attachment
+  const validation = await validateAttachment(file, kind, currentKindCount);
+  if (!validation.ok) {
+    throw new Error(validation.reason);
+  }
+  
+  // Save to IndexedDB and get attachment metadata
+  const attachment = await saveAttachmentToIndexedDB(file);
+  
+  // Update campaign with new attachment
+  campaigns[index] = {
+    ...campaign,
+    attachments: [...currentAttachments, attachment],
+    updatedAt: new Date().toISOString()
+  };
+  
+  saveCampaigns(campaigns);
+  return campaigns[index];
+}
+
+export async function removeCampaignAttachment(
+  campaignId: string, 
+  attachmentId: string
+): Promise<Campaign> {
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) {
+    throw new Error('Campaign not found');
+  }
+  
+  const campaign = campaigns[index];
+  const attachments = campaign.attachments || [];
+  const attachmentIndex = attachments.findIndex(a => a.id === attachmentId);
+  
+  if (attachmentIndex === -1) {
+    throw new Error('Attachment not found');
+  }
+  
+  // Delete from IndexedDB
+  try {
+    await deleteAttachmentFromIndexedDB(attachmentId);
+  } catch {
+    // Continue even if IndexedDB deletion fails
+  }
+  
+  // Remove from campaign
+  const updatedAttachments = attachments.filter(a => a.id !== attachmentId);
+  campaigns[index] = {
+    ...campaign,
+    attachments: updatedAttachments,
+    updatedAt: new Date().toISOString()
+  };
+  
+  saveCampaigns(campaigns);
+  return campaigns[index];
+}
+
+export function getAttachmentCountByKind(campaign: Campaign | undefined, kind: CampaignAttachmentKind): number {
+  if (!campaign?.attachments) return 0;
+  return campaign.attachments.filter(a => a.kind === kind).length;
+}
+
+export function canAddAttachment(campaign: Campaign | undefined, kind: CampaignAttachmentKind): boolean {
+  const count = getAttachmentCountByKind(campaign, kind);
+  return count < ATTACHMENT_LIMITS[kind].maxCount;
+}
+
+export { ATTACHMENT_LIMITS };
 
 export const CAMPAIGN_STORAGE_KEYS = STORAGE_KEYS;

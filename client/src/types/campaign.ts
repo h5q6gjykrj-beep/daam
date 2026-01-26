@@ -2,6 +2,16 @@ export type CampaignType = 'banner' | 'popup' | 'announcement' | 'notification';
 export type CampaignStatus = 'draft' | 'scheduled' | 'active' | 'paused' | 'ended';
 export type CampaignTarget = 'all' | 'students' | 'moderators' | 'new_users';
 export type CampaignPlacement = 'home' | 'feed' | 'profile' | 'global';
+export type CampaignAttachmentKind = 'image' | 'video' | 'file';
+
+export interface CampaignAttachment {
+  id: string;
+  kind: CampaignAttachmentKind;
+  name: string;
+  mime: string;
+  sizeBytes: number;
+  durationSec?: number;
+}
 
 export interface Campaign {
   id: string;
@@ -37,6 +47,7 @@ export interface Campaign {
     durationSec: number;
     sizeBytes: number;
   };
+  attachments?: CampaignAttachment[];
 }
 
 export interface CampaignImpression {
