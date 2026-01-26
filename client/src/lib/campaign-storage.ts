@@ -7,6 +7,7 @@ import type {
   CampaignFilters,
   CampaignStatus
 } from '@/types/campaign';
+import { deleteCampaignMedia, saveCampaignMedia, validateCampaignVideo } from './campaign-media';
 
 const STORAGE_KEYS = {
   CAMPAIGNS: 'daam_campaigns_v1',
@@ -61,10 +62,20 @@ export function updateCampaign(id: string, updates: Partial<Campaign>): Campaign
   return campaigns[index];
 }
 
-export function deleteCampaign(id: string): boolean {
+export async function deleteCampaign(id: string): Promise<boolean> {
   const campaigns = getCampaigns();
+  const campaign = campaigns.find(c => c.id === id);
+  if (!campaign) return false;
+  
+  if (campaign.video?.id) {
+    try {
+      await deleteCampaignMedia(campaign.video.id);
+    } catch {
+      // Continue even if media deletion fails
+    }
+  }
+  
   const filtered = campaigns.filter(c => c.id !== id);
-  if (filtered.length === campaigns.length) return false;
   saveCampaigns(filtered);
   return true;
 }
@@ -181,6 +192,72 @@ export function getCampaignStats(campaignId: string): CampaignStats {
 
 export function getAllCampaignStats(): CampaignStats[] {
   return getCampaigns().map(c => getCampaignStats(c.id));
+}
+
+export async function attachCampaignVideo(campaignId: string, file: File): Promise<Campaign> {
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) {
+    throw new Error('Campaign not found');
+  }
+  
+  const validation = await validateCampaignVideo(file);
+  if (!validation.ok) {
+    throw new Error(validation.reason);
+  }
+  
+  const campaign = campaigns[index];
+  
+  if (campaign.video?.id) {
+    try {
+      await deleteCampaignMedia(campaign.video.id);
+    } catch {
+      // Continue even if old media deletion fails
+    }
+  }
+  
+  const mediaId = await saveCampaignMedia(file);
+  
+  campaigns[index] = {
+    ...campaign,
+    video: {
+      id: mediaId,
+      mime: validation.meta.mime,
+      durationSec: validation.meta.durationSec,
+      sizeBytes: validation.meta.sizeBytes
+    },
+    updatedAt: new Date().toISOString()
+  };
+  
+  saveCampaigns(campaigns);
+  return campaigns[index];
+}
+
+export async function removeCampaignVideo(campaignId: string): Promise<Campaign> {
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) {
+    throw new Error('Campaign not found');
+  }
+  
+  const campaign = campaigns[index];
+  
+  if (campaign.video?.id) {
+    try {
+      await deleteCampaignMedia(campaign.video.id);
+    } catch {
+      // Continue even if media deletion fails
+    }
+  }
+  
+  const { video, ...rest } = campaign;
+  campaigns[index] = {
+    ...rest,
+    updatedAt: new Date().toISOString()
+  } as Campaign;
+  
+  saveCampaigns(campaigns);
+  return campaigns[index];
 }
 
 export const CAMPAIGN_STORAGE_KEYS = STORAGE_KEYS;

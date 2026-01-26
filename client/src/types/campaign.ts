@@ -31,6 +31,12 @@ export interface Campaign {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  video?: {
+    id: string;
+    mime: string;
+    durationSec: number;
+    sizeBytes: number;
+  };
 }
 
 export interface CampaignImpression {
