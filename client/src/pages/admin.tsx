@@ -1,23 +1,32 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useDaamStore, type Report as StoreReport, type ReportStatus as StoreReportStatus } from "@/hooks/use-daam-store";
 import { 
   Users, MessageSquare, FileText, Flag, ClipboardList, LayoutDashboard,
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
-  LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe
+  LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
+  Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X
 } from "lucide-react";
+import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats } from "@/types/campaign";
+import { 
+  getCampaigns, createCampaign, updateCampaign, deleteCampaign, 
+  updateCampaignStatus, getCampaignStats, attachCampaignVideo, removeCampaignVideo 
+} from "@/lib/campaign-storage";
+import { getCampaignMedia } from "@/lib/campaign-media";
+import { CAMPAIGN_TRANSLATIONS, formatCampaignDate, getCampaignStatusColor } from "@/lib/campaign-helpers";
 import { motion, AnimatePresence } from "framer-motion";
 
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
 type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
-type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended' | 'domain_added' | 'domain_removed';
+type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended' | 'domain_added' | 'domain_removed' | 'campaign_created' | 'campaign_updated' | 'campaign_deleted' | 'campaign_activated' | 'campaign_paused' | 'campaign_ended' | 'campaign_duplicated';
 type ReportPriority = 'low' | 'medium' | 'high';
 type ReportSortOption = 'newest' | 'oldest' | 'priority';
 
@@ -100,7 +109,7 @@ interface Report {
 interface AuditLogEntry {
   id: string;
   action: ActionType;
-  targetType: 'user' | 'post' | 'comment' | 'file' | 'report';
+  targetType: 'user' | 'post' | 'comment' | 'file' | 'report' | 'campaign';
   targetId: string;
   targetName: string;
   performedBy: string;
@@ -219,6 +228,33 @@ export default function Admin() {
   const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [newDomainInput, setNewDomainInput] = useState('');
+
+  // Campaign state
+  const [campaignsList, setCampaignsList] = useState<Campaign[]>(getCampaigns());
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<string>('all');
+  const [campaignPlacementFilter, setCampaignPlacementFilter] = useState<string>('all');
+  const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [deleteConfirmCampaign, setDeleteConfirmCampaign] = useState<Campaign | null>(null);
+  const [campaignVideoFile, setCampaignVideoFile] = useState<File | null>(null);
+  const [campaignVideoPreview, setCampaignVideoPreview] = useState<string | null>(null);
+  const [campaignSaving, setCampaignSaving] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [campaignForm, setCampaignForm] = useState({
+    titleAr: '',
+    titleEn: '',
+    contentAr: '',
+    contentEn: '',
+    type: 'banner' as CampaignType,
+    placement: 'home' as CampaignPlacement,
+    target: 'all' as CampaignTarget,
+    status: 'draft' as CampaignStatus,
+    startDate: '',
+    endDate: '',
+    priority: 1,
+    showOnce: false,
+    dismissible: true,
+  });
 
   const isRTL = lang === 'ar';
   const currentUser = user?.email || 'admin@utas.edu.om';
@@ -342,6 +378,13 @@ export default function Admin() {
       author_suspended: lang === 'ar' ? 'إيقاف المؤلف' : 'Author Suspended',
       domain_added: lang === 'ar' ? 'إضافة نطاق' : 'Domain Added',
       domain_removed: lang === 'ar' ? 'حذف نطاق' : 'Domain Removed',
+      campaign_created: lang === 'ar' ? 'إنشاء حملة' : 'Campaign Created',
+      campaign_updated: lang === 'ar' ? 'تحديث حملة' : 'Campaign Updated',
+      campaign_deleted: lang === 'ar' ? 'حذف حملة' : 'Campaign Deleted',
+      campaign_activated: lang === 'ar' ? 'تفعيل حملة' : 'Campaign Activated',
+      campaign_paused: lang === 'ar' ? 'إيقاف حملة' : 'Campaign Paused',
+      campaign_ended: lang === 'ar' ? 'إنهاء حملة' : 'Campaign Ended',
+      campaign_duplicated: lang === 'ar' ? 'نسخ حملة' : 'Campaign Duplicated',
     },
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
@@ -398,6 +441,61 @@ export default function Admin() {
     invalidDomain: lang === 'ar' ? 'نطاق غير صالح' : 'Invalid domain format',
     cannotRemoveLast: lang === 'ar' ? 'لا يمكن حذف آخر نطاق' : 'Cannot remove the last domain',
     removeDomain: lang === 'ar' ? 'حذف النطاق' : 'Remove Domain',
+    // Campaign translations
+    campaigns: lang === 'ar' ? 'الحملات' : 'Campaigns',
+    newCampaign: lang === 'ar' ? 'حملة جديدة' : 'New Campaign',
+    editCampaign: lang === 'ar' ? 'تعديل الحملة' : 'Edit Campaign',
+    campaignTitle: lang === 'ar' ? 'العنوان' : 'Title',
+    campaignTitleAr: lang === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)',
+    campaignTitleEn: lang === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)',
+    campaignBody: lang === 'ar' ? 'المحتوى' : 'Content',
+    campaignBodyAr: lang === 'ar' ? 'المحتوى (عربي)' : 'Content (Arabic)',
+    campaignBodyEn: lang === 'ar' ? 'المحتوى (إنجليزي)' : 'Content (English)',
+    campaignType: lang === 'ar' ? 'النوع' : 'Type',
+    campaignPlacement: lang === 'ar' ? 'موضع العرض' : 'Placement',
+    campaignTarget: lang === 'ar' ? 'الجمهور' : 'Target',
+    campaignStatus: lang === 'ar' ? 'الحالة' : 'Status',
+    campaignVideo: lang === 'ar' ? 'فيديو' : 'Video',
+    hasVideo: lang === 'ar' ? 'نعم' : 'Yes',
+    noVideo: lang === 'ar' ? 'لا' : 'No',
+    uploadVideo: lang === 'ar' ? 'رفع فيديو' : 'Upload Video',
+    removeVideo: lang === 'ar' ? 'إزالة الفيديو' : 'Remove Video',
+    videoRequirements: lang === 'ar' ? 'MP4/WebM، أقصى 10 ثواني، 8MB' : 'MP4/WebM, max 10 sec, 8MB',
+    startDate: lang === 'ar' ? 'تاريخ البدء' : 'Start Date',
+    endDate: lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date',
+    impressions: lang === 'ar' ? 'المشاهدات' : 'Impressions',
+    clicks: lang === 'ar' ? 'النقرات' : 'Clicks',
+    dismissals: lang === 'ar' ? 'الإغلاقات' : 'Dismissals',
+    duplicate: lang === 'ar' ? 'نسخ' : 'Duplicate',
+    edit: lang === 'ar' ? 'تعديل' : 'Edit',
+    pause: lang === 'ar' ? 'إيقاف' : 'Pause',
+    end: lang === 'ar' ? 'إنهاء' : 'End',
+    confirmDeleteCampaign: lang === 'ar' ? 'هل أنت متأكد من حذف هذه الحملة؟' : 'Are you sure you want to delete this campaign?',
+    noCampaigns: lang === 'ar' ? 'لا توجد حملات' : 'No campaigns',
+    campaignCreated: lang === 'ar' ? 'تم إنشاء الحملة بنجاح' : 'Campaign created successfully',
+    campaignUpdated: lang === 'ar' ? 'تم تحديث الحملة بنجاح' : 'Campaign updated successfully',
+    campaignDeleted: lang === 'ar' ? 'تم حذف الحملة بنجاح' : 'Campaign deleted successfully',
+    campaignDuplicated: lang === 'ar' ? 'تم نسخ الحملة بنجاح' : 'Campaign duplicated successfully',
+    // Campaign types
+    banner: lang === 'ar' ? 'بانر' : 'Banner',
+    popup: lang === 'ar' ? 'نافذة منبثقة' : 'Popup',
+    announcementType: lang === 'ar' ? 'إعلان' : 'Announcement',
+    notification: lang === 'ar' ? 'إشعار' : 'Notification',
+    // Campaign statuses
+    draft: lang === 'ar' ? 'مسودة' : 'Draft',
+    scheduled: lang === 'ar' ? 'مجدول' : 'Scheduled',
+    paused: lang === 'ar' ? 'متوقف' : 'Paused',
+    ended: lang === 'ar' ? 'منتهي' : 'Ended',
+    // Campaign targets
+    everyone: lang === 'ar' ? 'الجميع' : 'Everyone',
+    students: lang === 'ar' ? 'الطلاب' : 'Students',
+    moderators: lang === 'ar' ? 'المشرفين' : 'Moderators',
+    newUsers: lang === 'ar' ? 'المستخدمين الجدد' : 'New Users',
+    // Campaign placements
+    homePlacement: lang === 'ar' ? 'الصفحة الرئيسية' : 'Home',
+    feedPlacement: lang === 'ar' ? 'الساحة' : 'Arena',
+    profilePlacement: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
+    globalPlacement: lang === 'ar' ? 'عام' : 'Global',
   };
 
   const navItems = [
@@ -405,6 +503,7 @@ export default function Admin() {
     { id: 'users', label: tr.users, icon: Users },
     { id: 'content', label: tr.content, icon: FileText },
     { id: 'reports', label: tr.reports, icon: Flag },
+    { id: 'campaigns', label: tr.campaigns, icon: Megaphone },
     { id: 'universities', label: tr.universities, icon: Building },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
@@ -1430,6 +1529,526 @@ export default function Admin() {
     </Card>
   );
 
+  const refreshCampaigns = () => {
+    setCampaignsList(getCampaigns());
+  };
+
+  const resetCampaignForm = () => {
+    setCampaignForm({
+      titleAr: '',
+      titleEn: '',
+      contentAr: '',
+      contentEn: '',
+      type: 'banner',
+      placement: 'home',
+      target: 'all',
+      status: 'draft',
+      startDate: '',
+      endDate: '',
+      priority: 1,
+      showOnce: false,
+      dismissible: true,
+    });
+    setCampaignVideoFile(null);
+    setCampaignVideoPreview(null);
+  };
+
+  const openNewCampaignDialog = () => {
+    resetCampaignForm();
+    setEditingCampaign(null);
+    setCampaignDialogOpen(true);
+  };
+
+  const openEditCampaignDialog = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setCampaignForm({
+      titleAr: campaign.title.ar,
+      titleEn: campaign.title.en,
+      contentAr: campaign.content.ar,
+      contentEn: campaign.content.en,
+      type: campaign.type,
+      placement: campaign.placement,
+      target: campaign.target,
+      status: campaign.status,
+      startDate: campaign.startDate?.split('T')[0] || '',
+      endDate: campaign.endDate?.split('T')[0] || '',
+      priority: campaign.priority,
+      showOnce: campaign.showOnce,
+      dismissible: campaign.dismissible,
+    });
+    setCampaignVideoFile(null);
+    if (campaign.video?.id) {
+      getCampaignMedia(campaign.video.id).then(blob => {
+        if (blob) {
+          setCampaignVideoPreview(URL.createObjectURL(blob));
+        }
+      });
+    } else {
+      setCampaignVideoPreview(null);
+    }
+    setCampaignDialogOpen(true);
+  };
+
+  const handleCampaignVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCampaignVideoFile(file);
+      setCampaignVideoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveCampaignVideo = async () => {
+    if (editingCampaign?.video?.id) {
+      try {
+        await removeCampaignVideo(editingCampaign.id);
+        refreshCampaigns();
+      } catch {}
+    }
+    setCampaignVideoFile(null);
+    setCampaignVideoPreview(null);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!campaignForm.titleAr || !campaignForm.titleEn) return;
+    
+    setCampaignSaving(true);
+    try {
+      const campaignData = {
+        title: { ar: campaignForm.titleAr, en: campaignForm.titleEn },
+        content: { ar: campaignForm.contentAr, en: campaignForm.contentEn },
+        type: campaignForm.type,
+        placement: campaignForm.placement,
+        target: campaignForm.target,
+        status: campaignForm.status,
+        startDate: campaignForm.startDate ? new Date(campaignForm.startDate).toISOString() : new Date().toISOString(),
+        endDate: campaignForm.endDate ? new Date(campaignForm.endDate).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        priority: campaignForm.priority,
+        showOnce: campaignForm.showOnce,
+        dismissible: campaignForm.dismissible,
+        createdBy: currentUser,
+      };
+
+      let savedCampaign: Campaign;
+      if (editingCampaign) {
+        savedCampaign = updateCampaign(editingCampaign.id, campaignData) as Campaign;
+        addAuditLog('campaign_updated', 'campaign', editingCampaign.id, campaignForm.titleEn);
+      } else {
+        savedCampaign = createCampaign(campaignData);
+        addAuditLog('campaign_created', 'campaign', savedCampaign.id, campaignForm.titleEn);
+      }
+
+      if (campaignVideoFile) {
+        await attachCampaignVideo(savedCampaign.id, campaignVideoFile);
+      }
+
+      refreshCampaigns();
+      setCampaignDialogOpen(false);
+      resetCampaignForm();
+    } catch (error) {
+      console.error('Failed to save campaign:', error);
+    } finally {
+      setCampaignSaving(false);
+    }
+  };
+
+  const handleDeleteCampaign = async (campaign: Campaign) => {
+    await deleteCampaign(campaign.id);
+    addAuditLog('campaign_deleted', 'campaign', campaign.id, campaign.title.en);
+    refreshCampaigns();
+    setDeleteConfirmCampaign(null);
+  };
+
+  const handleDuplicateCampaign = (campaign: Campaign) => {
+    const newCampaign = createCampaign({
+      title: { ar: campaign.title.ar + ' (نسخة)', en: campaign.title.en + ' (Copy)' },
+      content: campaign.content,
+      type: campaign.type,
+      placement: campaign.placement,
+      target: campaign.target,
+      status: 'draft',
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      priority: campaign.priority,
+      showOnce: campaign.showOnce,
+      dismissible: campaign.dismissible,
+      createdBy: currentUser,
+    });
+    addAuditLog('campaign_duplicated', 'campaign', newCampaign.id, newCampaign.title.en);
+    refreshCampaigns();
+  };
+
+  const handleCampaignStatusChange = (campaign: Campaign, newStatus: CampaignStatus) => {
+    updateCampaignStatus(campaign.id, newStatus);
+    const actionType: ActionType = 
+      newStatus === 'active' ? 'campaign_activated' : 
+      newStatus === 'paused' ? 'campaign_paused' : 
+      newStatus === 'ended' ? 'campaign_ended' : 'campaign_updated';
+    addAuditLog(actionType, 'campaign', campaign.id, campaign.title.en);
+    refreshCampaigns();
+  };
+
+  const getCampaignTypeLabel = (type: CampaignType) => {
+    switch (type) {
+      case 'banner': return tr.banner;
+      case 'popup': return tr.popup;
+      case 'announcement': return tr.announcementType;
+      case 'notification': return tr.notification;
+      default: return type;
+    }
+  };
+
+  const getCampaignStatusLabel = (status: CampaignStatus) => {
+    switch (status) {
+      case 'draft': return tr.draft;
+      case 'scheduled': return tr.scheduled;
+      case 'active': return tr.active;
+      case 'paused': return tr.paused;
+      case 'ended': return tr.ended;
+      default: return status;
+    }
+  };
+
+  const getCampaignPlacementLabel = (placement: CampaignPlacement) => {
+    switch (placement) {
+      case 'home': return tr.homePlacement;
+      case 'feed': return tr.feedPlacement;
+      case 'profile': return tr.profilePlacement;
+      case 'global': return tr.globalPlacement;
+      default: return placement;
+    }
+  };
+
+  const getCampaignTargetLabel = (target: CampaignTarget) => {
+    switch (target) {
+      case 'all': return tr.everyone;
+      case 'students': return tr.students;
+      case 'moderators': return tr.moderators;
+      case 'new_users': return tr.newUsers;
+      default: return target;
+    }
+  };
+
+  const filteredCampaigns = useMemo(() => {
+    let result = campaignsList;
+    if (campaignStatusFilter !== 'all') {
+      result = result.filter(c => c.status === campaignStatusFilter);
+    }
+    if (campaignPlacementFilter !== 'all') {
+      result = result.filter(c => c.placement === campaignPlacementFilter);
+    }
+    return result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [campaignsList, campaignStatusFilter, campaignPlacementFilter]);
+
+  const renderCampaigns = () => (
+    <Card className="border-white/10 bg-card/50">
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <CardTitle className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5" />
+            {tr.campaigns}
+          </CardTitle>
+          <Button onClick={openNewCampaignDialog} data-testid="button-new-campaign">
+            <Plus className="w-4 h-4 me-2" />
+            {tr.newCampaign}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <Select value={campaignStatusFilter} onValueChange={setCampaignStatusFilter}>
+            <SelectTrigger className="w-40" data-testid="select-campaign-status-filter">
+              <SelectValue placeholder={tr.campaignStatus} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              <SelectItem value="draft">{tr.draft}</SelectItem>
+              <SelectItem value="scheduled">{tr.scheduled}</SelectItem>
+              <SelectItem value="active">{tr.active}</SelectItem>
+              <SelectItem value="paused">{tr.paused}</SelectItem>
+              <SelectItem value="ended">{tr.ended}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={campaignPlacementFilter} onValueChange={setCampaignPlacementFilter}>
+            <SelectTrigger className="w-40" data-testid="select-campaign-placement-filter">
+              <SelectValue placeholder={tr.campaignPlacement} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{tr.all}</SelectItem>
+              <SelectItem value="home">{tr.homePlacement}</SelectItem>
+              <SelectItem value="feed">{tr.feedPlacement}</SelectItem>
+              <SelectItem value="profile">{tr.profilePlacement}</SelectItem>
+              <SelectItem value="global">{tr.globalPlacement}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filteredCampaigns.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">{tr.noCampaigns}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignTitle}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignType}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignStatus}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignPlacement}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignTarget}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.campaignVideo}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.impressions}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.clicks}</th>
+                  <th className={`p-3 ${isRTL ? 'text-right' : 'text-left'}`}>{tr.actions}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCampaigns.map(campaign => {
+                  const stats = getCampaignStats(campaign.id);
+                  return (
+                    <tr key={campaign.id} className="border-b border-white/5 hover:bg-white/5" data-testid={`row-campaign-${campaign.id}`}>
+                      <td className="p-3">
+                        <span className="font-medium">{lang === 'ar' ? campaign.title.ar : campaign.title.en}</span>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="outline">{getCampaignTypeLabel(campaign.type)}</Badge>
+                      </td>
+                      <td className="p-3">
+                        <Badge className={getCampaignStatusColor(campaign.status)}>{getCampaignStatusLabel(campaign.status)}</Badge>
+                      </td>
+                      <td className="p-3">{getCampaignPlacementLabel(campaign.placement)}</td>
+                      <td className="p-3">{getCampaignTargetLabel(campaign.target)}</td>
+                      <td className="p-3">
+                        {campaign.video ? (
+                          <Badge variant="secondary" className="gap-1"><Video className="w-3 h-3" />{tr.hasVideo}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">{tr.noVideo}</span>
+                        )}
+                      </td>
+                      <td className="p-3">{stats.impressions}</td>
+                      <td className="p-3">{stats.clicks}</td>
+                      <td className="p-3">
+                        <div className="flex gap-1 flex-wrap">
+                          <Button size="sm" variant="ghost" onClick={() => openEditCampaignDialog(campaign)} data-testid={`button-edit-campaign-${campaign.id}`}>
+                            {tr.edit}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDuplicateCampaign(campaign)} data-testid={`button-duplicate-campaign-${campaign.id}`}>
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                          {campaign.status === 'active' && (
+                            <Button size="sm" variant="ghost" onClick={() => handleCampaignStatusChange(campaign, 'paused')} data-testid={`button-pause-campaign-${campaign.id}`}>
+                              <Pause className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {(campaign.status === 'draft' || campaign.status === 'paused' || campaign.status === 'scheduled') && (
+                            <Button size="sm" variant="ghost" onClick={() => handleCampaignStatusChange(campaign, 'active')} data-testid={`button-activate-campaign-${campaign.id}`}>
+                              <Play className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {campaign.status !== 'ended' && (
+                            <Button size="sm" variant="ghost" onClick={() => handleCampaignStatusChange(campaign, 'ended')} data-testid={`button-end-campaign-${campaign.id}`}>
+                              {tr.end}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="text-red-400" onClick={() => setDeleteConfirmCampaign(campaign)} data-testid={`button-delete-campaign-${campaign.id}`}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Campaign Dialog */}
+        <Dialog open={campaignDialogOpen} onOpenChange={setCampaignDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+            <DialogHeader>
+              <DialogTitle>{editingCampaign ? tr.editCampaign : tr.newCampaign}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignTitleAr}</label>
+                  <Input
+                    value={campaignForm.titleAr}
+                    onChange={e => setCampaignForm(f => ({ ...f, titleAr: e.target.value }))}
+                    className="text-right"
+                    dir="rtl"
+                    data-testid="input-campaign-title-ar"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignTitleEn}</label>
+                  <Input
+                    value={campaignForm.titleEn}
+                    onChange={e => setCampaignForm(f => ({ ...f, titleEn: e.target.value }))}
+                    dir="ltr"
+                    data-testid="input-campaign-title-en"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignBodyAr}</label>
+                  <Textarea
+                    value={campaignForm.contentAr}
+                    onChange={e => setCampaignForm(f => ({ ...f, contentAr: e.target.value }))}
+                    className="text-right min-h-20"
+                    dir="rtl"
+                    data-testid="input-campaign-content-ar"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignBodyEn}</label>
+                  <Textarea
+                    value={campaignForm.contentEn}
+                    onChange={e => setCampaignForm(f => ({ ...f, contentEn: e.target.value }))}
+                    className="min-h-20"
+                    dir="ltr"
+                    data-testid="input-campaign-content-en"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignType}</label>
+                  <Select value={campaignForm.type} onValueChange={v => setCampaignForm(f => ({ ...f, type: v as CampaignType }))}>
+                    <SelectTrigger data-testid="select-campaign-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="banner">{tr.banner}</SelectItem>
+                      <SelectItem value="popup">{tr.popup}</SelectItem>
+                      <SelectItem value="announcement">{tr.announcementType}</SelectItem>
+                      <SelectItem value="notification">{tr.notification}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignPlacement}</label>
+                  <Select value={campaignForm.placement} onValueChange={v => setCampaignForm(f => ({ ...f, placement: v as CampaignPlacement }))}>
+                    <SelectTrigger data-testid="select-campaign-placement">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="home">{tr.homePlacement}</SelectItem>
+                      <SelectItem value="feed">{tr.feedPlacement}</SelectItem>
+                      <SelectItem value="profile">{tr.profilePlacement}</SelectItem>
+                      <SelectItem value="global">{tr.globalPlacement}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignTarget}</label>
+                  <Select value={campaignForm.target} onValueChange={v => setCampaignForm(f => ({ ...f, target: v as CampaignTarget }))}>
+                    <SelectTrigger data-testid="select-campaign-target">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{tr.everyone}</SelectItem>
+                      <SelectItem value="students">{tr.students}</SelectItem>
+                      <SelectItem value="moderators">{tr.moderators}</SelectItem>
+                      <SelectItem value="new_users">{tr.newUsers}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.campaignStatus}</label>
+                  <Select value={campaignForm.status} onValueChange={v => setCampaignForm(f => ({ ...f, status: v as CampaignStatus }))}>
+                    <SelectTrigger data-testid="select-campaign-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">{tr.draft}</SelectItem>
+                      <SelectItem value="scheduled">{tr.scheduled}</SelectItem>
+                      <SelectItem value="active">{tr.active}</SelectItem>
+                      <SelectItem value="paused">{tr.paused}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.startDate}</label>
+                  <Input
+                    type="date"
+                    value={campaignForm.startDate}
+                    onChange={e => setCampaignForm(f => ({ ...f, startDate: e.target.value }))}
+                    data-testid="input-campaign-start-date"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{tr.endDate}</label>
+                  <Input
+                    type="date"
+                    value={campaignForm.endDate}
+                    onChange={e => setCampaignForm(f => ({ ...f, endDate: e.target.value }))}
+                    data-testid="input-campaign-end-date"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">{tr.campaignVideo}</label>
+                <p className="text-xs text-muted-foreground mb-2">{tr.videoRequirements}</p>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  onChange={handleCampaignVideoChange}
+                  className="hidden"
+                  data-testid="input-campaign-video"
+                />
+                {campaignVideoPreview ? (
+                  <div className="space-y-2">
+                    <video src={campaignVideoPreview} controls className="w-full max-h-40 rounded-lg bg-black" />
+                    <Button size="sm" variant="outline" onClick={handleRemoveCampaignVideo} data-testid="button-remove-campaign-video">
+                      <X className="w-3 h-3 me-1" />
+                      {tr.removeVideo}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => videoInputRef.current?.click()} data-testid="button-upload-campaign-video">
+                    <Video className="w-3 h-3 me-1" />
+                    {tr.uploadVideo}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCampaignDialogOpen(false)}>{tr.cancel}</Button>
+              <Button onClick={handleSaveCampaign} disabled={campaignSaving || !campaignForm.titleAr || !campaignForm.titleEn} data-testid="button-save-campaign">
+                {campaignSaving ? '...' : tr.save}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirmCampaign} onOpenChange={() => setDeleteConfirmCampaign(null)}>
+          <DialogContent dir={isRTL ? 'rtl' : 'ltr'}>
+            <DialogHeader>
+              <DialogTitle>{tr.delete}</DialogTitle>
+            </DialogHeader>
+            <p>{tr.confirmDeleteCampaign}</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmCampaign(null)}>{tr.cancel}</Button>
+              <Button variant="destructive" onClick={() => deleteConfirmCampaign && handleDeleteCampaign(deleteConfirmCampaign)} data-testid="button-confirm-delete-campaign">
+                {tr.delete}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+
   const renderUniversities = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -2253,6 +2872,7 @@ export default function Admin() {
                 {activeTab === 'users' && renderUsers()}
                 {activeTab === 'content' && renderContent()}
                 {activeTab === 'reports' && renderReports()}
+                {activeTab === 'campaigns' && renderCampaigns()}
                 {activeTab === 'universities' && renderUniversities()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>
