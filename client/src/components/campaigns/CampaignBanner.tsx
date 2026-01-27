@@ -178,7 +178,19 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
           return;
         }
 
-        const url = URL.createObjectURL(blob);
+        // Detect MIME type from filename or use blob type
+        let mimeType = blob.type;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          const ext = imageAtt.name.toLowerCase().split('.').pop();
+          if (ext === 'png') mimeType = 'image/png';
+          else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+          else if (ext === 'webp') mimeType = 'image/webp';
+          else if (ext === 'gif') mimeType = 'image/gif';
+          else mimeType = 'image/png'; // fallback
+        }
+        // Create new blob with correct MIME type
+        const typedBlob = new Blob([blob], { type: mimeType });
+        const url = URL.createObjectURL(typedBlob);
         thumbCache.set(mediaId, url);
 
         if (!cancelled) {
