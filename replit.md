@@ -33,7 +33,24 @@ Preferred communication style: Simple, everyday language.
   - `daam_moderators_v1`: JSON array of moderator accounts
   - `daam_auth_users_v1`: JSON array of registered users with password hashes
   - `daam_hidden_posts_v1`: JSON array of hidden post IDs (moderation feature)
+  - `daam_audit_v1`: JSON array of audit log events (200 entry limit, newest first)
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
+
+### Audit Log System
+- **Storage**: localStorage (`daam_audit_v1`) with 200 entry limit
+- **Event Structure**: { id, action, targetType, targetId, byEmail, at, meta? }
+- **Feed Moderation Actions**: 
+  - `post.hide` - Staff hides a post from regular users
+  - `post.show` - Staff unhides a previously hidden post
+  - `post.delete` - Staff deletes a post (not author self-deletion)
+  - `reply.delete` - Staff deletes a reply (not author self-deletion)
+- **Moderator Management Actions**:
+  - `moderator.create` - Admin creates a new moderator account
+  - `moderator.permissions.update` - Admin updates moderator permissions
+  - `moderator.toggleActive` - Admin enables/disables a moderator
+  - `moderator.delete` - Admin deletes a moderator account
+- **Display**: Audit Log tab in Admin Dashboard shows last 20 events with bilingual labels
+- **Overview Widget**: Admin Overview shows last 5 audit events
 
 ### Reporting System
 - **Report Types**: Posts, comments/replies, and user profiles can be reported
