@@ -1,15 +1,30 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Bug, Sparkles, Paperclip } from 'lucide-react';
+import { X, Bug, Sparkles, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useDaamStore } from '@/hooks/use-daam-store';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
 import { getCampaigns, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
+import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
 import { isCampaignActive } from '@/lib/campaign-helpers';
 import { ADMIN_EMAILS } from '@/config/admin';
 import { CampaignModal } from './CampaignModal';
+
+const thumbCache = new Map<string, string>();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    thumbCache.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    });
+    thumbCache.clear();
+  });
+}
 
 interface InFeedCampaignCardProps {
   placement: CampaignPlacement;
@@ -29,13 +44,13 @@ const translations = {
     sponsored: 'مُموّل',
     explore: 'اكتشف',
     hide: 'إخفاء',
-    attachmentsHint: 'مرفقات متاحة — اضغط «اكتشف»',
+    imageError: 'تعذر عرض الصورة',
   },
   en: {
     sponsored: 'Sponsored',
     explore: 'Explore',
     hide: 'Hide',
-    attachmentsHint: 'Attachments available — tap "Explore"',
+    imageError: 'Could not load image',
   }
 };
 
@@ -48,6 +63,10 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const impressionTracked = useRef(false);
   const isRTL = lang === 'ar';
+
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbLoading, setThumbLoading] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
 
   const isDebugMode = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -118,6 +137,69 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     }
   }, [campaign, placement]);
 
+  useEffect(() => {
+    if (!campaign) {
+      setThumbUrl(null);
+      setThumbLoading(false);
+      setThumbError(false);
+      return;
+    }
+
+    const imageAtt = campaign.attachments?.find(a => a.kind === 'image');
+    if (!imageAtt) {
+      setThumbUrl(null);
+      setThumbLoading(false);
+      setThumbError(false);
+      return;
+    }
+
+    const mediaId = imageAtt.id;
+
+    if (thumbCache.has(mediaId)) {
+      setThumbUrl(thumbCache.get(mediaId)!);
+      setThumbLoading(false);
+      setThumbError(false);
+      return;
+    }
+
+    let cancelled = false;
+    setThumbLoading(true);
+    setThumbError(false);
+    setThumbUrl(null);
+
+    const loadThumb = async () => {
+      try {
+        const blob = await getCampaignAttachmentBlob(mediaId);
+        if (cancelled) return;
+
+        if (!blob) {
+          setThumbError(true);
+          setThumbLoading(false);
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        thumbCache.set(mediaId, url);
+
+        if (!cancelled) {
+          setThumbUrl(url);
+          setThumbLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setThumbError(true);
+          setThumbLoading(false);
+        }
+      }
+    };
+
+    loadThumb();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign?.id, campaign?.updatedAt]);
+
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (campaign) {
@@ -172,7 +254,7 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
-  const hasMediaAttachments = campaign.video || (campaign.attachments && campaign.attachments.length > 0);
+  const hasImageAttachment = campaign.attachments?.some(a => a.kind === 'image');
 
   return (
     <>
@@ -203,10 +285,26 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             </Button>
           </div>
 
-          {hasMediaAttachments && (
-            <div className="mb-3 rounded-lg border border-dashed border-primary/20 bg-primary/5 p-4 flex items-center justify-center gap-2 text-primary/70">
-              <Paperclip className="w-4 h-4" />
-              <span className="text-xs">{t.attachmentsHint}</span>
+          {hasImageAttachment && (
+            <div className="mb-3">
+              {thumbLoading && (
+                <Skeleton className="w-full h-40 rounded-lg" />
+              )}
+              {thumbUrl && !thumbLoading && (
+                <img
+                  src={thumbUrl}
+                  alt=""
+                  className="w-full max-h-40 object-cover rounded-lg border"
+                  onError={() => setThumbError(true)}
+                  data-testid="campaign-card-image"
+                />
+              )}
+              {thumbError && !thumbLoading && (
+                <div className="w-full h-24 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 flex items-center justify-center gap-2 text-muted-foreground">
+                  <ImageOff className="w-4 h-4 opacity-50" />
+                  <span className="text-xs">{t.imageError}</span>
+                </div>
+              )}
             </div>
           )}
 

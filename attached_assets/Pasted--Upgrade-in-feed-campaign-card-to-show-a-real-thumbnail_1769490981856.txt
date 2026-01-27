@@ -1,0 +1,42 @@
+[Upgrade in-feed campaign card to show a real thumbnail (professional) with minimal cost]
+
+المشكلة:
+بطاقة الإعلان تظهر لكن بدون صورة/فيديو داخلها (فقط Placeholder "مرفقات متاحة…").
+المطلوب: المستخدم يشوف الإعلان مباشرة بدون فتح CampaignModal، وإذا أراد يفتح التفاصيل.
+
+قيود صارمة (لتقليل التكلفة):
+- لا تغيّر routing.
+- لا تغيّر campaign selection logic (active + banner + placement/global + schedule + seen TTL).
+- لا تغيّر storage schema.
+- لا تغيّر tracking events الحالية (impression/dismissal/click).
+- تعديل ملف واحد فقط: client/src/components/campaigns/CampaignBanner.tsx
+- ممنوع إرجاع دعم الفيديو داخل البطاقة (video thumbnail) — فقط صورة واحدة.
+
+التطبيق المطلوب داخل CampaignBanner.tsx:
+1) اعرض Thumbnail صورة داخل البطاقة (بدون Modal) بهذه القاعدة:
+   - خذ أول attachment kind === 'image' إن وجد.
+   - حمّل blob عبر getCampaignAttachmentBlob(attachment.id).
+   - أنشئ URL.createObjectURL(blob) واعرضها داخل <img>.
+   - لا تتعامل مع video داخل البطاقة.
+
+2) لتفادي مشاكل الذاكرة والتكلفة:
+   - استخدم Cache على مستوى الملف (module-scope) مثل:
+     const thumbCache = new Map<string, string>(); // mediaId -> objectURL
+   - إذا كان mediaId موجود في cache: استخدمه مباشرة بدون تحميل جديد.
+   - إذا ما موجود: حمّل blob مرة واحدة، أنشئ objectURL وخزنه في cache.
+   - لا تستخدم revoke على كل re-render. فقط:
+     - عند window 'beforeunload' امسح cache واعمل revoke لكل URLs مرة واحدة.
+
+3) UI احترافي:
+   - أعلى البطاقة: Badge "مُموّل" + زر X (كما هو).
+   - تحتها: thumbnail (rounded-lg, max-h-40, object-cover, border) + skeleton بسيط أثناء التحميل.
+   - إذا فشل التحميل: اعرض fallback صغير "تعذر عرض الصورة" بدون كسر التصميم.
+   - اجعل النقر على الصورة أو البطاقة أو زر "اكتشف" يفتح CampaignModal (كما هو).
+
+4) معايير النجاح:
+   - عند وجود صورة مرفقة: تظهر داخل البطاقة مباشرة للمستخدمين بدون فتح modal.
+   - لا يظهر أي مربع أسود debug للمستخدمين.
+   - لا يتم تغيير tracking logic.
+   - لا يتم إنشاء objectURL أكثر من مرة لنفس mediaId خلال الجلسة.
+
+ملاحظة: لا تعيد إدخال video preview داخل البطاقة. الفيديو يبقى داخل CampaignModal فقط.
