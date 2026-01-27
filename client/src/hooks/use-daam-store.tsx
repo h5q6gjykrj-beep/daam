@@ -12,6 +12,64 @@ export type User = {
   account?: UserAccount;
 };
 
+// ========== RBAC Types ==========
+export type DaamRole = "admin" | "moderator" | "student";
+
+export type DaamPermission =
+  | "mod.posts.delete"
+  | "mod.posts.hide"
+  | "mod.comments.delete"
+  | "mod.users.mute"
+  | "mod.users.ban"
+  | "admin.moderators.manage"
+  | "admin.settings.manage";
+
+export const ALL_PERMISSIONS: DaamPermission[] = [
+  "mod.posts.delete",
+  "mod.posts.hide",
+  "mod.comments.delete",
+  "mod.users.mute",
+  "mod.users.ban",
+  "admin.moderators.manage",
+  "admin.settings.manage"
+];
+
+export type ModeratorAccount = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: "moderator";
+  permissions: DaamPermission[];
+  isActive: boolean;
+  createdAt: number;
+  createdBy: string;
+};
+
+export type LocalAuthUser = {
+  id: string;
+  email: string;
+  passwordHash: string; // TODO: Use proper hashing (Web Crypto SHA-256)
+  role: DaamRole;
+  linkedModeratorId?: string;
+  createdAt: number;
+};
+
+// ========== RBAC Helpers ==========
+function uniq<T>(arr: T[]): T[] {
+  return Array.from(new Set(arr));
+}
+
+export function can(role: DaamRole, perms: DaamPermission[], permission: DaamPermission): boolean {
+  if (role === "admin") return true;
+  return perms.includes(permission);
+}
+
+export function getRolePermissions(role: DaamRole, moderatorPermissions: DaamPermission[] = []): DaamPermission[] {
+  if (role === "admin") return ALL_PERMISSIONS;
+  if (role === "moderator") return moderatorPermissions;
+  return [];
+}
+
 // Moderator email - the only allowed moderator email
 export const MODERATOR_EMAIL = 'w.qq89@hotmail.com';
 
@@ -32,6 +90,10 @@ const KEYS = {
   REPORTS_OLD: 'daam_reports',
   ALLOWED_DOMAINS: 'daam_allowed_domains_v1'
 };
+
+// RBAC localStorage keys
+const LS_MODS = "daam_moderators_v1";
+const LS_AUTH = "daam_auth_users_v1";
 
 const DEFAULT_ALLOWED_DOMAINS = ['utas.edu.om'];
 
@@ -174,6 +236,16 @@ interface DaamStoreContextType {
   addAllowedDomain: (domain: string) => boolean;
   removeAllowedDomain: (domain: string) => boolean;
   isEmailDomainAllowed: (email: string) => boolean;
+  // RBAC
+  moderators: ModeratorAccount[];
+  authUsers: LocalAuthUser[];
+  currentUserPermissions: DaamPermission[];
+  createModeratorAccount: (data: { email: string; displayName: string; tempPassword: string; permissions: DaamPermission[] }) => ModeratorAccount;
+  updateModeratorPermissions: (moderatorId: string, permissions: DaamPermission[]) => void;
+  toggleModeratorActive: (moderatorId: string) => void;
+  deleteModerator: (moderatorId: string) => void;
+  getModeratorByEmail: (email: string) => ModeratorAccount | undefined;
+  canCurrentUser: (permission: DaamPermission) => boolean;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -201,6 +273,10 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [allowedDomains, setAllowedDomains] = useState<string[]>(DEFAULT_ALLOWED_DOMAINS);
   const [isLoading, setIsLoading] = useState(true);
+
+  // RBAC State
+  const [moderators, setModerators] = useState<ModeratorAccount[]>([]);
+  const [authUsers, setAuthUsers] = useState<LocalAuthUser[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -419,6 +495,25 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         }
       } catch (e) {
         console.error("Failed to parse allowed domains", e);
+      }
+    }
+
+    // Load RBAC data from localStorage
+    const storedMods = localStorage.getItem(LS_MODS);
+    if (storedMods) {
+      try {
+        setModerators(JSON.parse(storedMods));
+      } catch (e) {
+        console.error("Failed to parse moderators", e);
+      }
+    }
+    
+    const storedAuthUsers = localStorage.getItem(LS_AUTH);
+    if (storedAuthUsers) {
+      try {
+        setAuthUsers(JSON.parse(storedAuthUsers));
+      } catch (e) {
+        console.error("Failed to parse auth users", e);
       }
     }
     
@@ -960,6 +1055,135 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return allowedDomains.includes(domain);
   }, [allowedDomains]);
 
+  // ========== RBAC Actions ==========
+
+  // Compute current user's role
+  const getCurrentUserRole = useCallback((): DaamRole => {
+    if (!user) return "student";
+    if (ADMIN_EMAILS.includes(user.email.toLowerCase())) return "admin";
+    const mod = moderators.find(m => m.email.toLowerCase() === user.email.toLowerCase());
+    if (mod) return "moderator";
+    return "student";
+  }, [user, moderators]);
+
+  // Compute current user permissions
+  const currentUserPermissions: DaamPermission[] = (() => {
+    if (!user) return [];
+    const role = getCurrentUserRole();
+    if (role === "admin") return ALL_PERMISSIONS;
+    if (role === "moderator") {
+      const mod = moderators.find(m => m.email.toLowerCase() === user.email.toLowerCase());
+      if (mod && mod.isActive) return mod.permissions;
+      return [];
+    }
+    return [];
+  })();
+
+  // Check if current user has a specific permission
+  const canCurrentUser = useCallback((permission: DaamPermission): boolean => {
+    const role = getCurrentUserRole();
+    return can(role, currentUserPermissions, permission);
+  }, [getCurrentUserRole, currentUserPermissions]);
+
+  // Create moderator account
+  const createModeratorAccount = useCallback((data: { 
+    email: string; 
+    displayName: string; 
+    tempPassword: string; 
+    permissions: DaamPermission[] 
+  }): ModeratorAccount => {
+    const emailLower = data.email.toLowerCase();
+    
+    // Check for duplicate email in moderators
+    if (moderators.some(m => m.email.toLowerCase() === emailLower)) {
+      throw new Error(lang === 'ar' ? 'هذا البريد مسجل كمشرف مسبقاً' : 'Email already registered as moderator');
+    }
+    
+    // Check for duplicate email in authUsers
+    if (authUsers.some(a => a.email.toLowerCase() === emailLower)) {
+      throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
+    }
+    
+    const moderatorId = crypto.randomUUID();
+    const authUserId = crypto.randomUUID();
+    const now = Date.now();
+    
+    // Create ModeratorAccount
+    const newModerator: ModeratorAccount = {
+      id: moderatorId,
+      email: data.email,
+      displayName: data.displayName,
+      role: "moderator",
+      permissions: uniq(data.permissions),
+      isActive: true,
+      createdAt: now,
+      createdBy: user?.email || 'system'
+    };
+    
+    // Create LocalAuthUser
+    // TODO: Use Web Crypto SHA-256 for proper hashing
+    const newAuthUser: LocalAuthUser = {
+      id: authUserId,
+      email: data.email,
+      passwordHash: data.tempPassword, // TODO: Replace with proper hash
+      role: "moderator",
+      linkedModeratorId: moderatorId,
+      createdAt: now
+    };
+    
+    // Update state and localStorage
+    const updatedMods = [...moderators, newModerator];
+    const updatedAuthUsers = [...authUsers, newAuthUser];
+    
+    setModerators(updatedMods);
+    setAuthUsers(updatedAuthUsers);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+    localStorage.setItem(LS_AUTH, JSON.stringify(updatedAuthUsers));
+    
+    return newModerator;
+  }, [moderators, authUsers, user, lang]);
+
+  // Update moderator permissions
+  const updateModeratorPermissions = useCallback((moderatorId: string, permissions: DaamPermission[]): void => {
+    const updatedMods = moderators.map(m => 
+      m.id === moderatorId 
+        ? { ...m, permissions: uniq(permissions) } 
+        : m
+    );
+    setModerators(updatedMods);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+  }, [moderators]);
+
+  // Toggle moderator active status
+  const toggleModeratorActive = useCallback((moderatorId: string): void => {
+    const updatedMods = moderators.map(m => 
+      m.id === moderatorId 
+        ? { ...m, isActive: !m.isActive } 
+        : m
+    );
+    setModerators(updatedMods);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+  }, [moderators]);
+
+  // Delete moderator (and linked authUser)
+  const deleteModerator = useCallback((moderatorId: string): void => {
+    const mod = moderators.find(m => m.id === moderatorId);
+    if (!mod) return;
+    
+    const updatedMods = moderators.filter(m => m.id !== moderatorId);
+    const updatedAuthUsers = authUsers.filter(a => a.linkedModeratorId !== moderatorId);
+    
+    setModerators(updatedMods);
+    setAuthUsers(updatedAuthUsers);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+    localStorage.setItem(LS_AUTH, JSON.stringify(updatedAuthUsers));
+  }, [moderators, authUsers]);
+
+  // Get moderator by email
+  const getModeratorByEmail = useCallback((email: string): ModeratorAccount | undefined => {
+    return moderators.find(m => m.email.toLowerCase() === email.toLowerCase());
+  }, [moderators]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -998,7 +1222,17 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     allowedDomains,
     addAllowedDomain,
     removeAllowedDomain,
-    isEmailDomainAllowed
+    isEmailDomainAllowed,
+    // RBAC
+    moderators,
+    authUsers,
+    currentUserPermissions,
+    createModeratorAccount,
+    updateModeratorPermissions,
+    toggleModeratorActive,
+    deleteModerator,
+    getModeratorByEmail,
+    canCurrentUser
   };
 
   return (

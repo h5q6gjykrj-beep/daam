@@ -1,0 +1,79 @@
+[RBAC-1] نفّذ أساس نظام المشرفين والصلاحيات (RBAC) بطريقة اقتصادية (Client-only + localStorage) بدون أي Back-end، وبدون لمس نظام الحملات التسويقية.
+
+عدّل الملف: client/src/hooks/use-daam-store.tsx
+
+1) أضف Types (في أعلى الملف أو قسم types):
+- type DaamRole = "admin" | "moderator" | "student";
+- type DaamPermission =
+  | "mod.posts.delete"
+  | "mod.posts.hide"
+  | "mod.comments.delete"
+  | "mod.users.mute"
+  | "mod.users.ban"
+  | "admin.moderators.manage"
+  | "admin.settings.manage";
+
+- type ModeratorAccount = {
+    id: string;
+    email: string;
+    displayName: string;
+    role: "moderator";
+    permissions: DaamPermission[];
+    isActive: boolean;
+    createdAt: number;
+    createdBy: string;
+  };
+
+- type LocalAuthUser = {
+    id: string;
+    email: string;
+    passwordHash: string; // مؤقتًا يمكن plain إذا تعذّر، لكن ضع TODO
+    role: DaamRole;
+    linkedModeratorId?: string;
+    createdAt: number;
+  };
+
+2) localStorage keys:
+- const LS_MODS = "daam_moderators_v1";
+- const LS_AUTH = "daam_auth_users_v1";
+
+3) أضف state داخل store:
+- moderators: ModeratorAccount[]
+- authUsers: LocalAuthUser[]
+- currentUserPermissions: DaamPermission[] (يُحدَّث تلقائيًا حسب المستخدم الحالي)
+
+4) Load/Save:
+- عند init: اقرأ moderators/authUsers من localStorage (fallback [])
+- بعد أي تعديل: احفظ back إلى localStorage
+
+5) Helpers:
+- function uniq<T>(arr:T[]):T[]
+- function can(role:DaamRole, perms:DaamPermission[], permission:DaamPermission): boolean
+  * إذا role === "admin" return true
+  * غير ذلك return perms.includes(permission)
+- function getRolePermissions(role, moderatorPermissions): DaamPermission[]
+  * admin => جميع الصلاحيات المذكورة
+  * moderator => moderatorPermissions
+  * student => []
+
+6) Actions CRUD:
+- createModeratorAccount({ email, displayName, tempPassword, permissions })
+  * امنع تكرار email في moderators أو authUsers
+  * أنشئ moderatorId جديد (يمكن crypto.randomUUID())
+  * أضف ModeratorAccount جديد role="moderator" isActive=true createdAt=Date.now()
+  * أنشئ LocalAuthUser جديد role="moderator" linkedModeratorId=moderatorId
+  * passwordHash: استخدم Web Crypto SHA-256 إن أمكن؛ إذا صعب خزّن tempPassword كنص plain مع TODO لتبديلها لاحقًا
+- updateModeratorPermissions(moderatorId, permissions)
+- toggleModeratorActive(moderatorId)
+- deleteModerator(moderatorId) (يحذف moderator + authUser المرتبط)
+- getModeratorByEmail(email) (اختياري)
+
+7) اربط currentUserPermissions:
+- إذا currentUser.role === "admin" => كل الصلاحيات
+- إذا currentUser.role === "moderator" => ابحث عن moderator عبر currentUser.email أو linkedModeratorId ثم استخدم permissions الخاصة به (وإذا isActive=false اعتبره بلا صلاحيات)
+- إذا student => []
+
+مهم جدًا:
+- لا تعدّل أي كود أو state خاص بالحملات التسويقية (In-feed ads).
+- لا تغيّر UI الآن. فقط store + localStorage + helpers + actions.
+- تأكد أن المشروع يبني بدون أخطاء TypeScript.
