@@ -40,7 +40,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent } = useDaamStore();
   
   // Hidden posts state (localStorage-based)
   const LS_HIDDEN_POSTS = 'daam_hidden_posts_v1';
@@ -302,6 +302,19 @@ export default function Feed() {
       });
       return;
     }
+    
+    // Only log audit for staff deleting other users' posts (moderation action)
+    const isModeratingOthersPost = user?.email !== post.authorEmail;
+    if (isModeratingOthersPost && user?.email) {
+      addAuditEvent({
+        action: 'post.delete',
+        targetType: 'post',
+        targetId: postId,
+        byEmail: user.email,
+        meta: { authorEmail: post.authorEmail }
+      });
+    }
+    
     deletePost(postId);
     toast({
       title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
@@ -343,6 +356,17 @@ export default function Feed() {
     const updated = [...hiddenPostIds, postId];
     setHiddenPostIds(updated);
     localStorage.setItem(LS_HIDDEN_POSTS, JSON.stringify(updated));
+    
+    // Log audit event
+    if (user?.email) {
+      addAuditEvent({
+        action: 'post.hide',
+        targetType: 'post',
+        targetId: postId,
+        byEmail: user.email
+      });
+    }
+    
     toast({
       title: lang === 'ar' ? 'تم الإخفاء' : 'Hidden',
       description: lang === 'ar' ? 'تم إخفاء المنشور' : 'Post hidden'
@@ -363,6 +387,17 @@ export default function Feed() {
     const updated = hiddenPostIds.filter(id => id !== postId);
     setHiddenPostIds(updated);
     localStorage.setItem(LS_HIDDEN_POSTS, JSON.stringify(updated));
+    
+    // Log audit event
+    if (user?.email) {
+      addAuditEvent({
+        action: 'post.show',
+        targetType: 'post',
+        targetId: postId,
+        byEmail: user.email
+      });
+    }
+    
     toast({
       title: lang === 'ar' ? 'تم الإظهار' : 'Visible',
       description: lang === 'ar' ? 'تم إظهار المنشور' : 'Post is now visible'
@@ -448,6 +483,19 @@ export default function Feed() {
       });
       return;
     }
+    
+    // Only log audit for staff deleting other users' replies (moderation action)
+    const isModeratingOthersReply = user?.email !== reply.authorEmail;
+    if (isModeratingOthersReply && user?.email) {
+      addAuditEvent({
+        action: 'reply.delete',
+        targetType: 'reply',
+        targetId: replyId,
+        byEmail: user.email,
+        meta: { postId, authorEmail: reply.authorEmail }
+      });
+    }
+    
     deleteReply(postId, replyId);
     toast({
       title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
