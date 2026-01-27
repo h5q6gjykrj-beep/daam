@@ -1,0 +1,75 @@
+[RBAC-5] أضف Audit Log محلي (localStorage) لتسجيل إجراءات الموديريشن + اعرضه في تبويب "المشرفون" داخل admin.tsx.
+
+هدف السجل:
+- تسجيل من فعل ماذا ومتى وعلى أي عنصر (منشور/رد/مشرف)
+- اقتصادي: localStorage فقط
+- عرض آخر 20 حدث في لوحة الأدمن
+
+1) التخزين:
+- localStorage key: "daam_audit_v1"
+
+2) Type جديد (ضعه في use-daam-store.tsx أو ملف types إن عندكم):
+type AuditAction =
+  | "post.hide"
+  | "post.show"
+  | "post.delete"
+  | "reply.delete"
+  | "moderator.create"
+  | "moderator.permissions.update"
+  | "moderator.toggleActive"
+  | "moderator.delete";
+
+type AuditEvent = {
+  id: string;
+  action: AuditAction;
+  targetType: "post" | "reply" | "moderator";
+  targetId: string;
+  byEmail: string;
+  at: number; // Date.now()
+  meta?: Record<string, any>; // اختياري: مثل عنوان المنشور أو ايميل المشرف
+};
+
+3) أضف في store:
+- audit: AuditEvent[]
+- addAuditEvent(eventWithoutIdAndAt) action
+
+منطق addAuditEvent:
+- يضيف event جديد في البداية (unshift)
+- يقص القائمة إلى 200 كحد أقصى لتجنب تضخم localStorage
+- يحفظ إلى localStorage
+
+4) اربط التسجيل بالأحداث الحالية:
+A) في admin.tsx (تبويب المشرفين):
+- عند createModeratorAccount نجاح:
+  addAuditEvent({ action:"moderator.create", targetType:"moderator", targetId: moderatorId, byEmail: currentUser.email, meta:{ email:newModeratorEmail } })
+- عند updateModeratorPermissions:
+  addAuditEvent({ action:"moderator.permissions.update", targetType:"moderator", targetId: moderatorId, byEmail: currentUser.email })
+- عند toggleModeratorActive:
+  addAuditEvent({ action:"moderator.toggleActive", targetType:"moderator", targetId: moderatorId, byEmail: currentUser.email })
+- عند deleteModerator:
+  addAuditEvent({ action:"moderator.delete", targetType:"moderator", targetId: moderatorId, byEmail: currentUser.email })
+
+B) في feed.tsx:
+- عند hide post:
+  addAuditEvent({ action:"post.hide", targetType:"post", targetId: postId, byEmail: currentUser.email })
+- عند show post:
+  addAuditEvent({ action:"post.show", targetType:"post", targetId: postId, byEmail: currentUser.email })
+- عند delete post:
+  addAuditEvent({ action:"post.delete", targetType:"post", targetId: postId, byEmail: currentUser.email })
+- عند delete reply:
+  addAuditEvent({ action:"reply.delete", targetType:"reply", targetId: replyId, byEmail: currentUser.email })
+
+5) عرض السجل في تبويب "المشرفون" داخل admin.tsx:
+- قسم بعنوان: "سجل الإجراءات"
+- جدول بسيط يعرض آخر 20 حدث:
+  الأعمدة: الوقت، الفاعل، الإجراء، الهدف
+- الوقت: صيغة عربية بسيطة (مثلاً: new Date(at).toLocaleString(...) مع احترام اللغة الحالية)
+- الإجراء: ترجم AuditAction للعربي/الإنجليزي حسب i18n الحالي
+
+6) قيود:
+- لا تلمس نظام الحملات التسويقية.
+- حافظ على تصميم UI الحالي.
+- TypeScript بدون أخطاء.
+
+بعد التنفيذ:
+- نفّذ إجراء (إخفاء منشور/إنشاء مشرف) وتأكد يظهر في السجل مباشرة.

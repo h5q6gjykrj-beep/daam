@@ -94,6 +94,28 @@ const KEYS = {
 // RBAC localStorage keys
 const LS_MODS = "daam_moderators_v1";
 const LS_AUTH = "daam_auth_users_v1";
+const LS_AUDIT = "daam_audit_v1";
+
+// ========== Audit Log Types ==========
+export type AuditAction =
+  | "post.hide"
+  | "post.show"
+  | "post.delete"
+  | "reply.delete"
+  | "moderator.create"
+  | "moderator.permissions.update"
+  | "moderator.toggleActive"
+  | "moderator.delete";
+
+export type AuditEvent = {
+  id: string;
+  action: AuditAction;
+  targetType: "post" | "reply" | "moderator";
+  targetId: string;
+  byEmail: string;
+  at: number; // Date.now()
+  meta?: Record<string, unknown>; // optional: post title, moderator email, etc.
+};
 
 const DEFAULT_ALLOWED_DOMAINS = ['utas.edu.om'];
 
@@ -246,6 +268,9 @@ interface DaamStoreContextType {
   deleteModerator: (moderatorId: string) => void;
   getModeratorByEmail: (email: string) => ModeratorAccount | undefined;
   canCurrentUser: (permission: DaamPermission) => boolean;
+  // Audit Log
+  auditLog: AuditEvent[];
+  addAuditEvent: (event: Omit<AuditEvent, 'id' | 'at'>) => void;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -277,6 +302,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // RBAC State
   const [moderators, setModerators] = useState<ModeratorAccount[]>([]);
   const [authUsers, setAuthUsers] = useState<LocalAuthUser[]>([]);
+  
+  // Audit Log State
+  const [auditLog, setAuditLog] = useState<AuditEvent[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -514,6 +542,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setAuthUsers(JSON.parse(storedAuthUsers));
       } catch (e) {
         console.error("Failed to parse auth users", e);
+      }
+    }
+    
+    // Load audit log
+    const storedAudit = localStorage.getItem(LS_AUDIT);
+    if (storedAudit) {
+      try {
+        setAuditLog(JSON.parse(storedAudit));
+      } catch (e) {
+        console.error("Failed to parse audit log", e);
       }
     }
     
@@ -1085,6 +1123,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return can(role, currentUserPermissions, permission);
   }, [getCurrentUserRole, currentUserPermissions]);
 
+  // Add audit event
+  const addAuditEvent = useCallback((event: Omit<AuditEvent, 'id' | 'at'>) => {
+    const fullEvent: AuditEvent = {
+      ...event,
+      id: crypto.randomUUID(),
+      at: Date.now()
+    };
+    
+    setAuditLog(prev => {
+      // Add at the beginning, limit to 200 entries
+      const updated = [fullEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   // Create moderator account
   const createModeratorAccount = useCallback((data: { 
     email: string; 
@@ -1232,7 +1286,10 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     toggleModeratorActive,
     deleteModerator,
     getModeratorByEmail,
-    canCurrentUser
+    canCurrentUser,
+    // Audit Log
+    auditLog,
+    addAuditEvent
   };
 
   return (
