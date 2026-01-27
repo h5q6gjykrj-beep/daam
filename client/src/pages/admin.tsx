@@ -116,16 +116,6 @@ interface Report {
   authorEmail?: string;
 }
 
-interface AuditLogEntry {
-  id: string;
-  action: ActionType;
-  targetType: 'user' | 'post' | 'comment' | 'file' | 'report' | 'campaign';
-  targetId: string;
-  targetName: string;
-  performedBy: string;
-  performedAt: string;
-  details?: string;
-}
 
 const initialUsers: AdminUser[] = [
   { id: '1', email: 'ahmed@utas.edu.om', name: 'أحمد الحارثي', status: 'active', role: 'user', joinedAt: '2024-01-15', postsCount: 12, commentsCount: 45, phone: '+968 9123 4567', lastActive: '2024-12-20' },
@@ -201,7 +191,6 @@ export default function Admin() {
   const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
   const [comments, setComments] = useState<AdminComment[]>(initialComments);
   const [files, setFiles] = useState<AdminFile[]>(initialFiles);
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [localDemoReports, setLocalDemoReports] = useState<Report[]>(initialReports);
   
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
@@ -314,18 +303,17 @@ export default function Admin() {
   const hasModeratorManage = canCurrentUser('admin.moderators.manage');
   const canAccessAdmin = isAdmin || hasModeratorManage;
 
-  const addAuditLog = (action: ActionType, targetType: AuditLogEntry['targetType'], targetId: string, targetName: string, details?: string) => {
-    const entry: AuditLogEntry = {
-      id: `log-${Date.now()}`,
-      action,
-      targetType,
-      targetId,
-      targetName,
-      performedBy: currentUser,
-      performedAt: new Date().toISOString().split('T')[0],
-      details
-    };
-    setAuditLog(prev => [entry, ...prev]);
+  const addAuditLog = (action: ActionType, targetType: string, targetId: string, targetName: string, details?: string) => {
+    // Delegate to the store's audit event system
+    if (user?.email) {
+      addAuditEvent({
+        action: action as any, // ActionType maps to the audit action format
+        targetType: targetType as any,
+        targetId,
+        byEmail: user.email,
+        meta: { displayName: targetName, details }
+      });
+    }
   };
 
   const tr = {
@@ -440,6 +428,16 @@ export default function Admin() {
       campaign_paused: lang === 'ar' ? 'إيقاف حملة' : 'Campaign Paused',
       campaign_ended: lang === 'ar' ? 'إنهاء حملة' : 'Campaign Ended',
       campaign_duplicated: lang === 'ar' ? 'نسخ حملة' : 'Campaign Duplicated',
+      // Feed moderation actions
+      'post.hide': lang === 'ar' ? 'إخفاء منشور' : 'Post Hidden',
+      'post.show': lang === 'ar' ? 'إظهار منشور' : 'Post Shown',
+      'post.delete': lang === 'ar' ? 'حذف منشور' : 'Post Deleted',
+      'reply.delete': lang === 'ar' ? 'حذف رد' : 'Reply Deleted',
+      // Moderator management actions
+      'moderator.create': lang === 'ar' ? 'إنشاء مشرف' : 'Moderator Created',
+      'moderator.permissions.update': lang === 'ar' ? 'تحديث صلاحيات' : 'Permissions Updated',
+      'moderator.toggleActive': lang === 'ar' ? 'تغيير حالة المشرف' : 'Status Toggled',
+      'moderator.delete': lang === 'ar' ? 'حذف مشرف' : 'Moderator Deleted',
     },
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
@@ -998,17 +996,19 @@ export default function Admin() {
   }, [reports, searchQuery, statusFilter, priorityFilter, reportSortOption]);
 
   const filteredAuditLog = useMemo(() => {
-    return auditLog
+    return storeAuditLog
       .filter(log => {
-        const matchesSearch = log.targetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              log.performedBy.toLowerCase().includes(searchQuery.toLowerCase());
+        const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
+        const matchesSearch = (targetName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                              log.byEmail.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesSearch;
       })
       .sort((a, b) => sortOrder === 'desc' ? 
-        new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime() :
-        new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()
-      );
-  }, [auditLog, searchQuery, sortOrder]);
+        new Date(b.at).getTime() - new Date(a.at).getTime() :
+        new Date(a.at).getTime() - new Date(b.at).getTime()
+      )
+      .slice(0, 20); // Show last 20 events
+  }, [storeAuditLog, searchQuery, sortOrder]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -1151,21 +1151,33 @@ export default function Admin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {auditLog.length === 0 ? (
+          {storeAuditLog.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">{tr.noData}</p>
           ) : (
             <div className="space-y-2">
-              {auditLog.slice(0, 5).map(log => (
-                <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-xs">
-                      {tr.actionLabels[log.action]}
-                    </Badge>
-                    <span className="text-sm">{log.targetName}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{log.performedAt}</span>
-                </div>
-              ))}
+              {[...storeAuditLog]
+                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+                .slice(0, 5)
+                .map(log => {
+                  const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
+                  const formattedDate = new Date(log.at).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  return (
+                    <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5" data-testid={`overview-audit-${log.id}`}>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="text-xs">
+                          {tr.actionLabels[log.action] || log.action}
+                        </Badge>
+                        <span className="text-sm">{targetName}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{formattedDate}</span>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </CardContent>
@@ -2916,26 +2928,39 @@ export default function Admin() {
               {filteredAuditLog.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
               ) : (
-                filteredAuditLog.map(log => (
-                  <tr key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-3">
-                      <Badge variant="outline" className="text-xs">
-                        {tr.actionLabels[log.action]}
-                      </Badge>
-                    </td>
-                    <td className="p-3 font-medium max-w-xs truncate">{log.targetName}</td>
-                    <td className="p-3">
-                      <Badge variant="outline" className="text-xs">
-                        {log.targetType === 'user' ? tr.users : 
-                         log.targetType === 'post' ? tr.posts :
-                         log.targetType === 'comment' ? tr.comments :
-                         log.targetType === 'file' ? tr.files : tr.reports}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-muted-foreground">{log.performedBy}</td>
-                    <td className="p-3 text-muted-foreground">{log.performedAt}</td>
-                  </tr>
-                ))
+                filteredAuditLog.map(log => {
+                  const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
+                  const targetTypeLabel = log.targetType === 'user' ? tr.users : 
+                                          log.targetType === 'post' ? tr.posts :
+                                          log.targetType === 'reply' ? (lang === 'ar' ? 'رد' : 'Reply') :
+                                          log.targetType === 'moderator' ? tr.moderator :
+                                          log.targetType === 'comment' ? tr.comments :
+                                          log.targetType === 'file' ? tr.files : tr.reports;
+                  const formattedDate = new Date(log.at).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  return (
+                    <tr key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-colors" data-testid={`audit-row-${log.id}`}>
+                      <td className="p-3">
+                        <Badge variant="outline" className="text-xs">
+                          {tr.actionLabels[log.action] || log.action}
+                        </Badge>
+                      </td>
+                      <td className="p-3 font-medium max-w-xs truncate">{targetName}</td>
+                      <td className="p-3">
+                        <Badge variant="outline" className="text-xs">
+                          {targetTypeLabel}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-muted-foreground">{log.byEmail}</td>
+                      <td className="p-3 text-muted-foreground">{formattedDate}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
