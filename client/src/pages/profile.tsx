@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute, Link } from "wouter";
-import { useDaamStore, type ReportReason } from "@/hooks/use-daam-store";
+import { useDaamStore, type ReportReason, ADMIN_EMAILS } from "@/hooks/use-daam-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +58,16 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing, submitReport } = useDaamStore();
+  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators } = useDaamStore();
+  
+  // Helper functions for staff detection
+  const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
+  const isModerator = (email: string) => {
+    const emailLower = email.toLowerCase();
+    if (emailLower === 'w.qq89@hotmail.com') return true;
+    return moderators.some(m => m.email.toLowerCase() === emailLower && m.isActive);
+  };
+  const isStaff = (email: string) => isAdmin(email) || isModerator(email);
   const [_, setLocation] = useLocation();
   const [match, params] = useRoute("/profile/:email");
   const { toast } = useToast();
@@ -542,11 +551,13 @@ export default function Profile() {
                     <h1 className="text-2xl md:text-3xl font-bold">
                       {profile?.name || profileEmail.split('@')[0]}
                     </h1>
-                    {profileEmail?.toLowerCase() === 'w.qq89@hotmail.com' && (
-                      <Badge variant="outline" className="text-xs px-2 py-0.5 border-amber-500/30 text-amber-500 bg-amber-500/10">
-                        <Shield className="w-3 h-3 me-1" />
-                        {lang === 'ar' ? 'مشرف' : 'Moderator'}
-                      </Badge>
+                    {isStaff(profileEmail) && (
+                      <Shield 
+                        size={18} 
+                        className="inline-block text-emerald-400" 
+                        aria-label={isAdmin(profileEmail) ? 'Admin' : 'Moderator'}
+                        data-testid="staff-badge-profile"
+                      />
                     )}
                   </div>
                   {profile?.major && (

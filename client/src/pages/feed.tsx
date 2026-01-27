@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { Link, useSearch } from "wouter";
-import { useDaamStore, ADMIN_EMAILS, type ReportReason } from "@/hooks/use-daam-store";
+import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount } from "@/hooks/use-daam-store";
 import { isAdminEmail } from "@/config/admin";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +40,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators } = useDaamStore();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const filterParam = searchParams.get('filter');
@@ -321,7 +321,15 @@ export default function Feed() {
   };
 
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
-  const isModerator = (email: string) => email.toLowerCase() === 'w.qq89@hotmail.com';
+  const isModerator = (email: string) => {
+    const emailLower = email.toLowerCase();
+    // Check legacy moderator
+    if (emailLower === 'w.qq89@hotmail.com') return true;
+    // Check in RBAC moderators list
+    return moderators.some(m => m.email.toLowerCase() === emailLower && m.isActive);
+  };
+  // Check if email belongs to admin or moderator (for showing Shield icon)
+  const isStaff = (email: string) => isAdmin(email) || isModerator(email);
 
   const canEditReply = (reply: LocalReply) => {
     return user?.email === reply.authorEmail || user?.isModerator;
@@ -425,17 +433,13 @@ export default function Feed() {
                   >
                     {getDisplayName(reply.authorEmail)}
                   </Link>
-                  {isAdmin(reply.authorEmail) && (
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
-                      <Shield className="w-2 h-2 mr-0.5" />
-                      {lang === 'ar' ? 'مشرف' : 'Admin'}
-                    </Badge>
-                  )}
-                  {isModerator(reply.authorEmail) && !isAdmin(reply.authorEmail) && (
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-500">
-                      <Shield className="w-2 h-2 mr-0.5" />
-                      {lang === 'ar' ? 'مشرف' : 'Moderator'}
-                    </Badge>
+                  {isStaff(reply.authorEmail) && (
+                    <Shield 
+                      size={14} 
+                      className="inline-block text-emerald-400" 
+                      aria-label={isAdmin(reply.authorEmail) ? 'Admin' : 'Moderator'}
+                      data-testid={`staff-badge-reply-${reply.id}`}
+                    />
                   )}
                   <span className="text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: false, locale: lang === 'ar' ? ar : enUS })}
@@ -470,7 +474,7 @@ export default function Feed() {
                           {lang === 'ar' ? 'حذف' : 'Delete'}
                         </DropdownMenuItem>
                       )}
-                      {user?.email !== reply.author && (
+                      {user?.email !== reply.authorEmail && (
                         <DropdownMenuItem 
                           onClick={() => openReportModal('comment', reply.id, reply.content.substring(0, 50))}
                           className="text-amber-500 focus:text-amber-500"
@@ -1009,11 +1013,13 @@ export default function Feed() {
                           >
                             {getDisplayName(post.authorEmail)}
                           </Link>
-                          {isModerator(post.authorEmail) && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/30 text-amber-500 bg-amber-500/10">
-                              <Shield className="w-2.5 h-2.5 me-0.5" />
-                              {tr.moderator}
-                            </Badge>
+                          {isStaff(post.authorEmail) && (
+                            <Shield 
+                              size={16} 
+                              className="inline-block text-emerald-400" 
+                              aria-label={isAdmin(post.authorEmail) ? 'Admin' : 'Moderator'}
+                              data-testid={`staff-badge-post-${post.id}`}
+                            />
                           )}
                           {isCurrentUserAdmin && (
                             <>
