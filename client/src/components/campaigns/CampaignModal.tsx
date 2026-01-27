@@ -142,11 +142,16 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       const urls = new Map<string, string>();
       
       for (const file of files) {
-        const blob = await getCampaignAttachmentBlob(file.id);
-        if (blob) {
-          // Ensure PDF has correct MIME type for iframe rendering
-          const pdfBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
-          urls.set(file.id, URL.createObjectURL(pdfBlob));
+        try {
+          const blob = await getCampaignAttachmentBlob(file.id);
+          if (blob) {
+            // Always create a new blob with application/pdf MIME type
+            // This fixes iframe rendering issues when blob.type is missing or wrong
+            const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+            urls.set(file.id, URL.createObjectURL(pdfBlob));
+          }
+        } catch (error) {
+          console.error(`Failed to load PDF ${file.id}:`, error);
         }
       }
       
