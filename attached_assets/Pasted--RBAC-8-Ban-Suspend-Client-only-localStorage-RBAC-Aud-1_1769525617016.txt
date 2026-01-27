@@ -1,0 +1,122 @@
+[RBAC-8] أضف نظام حظر المستخدم (Ban/Suspend) اقتصادي Client-only + localStorage، متكامل مع RBAC وAudit Log.
+
+الهدف:
+- تمكين المشرفين من حظر مستخدم:
+  * إما حظر مؤقت (تعليق حساب) لمدة محددة
+  * أو حظر دائم
+- المستخدم المحظور:
+  * لا يستطيع استخدام المنصة (يُمنع من الدخول للصفحات الأساسية)
+  * إن كان مسجّل دخول: يتم تسجيل خروجه فورًا (logout)
+- بدون Back-end
+
+────────────────────────
+1) Types جديدة
+────────────────────────
+أضف types (في use-daam-store.tsx أو ملف types):
+
+type BanRecord = {
+  userEmail: string;
+  bannedBy: string;     // email المشرف
+  reason?: string;
+  bannedAt: number;
+  expiresAt?: number;   // undefined = دائم
+};
+
+────────────────────────
+2) localStorage
+────────────────────────
+- key: "daam_bans_v1"
+
+في store:
+- bans: BanRecord[]
+- load/save تلقائي مع localStorage
+
+────────────────────────
+3) Actions في Store
+────────────────────────
+- banUser({ userEmail, reason, durationDays? })
+  * bannedBy = currentUser.email
+  * bannedAt = Date.now()
+  * expiresAt = bannedAt + durationDays*24*60*60*1000 (إن وُجد)
+  * إذا موجود مسبقًا حدّث السجل
+  * بعد الحظر: إذا currentUser.email == userEmail → نفّذ logout()
+
+- unbanUser(userEmail)
+
+- isUserBanned(userEmail): { banned: boolean; expiresAt?: number; reason?: string }
+  * إذا expiresAt انتهت → remove تلقائيًا
+
+────────────────────────
+4) الربط مع Audit Log
+────────────────────────
+عند:
+- banUser:
+  addAuditEvent({
+    action: "user.ban",
+    targetType: "user",
+    targetId: userEmail,
+    byEmail: currentUser.email,
+    meta: { reason, expiresAt }
+  })
+
+- unbanUser:
+  addAuditEvent({
+    action: "user.unban",
+    targetType: "user",
+    targetId: userEmail,
+    byEmail: currentUser.email
+  })
+
+(أضف audit action types الجديدة إن لزم)
+
+────────────────────────
+5) صلاحيات RBAC
+────────────────────────
+- إظهار/تنفيذ الحظر وفك الحظر فقط لمن يملك:
+  "mod.users.ban"
+(والـ admin دائمًا)
+
+────────────────────────
+6) Guard عالمي على التطبيق
+────────────────────────
+أضف تحقق في نقطة مركزية واحدة:
+- إمّا في App layout / Router wrapper
+- أو في hook useDaamStore عند تحميل currentUser
+
+المنطق:
+إذا currentUser موجود AND isUserBanned(currentUser.email).banned:
+  - اعرض شاشة حظر واضحة (AR/EN):
+    "تم تعليق حسابك" + السبب (إن وجد) + وقت الانتهاء (إن كان مؤقت)
+  - امنع الوصول لباقي الصفحات
+  - وفر زر "تسجيل خروج"
+
+مهم: لا تكرّر نفس الشاشة في كل صفحة؛ نفّذها في مكان واحد.
+
+────────────────────────
+7) واجهة الحظر
+────────────────────────
+في feed.tsx (أو profile/user menu):
+- أضف خيار "حظر المستخدم" في قائمة ⋯ بجانب المستخدم
+  يظهر فقط إذا canCurrentUser("mod.users.ban")
+
+Dialog الحظر:
+- مدة: 1 يوم / 7 أيام / 30 يوم / دائم
+- سبب اختياري
+- زر "تأكيد الحظر"
+وأيضًا خيار "فك الحظر" إذا كان محظورًا
+
+────────────────────────
+8) لوحة الأدمن
+────────────────────────
+في admin.tsx:
+- أضف قسم "المستخدمون المحظورون"
+يعرض:
+email | bannedBy | السبب | تاريخ الانتهاء | زر "فك الحظر"
+
+────────────────────────
+9) قيود صارمة
+────────────────────────
+- لا تلمس نظام الحملات التسويقية
+- لا تضف Back-end
+- دعم عربي/إنجليزي و RTL/LTR
+- TypeScript بدون أخطاء

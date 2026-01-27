@@ -5,9 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useDaamStore, DaamStoreProvider } from "@/hooks/use-daam-store";
 import { LayoutShell } from "@/components/layout-shell";
-import { Loader2 } from "lucide-react";
+import { Loader2, Ban } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 import { Forbidden } from "@/components/admin/Forbidden";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
@@ -99,8 +101,78 @@ function Router() {
   );
 }
 
+// Banned user screen
+function BannedScreen({ reason, expiresAt }: { reason?: string; expiresAt?: number }) {
+  const { lang, logout } = useDaamStore();
+  const isArabic = lang === 'ar';
+  
+  const formatExpiry = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString(isArabic ? 'ar-OM' : 'en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  };
+  
+  return (
+    <div 
+      className="min-h-screen flex items-center justify-center bg-background p-4"
+      dir={isArabic ? 'rtl' : 'ltr'}
+    >
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+            <Ban className="w-8 h-8 text-destructive" />
+          </div>
+          <CardTitle className="text-destructive">
+            {isArabic ? 'تم تعليق حسابك' : 'Your Account is Suspended'}
+          </CardTitle>
+          <CardDescription>
+            {isArabic 
+              ? 'لا يمكنك الوصول إلى المنصة حاليًا'
+              : 'You cannot access the platform at this time'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {reason && (
+            <div className="p-3 rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground mb-1">
+                {isArabic ? 'السبب:' : 'Reason:'}
+              </p>
+              <p className="text-sm font-medium">{reason}</p>
+            </div>
+          )}
+          
+          {expiresAt ? (
+            <div className="p-3 rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground mb-1">
+                {isArabic ? 'ينتهي التعليق في:' : 'Suspension ends:'}
+              </p>
+              <p className="text-sm font-medium">{formatExpiry(expiresAt)}</p>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-destructive/10">
+              <p className="text-sm text-destructive font-medium">
+                {isArabic ? 'هذا التعليق دائم' : 'This suspension is permanent'}
+              </p>
+            </div>
+          )}
+          
+          <Button 
+            onClick={logout} 
+            variant="outline" 
+            className="w-full"
+            data-testid="button-logout-banned"
+          >
+            {isArabic ? 'تسجيل خروج' : 'Logout'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AppContent() {
-  const { isLoading } = useDaamStore();
+  const { isLoading, user, isUserBanned } = useDaamStore();
   
   if (isLoading) {
     return (
@@ -108,6 +180,14 @@ function AppContent() {
         <Loader2 className="w-10 h-10 animate-spin" />
       </div>
     );
+  }
+  
+  // Check if current user is banned
+  if (user) {
+    const banStatus = isUserBanned(user.email);
+    if (banStatus.banned) {
+      return <BannedScreen reason={banStatus.reason} expiresAt={banStatus.expiresAt} />;
+    }
   }
   
   return <Router />;

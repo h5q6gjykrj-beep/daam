@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
-  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2
+  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2, Ban, UserCheck
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,7 +40,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent, isUserMuted, getMuteRecord, muteUser, unmuteUser } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent, isUserMuted, getMuteRecord, muteUser, unmuteUser, isUserBanned, getBanRecord, banUserWithDuration, unbanUserRecord } = useDaamStore();
   
   // Hidden posts state (localStorage-based)
   const LS_HIDDEN_POSTS = 'daam_hidden_posts_v1';
@@ -86,6 +86,12 @@ export default function Feed() {
   const [muteTarget, setMuteTarget] = useState<{ email: string; name: string } | null>(null);
   const [muteDuration, setMuteDuration] = useState<'10' | '60' | '1440' | 'permanent'>('60');
   const [muteReason, setMuteReason] = useState('');
+  
+  // Ban dialog state
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [banTarget, setBanTarget] = useState<{ email: string; name: string } | null>(null);
+  const [banDuration, setBanDuration] = useState<'1' | '7' | '30' | 'permanent'>('7');
+  const [banReason, setBanReason] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -680,6 +686,28 @@ export default function Feed() {
                           </DropdownMenuItem>
                         )
                       )}
+                      {/* Ban/Unban user option for staff with mod.users.ban permission */}
+                      {user?.email !== reply.authorEmail && canCurrentUser('mod.users.ban') && (
+                        isUserBanned(reply.authorEmail).banned ? (
+                          <DropdownMenuItem 
+                            onClick={() => handleUnbanUser(reply.authorEmail)}
+                            className="text-green-500 focus:text-green-500"
+                            data-testid={`button-unban-reply-user-${reply.id}`}
+                          >
+                            <UserCheck className="w-3 h-3 me-2" />
+                            {tr.unbanUser}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem 
+                            onClick={() => openBanModal(reply.authorEmail, getDisplayName(reply.authorEmail))}
+                            className="text-destructive focus:text-destructive"
+                            data-testid={`button-ban-reply-user-${reply.id}`}
+                          >
+                            <Ban className="w-3 h-3 me-2" />
+                            {tr.banUser}
+                          </DropdownMenuItem>
+                        )
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -958,7 +986,22 @@ export default function Feed() {
     mute1Day: lang === 'ar' ? 'يوم واحد' : '1 day',
     mutePermanent: lang === 'ar' ? 'دائم' : 'Permanent',
     youAreMuted: lang === 'ar' ? 'تم كتمك مؤقتًا ولا يمكنك التفاعل حاليًا' : 'You are temporarily muted and cannot interact',
-    muteExpiresAt: lang === 'ar' ? 'ينتهي الكتم في' : 'Mute expires at'
+    muteExpiresAt: lang === 'ar' ? 'ينتهي الكتم في' : 'Mute expires at',
+    // Ban system
+    banUser: lang === 'ar' ? 'حظر المستخدم' : 'Ban User',
+    unbanUser: lang === 'ar' ? 'فك حظر المستخدم' : 'Unban User',
+    banTitle: lang === 'ar' ? 'حظر المستخدم' : 'Ban User',
+    banDuration: lang === 'ar' ? 'مدة الحظر' : 'Ban Duration',
+    banReason: lang === 'ar' ? 'سبب الحظر (اختياري)' : 'Reason for ban (optional)',
+    banSubmit: lang === 'ar' ? 'تأكيد الحظر' : 'Confirm Ban',
+    banSuccess: lang === 'ar' ? 'تم حظر المستخدم' : 'User Banned',
+    banSuccessDesc: lang === 'ar' ? 'لن يتمكن المستخدم من الوصول للمنصة' : 'User can no longer access the platform',
+    unbanSuccess: lang === 'ar' ? 'تم فك حظر المستخدم' : 'User Unbanned',
+    unbanSuccessDesc: lang === 'ar' ? 'يمكن للمستخدم الآن الوصول للمنصة' : 'User can now access the platform',
+    ban1Day: lang === 'ar' ? 'يوم واحد' : '1 day',
+    ban7Days: lang === 'ar' ? '7 أيام' : '7 days',
+    ban30Days: lang === 'ar' ? '30 يوم' : '30 days',
+    banPermanent: lang === 'ar' ? 'دائم' : 'Permanent'
   };
 
   const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
@@ -1014,6 +1057,36 @@ export default function Feed() {
   // Check if current user is muted
   const currentUserMuted = user ? isUserMuted(user.email) : false;
   const currentUserMuteRecord = user ? getMuteRecord(user.email) : undefined;
+
+  // Ban modal handlers
+  const openBanModal = (email: string, name: string) => {
+    setBanTarget({ email, name });
+    setBanDuration('7');
+    setBanReason('');
+    setBanModalOpen(true);
+  };
+
+  const handleSubmitBan = () => {
+    if (!banTarget) return;
+    const durationDays = banDuration === 'permanent' ? undefined : parseInt(banDuration);
+    banUserWithDuration(banTarget.email, banReason || undefined, durationDays);
+    setBanModalOpen(false);
+    setBanTarget(null);
+    setBanDuration('7');
+    setBanReason('');
+    toast({
+      title: tr.banSuccess,
+      description: tr.banSuccessDesc
+    });
+  };
+
+  const handleUnbanUser = (email: string) => {
+    unbanUserRecord(email);
+    toast({
+      title: tr.unbanSuccess,
+      description: tr.unbanSuccessDesc
+    });
+  };
 
   const getPostTypeLabel = (type: PostType) => {
     const typeInfo = POST_TYPES.find(t => t.value === type);
@@ -1405,6 +1478,28 @@ export default function Feed() {
                                 >
                                   <VolumeX className="w-4 h-4 me-2" />
                                   {tr.muteUser}
+                                </DropdownMenuItem>
+                              )
+                            )}
+                            {/* Ban/Unban user option for staff with mod.users.ban permission */}
+                            {user?.email !== post.authorEmail && canCurrentUser('mod.users.ban') && (
+                              isUserBanned(post.authorEmail).banned ? (
+                                <DropdownMenuItem 
+                                  onClick={() => handleUnbanUser(post.authorEmail)}
+                                  className="text-green-500 focus:text-green-500"
+                                  data-testid={`button-unban-user-${post.authorEmail}`}
+                                >
+                                  <UserCheck className="w-4 h-4 me-2" />
+                                  {tr.unbanUser}
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => openBanModal(post.authorEmail, getDisplayName(post.authorEmail))}
+                                  className="text-destructive focus:text-destructive"
+                                  data-testid={`button-ban-user-${post.authorEmail}`}
+                                >
+                                  <Ban className="w-4 h-4 me-2" />
+                                  {tr.banUser}
                                 </DropdownMenuItem>
                               )
                             )}
@@ -1829,6 +1924,59 @@ export default function Feed() {
             >
               <VolumeX className="w-4 h-4 me-2" />
               {tr.muteSubmit}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ban Modal */}
+      <Dialog open={banModalOpen} onOpenChange={setBanModalOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-ban">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="w-5 h-5 text-destructive" />
+              {tr.banTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {banTarget && (
+              <p className="text-sm text-muted-foreground" data-testid="text-ban-target">
+                {lang === 'ar' ? 'حظر المستخدم:' : 'Banning user:'} {banTarget.name} ({banTarget.email})
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>{tr.banDuration}</Label>
+              <Select value={banDuration} onValueChange={(val) => setBanDuration(val as '1' | '7' | '30' | 'permanent')}>
+                <SelectTrigger data-testid="select-ban-duration">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1" data-testid="option-ban-1day">{tr.ban1Day}</SelectItem>
+                  <SelectItem value="7" data-testid="option-ban-7days">{tr.ban7Days}</SelectItem>
+                  <SelectItem value="30" data-testid="option-ban-30days">{tr.ban30Days}</SelectItem>
+                  <SelectItem value="permanent" data-testid="option-ban-permanent">{tr.banPermanent}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tr.banReason}</Label>
+              <Textarea 
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                placeholder={lang === 'ar' ? 'سبب الحظر...' : 'Reason for ban...'}
+                className="resize-none"
+                rows={3}
+                data-testid="textarea-ban-reason"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitBan}
+              variant="destructive"
+              className="w-full"
+              data-testid="button-submit-ban"
+            >
+              <Ban className="w-4 h-4 me-2" />
+              {tr.banSubmit}
             </Button>
           </div>
         </DialogContent>

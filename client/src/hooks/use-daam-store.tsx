@@ -96,6 +96,7 @@ const LS_MODS = "daam_moderators_v1";
 const LS_AUTH = "daam_auth_users_v1";
 const LS_AUDIT = "daam_audit_v1";
 const LS_MUTES = "daam_mutes_v1";
+const LS_BANS = "daam_bans_v1";
 
 // ========== Audit Log Types ==========
 export type AuditAction =
@@ -110,7 +111,9 @@ export type AuditAction =
   | "report.create"
   | "report.status.update"
   | "user.mute"
-  | "user.unmute";
+  | "user.unmute"
+  | "user.ban"
+  | "user.unban";
 
 export type AuditEvent = {
   id: string;
@@ -148,6 +151,15 @@ export interface MuteRecord {
   reason?: string;
   mutedAt: number;
   expiresAt?: number; // undefined = permanent mute
+}
+
+// ========== Ban System Types ==========
+export interface BanRecord {
+  userEmail: string;
+  bannedBy: string;
+  reason?: string;
+  bannedAt: number;
+  expiresAt?: number; // undefined = permanent ban
 }
 
 // Simple hash function for demo (in production, use bcrypt on server)
@@ -292,6 +304,12 @@ interface DaamStoreContextType {
   unmuteUser: (userEmail: string) => void;
   isUserMuted: (userEmail: string) => boolean;
   getMuteRecord: (userEmail: string) => MuteRecord | undefined;
+  // Ban System
+  bans: BanRecord[];
+  banUserWithDuration: (userEmail: string, reason?: string, durationDays?: number) => void;
+  unbanUserRecord: (userEmail: string) => void;
+  isUserBanned: (userEmail: string) => { banned: boolean; expiresAt?: number; reason?: string };
+  getBanRecord: (userEmail: string) => BanRecord | undefined;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -329,6 +347,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   
   // Mute System State
   const [mutes, setMutes] = useState<MuteRecord[]>([]);
+  
+  // Ban System State
+  const [bans, setBans] = useState<BanRecord[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -586,6 +607,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setMutes(JSON.parse(storedMutes));
       } catch (e) {
         console.error("Failed to parse mutes", e);
+      }
+    }
+    
+    // Load bans
+    const storedBans = localStorage.getItem(LS_BANS);
+    if (storedBans) {
+      try {
+        setBans(JSON.parse(storedBans));
+      } catch (e) {
+        console.error("Failed to parse bans", e);
       }
     }
     
@@ -1424,6 +1455,120 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     });
   }, [user, mutes]);
 
+  // ========== Ban System Functions ==========
+  
+  // Ban a user with optional duration
+  const banUserWithDuration = useCallback((userEmail: string, reason?: string, durationDays?: number): void => {
+    if (!user) return;
+    
+    const now = Date.now();
+    const expiresAt = durationDays ? now + (durationDays * 24 * 60 * 60 * 1000) : undefined;
+    
+    const newBanRecord: BanRecord = {
+      userEmail: userEmail.toLowerCase(),
+      bannedBy: user.email,
+      reason,
+      bannedAt: now,
+      expiresAt
+    };
+    
+    // Update or add ban record
+    const existingIndex = bans.findIndex(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
+    let updatedBans: BanRecord[];
+    
+    if (existingIndex >= 0) {
+      updatedBans = bans.map((b, i) => i === existingIndex ? newBanRecord : b);
+    } else {
+      updatedBans = [...bans, newBanRecord];
+    }
+    
+    setBans(updatedBans);
+    localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+    
+    // Add audit event
+    const auditEvent: AuditEvent = {
+      id: crypto.randomUUID(),
+      action: 'user.ban',
+      targetType: 'user',
+      targetId: userEmail,
+      byEmail: user.email,
+      at: now,
+      meta: { reason, expiresAt }
+    };
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+    
+    // If banning current user, log them out
+    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+      logout();
+    }
+  }, [user, bans]);
+
+  // Unban a user
+  const unbanUserRecord = useCallback((userEmail: string): void => {
+    if (!user) return;
+    
+    const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+    setBans(updatedBans);
+    localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+    
+    // Add audit event
+    const auditEvent: AuditEvent = {
+      id: crypto.randomUUID(),
+      action: 'user.unban',
+      targetType: 'user',
+      targetId: userEmail,
+      byEmail: user.email,
+      at: Date.now()
+    };
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+  }, [user, bans]);
+
+  // Check if a user is banned
+  const isUserBanned = useCallback((userEmail: string): { banned: boolean; expiresAt?: number; reason?: string } => {
+    const record = bans.find(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
+    
+    if (!record) {
+      return { banned: false };
+    }
+    
+    // Check if ban has expired
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      // Auto-remove expired ban
+      const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setBans(updatedBans);
+      localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+      return { banned: false };
+    }
+    
+    return { banned: true, expiresAt: record.expiresAt, reason: record.reason };
+  }, [bans]);
+
+  // Get ban record for a user
+  const getBanRecord = useCallback((userEmail: string): BanRecord | undefined => {
+    const record = bans.find(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
+    
+    if (!record) return undefined;
+    
+    // Check if ban has expired
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      // Auto-remove expired ban
+      const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setBans(updatedBans);
+      localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+      return undefined;
+    }
+    
+    return record;
+  }, [bans]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -1482,7 +1627,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     muteUser,
     unmuteUser,
     isUserMuted,
-    getMuteRecord
+    getMuteRecord,
+    // Ban System
+    bans,
+    banUserWithDuration,
+    unbanUserRecord,
+    isUserBanned,
+    getBanRecord
   };
 
   return (

@@ -185,7 +185,10 @@ export default function Admin() {
     addAuditEvent,
     // Mute System
     mutes,
-    unmuteUser
+    unmuteUser,
+    // Ban System
+    bans,
+    unbanUserRecord
   } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
@@ -447,6 +450,9 @@ export default function Admin() {
       // Mute actions
       'user.mute': lang === 'ar' ? 'كتم مستخدم' : 'User Muted',
       'user.unmute': lang === 'ar' ? 'فك كتم مستخدم' : 'User Unmuted',
+      // Ban actions
+      'user.ban': lang === 'ar' ? 'حظر مستخدم' : 'User Banned',
+      'user.unban': lang === 'ar' ? 'فك حظر مستخدم' : 'User Unbanned',
     } as Record<string, string>,
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
@@ -578,6 +584,10 @@ export default function Admin() {
     muteReason: lang === 'ar' ? 'السبب' : 'Reason',
     expiresAt: lang === 'ar' ? 'ينتهي في' : 'Expires at',
     permanent: lang === 'ar' ? 'دائم' : 'Permanent',
+    bannedUsers: lang === 'ar' ? 'المحظورون' : 'Banned Users',
+    noBannedUsers: lang === 'ar' ? 'لا يوجد مستخدمون محظورون' : 'No banned users',
+    bannedBy: lang === 'ar' ? 'حظر بواسطة' : 'Banned by',
+    banReason: lang === 'ar' ? 'السبب' : 'Reason',
     newUsers: lang === 'ar' ? 'المستخدمين الجدد' : 'New Users',
     // Campaign placements
     homePlacement: lang === 'ar' ? 'الصفحة الرئيسية' : 'Home',
@@ -2906,6 +2916,64 @@ export default function Admin() {
                       >
                         <Volume2 className="w-4 h-4 me-2" />
                         {tr.unmute}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Banned Users Section */}
+      <Card className="border-white/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Ban className="w-5 h-5 text-destructive" />
+            {tr.bannedUsers}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {bans.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8" data-testid="no-banned-users">
+              {tr.noBannedUsers}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {bans.map((ban) => {
+                const isExpired = ban.expiresAt && ban.expiresAt < Date.now();
+                if (isExpired) return null;
+                return (
+                  <div
+                    key={ban.userEmail}
+                    className="p-4 rounded-lg border border-destructive/20 bg-destructive/5"
+                    data-testid={`banned-user-${ban.userEmail}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Ban className="w-4 h-4 text-destructive" />
+                          <span className="font-medium truncate">{ban.userEmail}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <div>{tr.bannedBy}: {ban.bannedBy}</div>
+                          {ban.reason && <div>{tr.banReason}: {ban.reason}</div>}
+                          <div>
+                            {tr.expiresAt}: {ban.expiresAt 
+                              ? new Date(ban.expiresAt).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US')
+                              : tr.permanent}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unbanUserRecord(ban.userEmail)}
+                        data-testid={`button-unban-${ban.userEmail}`}
+                      >
+                        <UserCheck className="w-4 h-4 me-2" />
+                        {tr.unban}
                       </Button>
                     </div>
                   </div>

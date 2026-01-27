@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
   - `daam_hidden_posts_v1`: JSON array of hidden post IDs (moderation feature)
   - `daam_audit_v1`: JSON array of audit log events (200 entry limit, newest first)
   - `daam_mutes_v1`: JSON array of muted users (MuteRecord objects)
+  - `daam_bans_v1`: JSON array of banned users (BanRecord objects)
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
 
 ### Audit Log System
@@ -101,6 +102,19 @@ Preferred communication style: Simple, everyday language.
 - **Audit Actions**: `user.mute` and `user.unmute` logged to audit system
 - **Admin View**: Muted Users section in Admin Dashboard → Moderators tab with unmute button
 - **Bilingual**: Full Arabic/English support for mute dialog and error messages
+
+### User Ban System
+- **Storage**: localStorage (`daam_bans_v1`) with BanRecord objects
+- **BanRecord Structure**: { userEmail, bannedBy, reason, bannedAt, expiresAt }
+- **Duration Options**: 1 day, 7 days, 30 days, permanent (null expiresAt)
+- **Auto-Expiry**: Expired bans are automatically removed when checked
+- **Restrictions**: Banned users cannot access the platform (blocked at App level with ban screen)
+- **Auto-Logout**: If a user bans themselves, they are immediately logged out
+- **Ban Screen**: Shows reason, expiry time (or "permanent" indicator), and logout button
+- **Permission**: Requires `mod.users.ban` permission to ban/unban users
+- **Audit Actions**: `user.ban` and `user.unban` logged to audit system
+- **Admin View**: Banned Users section in Admin Dashboard → Moderators tab with unban button
+- **Bilingual**: Full Arabic/English support for ban dialog, ban screen, and error messages
 
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab
