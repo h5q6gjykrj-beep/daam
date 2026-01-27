@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft } from 'lucide-react';
+import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
@@ -54,7 +54,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
   const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [activePdfId, setActivePdfId] = useState<string | null>(null);
-  const [activeSurvey, setActiveSurvey] = useState(false);
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
@@ -98,7 +97,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     };
   }, [open, videos, hasLegacyVideo, campaign.video?.id]);
 
-  // Load image URLs
+  // Load image URLs with proper MIME type
   useEffect(() => {
     if (!open || images.length === 0) return;
 
@@ -108,7 +107,19 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       for (const img of images) {
         const blob = await getCampaignAttachmentBlob(img.id);
         if (blob) {
-          urls.set(img.id, URL.createObjectURL(blob));
+          // Detect MIME type from filename or use blob type
+          let mimeType = blob.type;
+          if (!mimeType || mimeType === 'application/octet-stream') {
+            const ext = img.name.toLowerCase().split('.').pop();
+            if (ext === 'png') mimeType = 'image/png';
+            else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+            else if (ext === 'webp') mimeType = 'image/webp';
+            else if (ext === 'gif') mimeType = 'image/gif';
+            else mimeType = 'image/png'; // fallback
+          }
+          // Create new blob with correct MIME type
+          const typedBlob = new Blob([blob], { type: mimeType });
+          urls.set(img.id, URL.createObjectURL(typedBlob));
         }
       }
       
@@ -148,7 +159,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       fileUrls.forEach(url => URL.revokeObjectURL(url));
       setFileUrls(new Map());
       setActivePdfId(null);
-      setActiveSurvey(false);
     };
   }, [open, files.length]);
 
@@ -337,49 +347,23 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             );
           })()}
 
-          {campaign.survey?.url && !activeSurvey && (
+          {campaign.survey?.url && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <ClipboardList className="w-4 h-4" />
                 {t.survey}
               </div>
-              <Button
-                onClick={() => {
-                  trackClick(campaign.id);
-                  setActiveSurvey(true);
-                }}
-                className="w-full"
-                data-testid="button-open-survey"
+              <a
+                href={campaign.survey.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackClick(campaign.id)}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                data-testid="link-take-survey"
               >
-                <ClipboardList className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
+                <ExternalLink className="w-4 h-4" />
                 {surveyLabel}
-              </Button>
-            </div>
-          )}
-
-          {activeSurvey && campaign.survey?.url && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span className="text-sm font-medium">{surveyLabel}</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setActiveSurvey(false)}
-                  data-testid="button-back-from-survey"
-                >
-                  <ArrowLeft className="w-4 h-4 ltr:mr-1 rtl:ml-1 rtl:rotate-180" />
-                  {t.backToList}
-                </Button>
-              </div>
-              <iframe
-                src={campaign.survey.url}
-                className="w-full h-[70vh] rounded-lg border bg-white"
-                title={surveyLabel}
-                data-testid="survey-iframe"
-              />
+              </a>
             </div>
           )}
 
