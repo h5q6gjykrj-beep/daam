@@ -163,6 +163,42 @@ const computePriority = (reason: string): ReportPriority => {
   return 'low';
 };
 
+// Permission Groups Configuration
+const PERMISSION_GROUPS: { id: string; permissions: DaamPermission[] }[] = [
+  {
+    id: 'content',
+    permissions: ['mod.posts.hide', 'mod.posts.delete', 'mod.comments.delete'],
+  },
+  {
+    id: 'users',
+    permissions: ['mod.users.mute', 'mod.users.ban'],
+  },
+  {
+    id: 'system',
+    permissions: ['admin.moderators.manage', 'admin.settings.manage'],
+  },
+];
+
+// Permission Presets
+const PERMISSION_PRESETS = {
+  contentMod: ['mod.posts.hide', 'mod.comments.delete'] as DaamPermission[],
+  fullMod: ['mod.posts.hide', 'mod.posts.delete', 'mod.comments.delete', 'mod.users.mute', 'mod.users.ban'] as DaamPermission[],
+  assistantAdmin: ['mod.posts.hide', 'mod.posts.delete', 'mod.comments.delete', 'mod.users.mute', 'mod.users.ban', 'admin.moderators.manage'] as DaamPermission[],
+};
+
+// Helper to determine moderator level based on permissions
+const getModeratorLevel = (permissions: DaamPermission[]): 'contentMod' | 'fullMod' | 'assistantAdmin' | 'custom' => {
+  const hasExact = (preset: DaamPermission[]) => 
+    preset.length === permissions.length && 
+    preset.every(p => permissions.includes(p)) &&
+    permissions.every(p => preset.includes(p));
+  
+  if (hasExact(PERMISSION_PRESETS.assistantAdmin)) return 'assistantAdmin';
+  if (hasExact(PERMISSION_PRESETS.fullMod)) return 'fullMod';
+  if (hasExact(PERMISSION_PRESETS.contentMod)) return 'contentMod';
+  return 'custom';
+};
+
 export default function Admin() {
   const { 
     lang, 
@@ -594,6 +630,23 @@ export default function Admin() {
     feedPlacement: lang === 'ar' ? 'الساحة' : 'Arena',
     profilePlacement: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
     globalPlacement: lang === 'ar' ? 'عام' : 'Global',
+    // RBAC Enhancements - Permission Groups
+    permGroupContent: lang === 'ar' ? 'إدارة المحتوى' : 'Content Management',
+    permGroupUsers: lang === 'ar' ? 'إدارة المستخدمين' : 'User Management',
+    permGroupSystem: lang === 'ar' ? 'إدارة النظام' : 'System Management',
+    // RBAC Enhancements - Presets
+    presets: lang === 'ar' ? 'قوالب سريعة' : 'Quick Presets',
+    presetContentMod: lang === 'ar' ? 'مشرف محتوى' : 'Content Moderator',
+    presetFullMod: lang === 'ar' ? 'مشرف كامل' : 'Full Moderator',
+    presetAssistantAdmin: lang === 'ar' ? 'إداري مساعد' : 'Assistant Admin',
+    presetCustom: lang === 'ar' ? 'مخصص' : 'Custom',
+    // RBAC Enhancements - Safety Guards
+    cannotDeleteLastAdmin: lang === 'ar' ? 'لا يمكن حذف آخر مدير في النظام' : 'Cannot delete the last admin in the system',
+    cannotModifySelf: lang === 'ar' ? 'لا يمكنك تعديل صلاحياتك بنفسك' : 'You cannot modify your own permissions',
+    cannotDisableSelf: lang === 'ar' ? 'لا يمكنك تعطيل حسابك بنفسك' : 'You cannot disable your own account',
+    cannotDeleteSelf: lang === 'ar' ? 'لا يمكنك حذف حسابك بنفسك' : 'You cannot delete your own account',
+    // RBAC Enhancements - UI Hint
+    permissionsWarning: lang === 'ar' ? 'هذه الصلاحيات تؤثر مباشرة على إدارة المنصة. عدّلها بحذر.' : 'These permissions directly affect platform management. Modify with caution.',
   };
 
   const navItems = [
@@ -2572,7 +2625,38 @@ export default function Admin() {
     }
   };
 
+  // Check if the current user is modifying their own moderator account
+  const isSelfMod = (mod: ModeratorAccount) => user?.email?.toLowerCase() === mod.email.toLowerCase();
+  
+  // Check if this mod is the last active admin (prevent deleting/disabling)
+  const isLastActiveAdmin = (mod: ModeratorAccount) => {
+    // First, check if this mod is an admin
+    if (!ADMIN_EMAILS.includes(mod.email.toLowerCase())) {
+      return false; // Not an admin, so not the last admin
+    }
+    
+    // Count other active admins (excluding this mod)
+    const otherActiveAdmins = moderators.filter(m => 
+      m.id !== mod.id && 
+      ADMIN_EMAILS.includes(m.email.toLowerCase()) && 
+      m.isActive
+    ).length;
+    
+    // Also count admins in ADMIN_EMAILS that might not be in moderators list
+    const adminEmailsNotInModerators = ADMIN_EMAILS.filter(email =>
+      !moderators.some(m => m.email.toLowerCase() === email.toLowerCase())
+    ).length;
+    
+    // If there are other active admin moderators or admin emails not in moderators, it's safe
+    return otherActiveAdmins === 0 && adminEmailsNotInModerators === 0;
+  };
+
   const handleEditModPermissions = (mod: ModeratorAccount) => {
+    // Safety guard: prevent self-modification
+    if (isSelfMod(mod)) {
+      alert(tr.cannotModifySelf);
+      return;
+    }
     setEditingMod(mod);
     setEditingModPermissions([...mod.permissions]);
     setEditModPermissionsOpen(true);
@@ -2580,6 +2664,13 @@ export default function Admin() {
 
   const handleSaveModPermissions = () => {
     if (editingMod) {
+      // Safety guard: prevent self-modification (double check)
+      if (isSelfMod(editingMod)) {
+        alert(tr.cannotModifySelf);
+        setEditModPermissionsOpen(false);
+        return;
+      }
+      
       updateModeratorPermissions(editingMod.id, editingModPermissions);
       
       // Log audit event
@@ -2600,6 +2691,18 @@ export default function Admin() {
   };
 
   const handleDeleteMod = (mod: ModeratorAccount) => {
+    // Safety guard: prevent self-deletion
+    if (isSelfMod(mod)) {
+      alert(tr.cannotDeleteSelf);
+      return;
+    }
+    
+    // Safety guard: prevent deleting last admin
+    if (isLastActiveAdmin(mod)) {
+      alert(tr.cannotDeleteLastAdmin);
+      return;
+    }
+    
     const confirmMsg = lang === 'ar' 
       ? `هل أنت متأكد من حذف المشرف "${mod.displayName}"؟`
       : `Are you sure you want to delete moderator "${mod.displayName}"?`;
@@ -2620,6 +2723,18 @@ export default function Admin() {
   };
   
   const handleToggleModActive = (mod: ModeratorAccount) => {
+    // Safety guard: prevent self-toggle
+    if (isSelfMod(mod)) {
+      alert(tr.cannotDisableSelf);
+      return;
+    }
+    
+    // Safety guard: prevent disabling last admin
+    if (mod.isActive && isLastActiveAdmin(mod)) {
+      alert(tr.cannotDeleteLastAdmin);
+      return;
+    }
+    
     toggleModeratorActive(mod.id);
     
     // Log audit event
@@ -2632,6 +2747,11 @@ export default function Admin() {
         meta: { email: mod.email, wasActive: mod.isActive }
       });
     }
+  };
+  
+  // Apply preset permissions
+  const applyPreset = (preset: 'contentMod' | 'fullMod' | 'assistantAdmin', setter: (perms: DaamPermission[]) => void) => {
+    setter([...PERMISSION_PRESETS[preset]]);
   };
 
   const togglePermission = (perm: DaamPermission, currentList: DaamPermission[], setter: (perms: DaamPermission[]) => void) => {
@@ -2714,26 +2834,116 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Presets Section */}
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {tr.presets}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => applyPreset('contentMod', setModFormPermissions)}
+                  data-testid="preset-content-mod"
+                >
+                  {tr.presetContentMod}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => applyPreset('fullMod', setModFormPermissions)}
+                  data-testid="preset-full-mod"
+                >
+                  {tr.presetFullMod}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => applyPreset('assistantAdmin', setModFormPermissions)}
+                  data-testid="preset-assistant-admin"
+                >
+                  {tr.presetAssistantAdmin}
+                </Button>
+              </div>
+            </div>
+
+            {/* Permissions Section with Groups */}
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">
                 {lang === 'ar' ? 'الصلاحيات' : 'Permissions'}
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {ALL_PERMISSIONS.map((perm) => (
-                  <label 
-                    key={perm} 
-                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
-                    data-testid={`checkbox-perm-${perm}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={modFormPermissions.includes(perm)}
-                      onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
-                      className="rounded border-white/20"
-                    />
-                    <span>{permissionLabels[perm][lang]}</span>
-                  </label>
-                ))}
+              {/* UI Hint */}
+              <p className="text-xs text-amber-400/80 mb-3 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                {tr.permissionsWarning}
+              </p>
+              <div className="space-y-4">
+                {/* Content Management Group */}
+                <div className="border border-white/10 rounded-lg p-3">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupContent}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {PERMISSION_GROUPS[0].permissions.map((perm) => (
+                      <label 
+                        key={perm} 
+                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
+                        data-testid={`checkbox-perm-${perm}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={modFormPermissions.includes(perm)}
+                          onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
+                          className="rounded border-white/20"
+                        />
+                        <span>{permissionLabels[perm][lang]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {/* User Management Group */}
+                <div className="border border-white/10 rounded-lg p-3">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupUsers}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {PERMISSION_GROUPS[1].permissions.map((perm) => (
+                      <label 
+                        key={perm} 
+                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
+                        data-testid={`checkbox-perm-${perm}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={modFormPermissions.includes(perm)}
+                          onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
+                          className="rounded border-white/20"
+                        />
+                        <span>{permissionLabels[perm][lang]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {/* System Management Group */}
+                <div className="border border-white/10 rounded-lg p-3">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupSystem}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {PERMISSION_GROUPS[2].permissions.map((perm) => (
+                      <label 
+                        key={perm} 
+                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
+                        data-testid={`checkbox-perm-${perm}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={modFormPermissions.includes(perm)}
+                          onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
+                          className="rounded border-white/20"
+                        />
+                        <span>{permissionLabels[perm][lang]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2775,6 +2985,33 @@ export default function Admin() {
                           ? (lang === 'ar' ? 'مفعّل' : 'Active') 
                           : (lang === 'ar' ? 'موقوف' : 'Inactive')}
                       </Badge>
+                      {/* Moderator Level Badge */}
+                      {(() => {
+                        const level = getModeratorLevel(mod.permissions);
+                        const levelLabel = level === 'contentMod' ? tr.presetContentMod 
+                          : level === 'fullMod' ? tr.presetFullMod
+                          : level === 'assistantAdmin' ? tr.presetAssistantAdmin
+                          : tr.presetCustom;
+                        const levelColor = level === 'assistantAdmin' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                          : level === 'fullMod' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                          : level === 'contentMod' ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                          : 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${levelColor}`}
+                            data-testid={`badge-level-${mod.id}`}
+                          >
+                            {levelLabel}
+                          </Badge>
+                        );
+                      })()}
+                      {/* Self indicator - show that this is the current user */}
+                      {isSelfMod(mod) && (
+                        <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30" data-testid={`badge-self-${mod.id}`}>
+                          {lang === 'ar' ? 'أنت' : 'You'}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {mod.permissions.length === 0 ? (
@@ -2796,6 +3033,8 @@ export default function Admin() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleEditModPermissions(mod)}
+                      disabled={isSelfMod(mod)}
+                      title={isSelfMod(mod) ? tr.cannotModifySelf : undefined}
                       data-testid={`button-edit-perms-${mod.id}`}
                     >
                       {lang === 'ar' ? 'تعديل الصلاحيات' : 'Edit Permissions'}
@@ -2804,6 +3043,8 @@ export default function Admin() {
                       variant={mod.isActive ? 'secondary' : 'default'}
                       size="sm"
                       onClick={() => handleToggleModActive(mod)}
+                      disabled={isSelfMod(mod)}
+                      title={isSelfMod(mod) ? tr.cannotDisableSelf : undefined}
                       data-testid={`button-toggle-active-${mod.id}`}
                     >
                       {mod.isActive 
@@ -2814,6 +3055,8 @@ export default function Admin() {
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteMod(mod)}
+                      disabled={isSelfMod(mod)}
+                      title={isSelfMod(mod) ? tr.cannotDeleteSelf : undefined}
                       data-testid={`button-delete-mod-${mod.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -2834,29 +3077,122 @@ export default function Admin() {
           setEditingModPermissions([]); 
         } 
       }}>
-        <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
+        <DialogContent className="max-w-lg" dir={isRTL ? 'rtl' : 'ltr'}>
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'تعديل صلاحيات' : 'Edit Permissions for'} {editingMod?.displayName}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-4">
-            {ALL_PERMISSIONS.map((perm) => (
-              <label 
-                key={perm} 
-                className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
-                data-testid={`edit-checkbox-perm-${perm}`}
+          
+          {/* UI Hint */}
+          <p className="text-xs text-amber-400/80 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            {tr.permissionsWarning}
+          </p>
+          
+          {/* Presets Section */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">
+              {tr.presets}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => applyPreset('contentMod', setEditingModPermissions)}
+                data-testid="edit-preset-content-mod"
               >
-                <input
-                  type="checkbox"
-                  checked={editingModPermissions.includes(perm)}
-                  onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
-                  className="rounded border-white/20"
-                />
-                <span className="text-sm">{permissionLabels[perm][lang]}</span>
-              </label>
-            ))}
+                {tr.presetContentMod}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => applyPreset('fullMod', setEditingModPermissions)}
+                data-testid="edit-preset-full-mod"
+              >
+                {tr.presetFullMod}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => applyPreset('assistantAdmin', setEditingModPermissions)}
+                data-testid="edit-preset-assistant-admin"
+              >
+                {tr.presetAssistantAdmin}
+              </Button>
+            </div>
           </div>
+          
+          {/* Permission Groups */}
+          <div className="space-y-4 py-2 max-h-[400px] overflow-y-auto">
+            {/* Content Management Group */}
+            <div className="border border-white/10 rounded-lg p-3">
+              <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupContent}</h4>
+              <div className="space-y-2">
+                {PERMISSION_GROUPS[0].permissions.map((perm) => (
+                  <label 
+                    key={perm} 
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                    data-testid={`edit-checkbox-perm-${perm}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editingModPermissions.includes(perm)}
+                      onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
+                      className="rounded border-white/20"
+                    />
+                    <span className="text-sm">{permissionLabels[perm][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {/* User Management Group */}
+            <div className="border border-white/10 rounded-lg p-3">
+              <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupUsers}</h4>
+              <div className="space-y-2">
+                {PERMISSION_GROUPS[1].permissions.map((perm) => (
+                  <label 
+                    key={perm} 
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                    data-testid={`edit-checkbox-perm-${perm}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editingModPermissions.includes(perm)}
+                      onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
+                      className="rounded border-white/20"
+                    />
+                    <span className="text-sm">{permissionLabels[perm][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {/* System Management Group */}
+            <div className="border border-white/10 rounded-lg p-3">
+              <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupSystem}</h4>
+              <div className="space-y-2">
+                {PERMISSION_GROUPS[2].permissions.map((perm) => (
+                  <label 
+                    key={perm} 
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                    data-testid={`edit-checkbox-perm-${perm}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editingModPermissions.includes(perm)}
+                      onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
+                      className="rounded border-white/20"
+                    />
+                    <span className="text-sm">{permissionLabels[perm][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setEditModPermissionsOpen(false)} data-testid="button-cancel-edit-perms">
               {tr.cancel}
