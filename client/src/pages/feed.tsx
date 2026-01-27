@@ -739,7 +739,7 @@ export default function Feed() {
           return false;
         }
         // Filter out posts hidden via moderation (localStorage)
-        if (hiddenPosts.includes(post.id)) {
+        if (hiddenPostIds.includes(post.id)) {
           return false;
         }
         const authorAccount = getAccount(post.authorEmail);
@@ -780,7 +780,7 @@ export default function Feed() {
     // 'top' filter is handled by sorting, not filtering
 
     return result;
-  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPosts, getAccount]);
+  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPostIds, getAccount]);
 
   const sortedPosts = useMemo(() => {
     const result = [...filteredPosts];
@@ -1139,7 +1139,7 @@ export default function Feed() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <EyeOff className="w-5 h-5 text-amber-500" />
-                        <span className="text-sm text-muted-foreground">{tr.hiddenPost}</span>
+                        <span className="text-sm text-muted-foreground">{tr.postHiddenByMod}</span>
                       </div>
                       <Button
                         variant="outline"

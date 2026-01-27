@@ -189,7 +189,10 @@ export default function Admin() {
     createModeratorAccount,
     updateModeratorPermissions,
     toggleModeratorActive,
-    deleteModerator
+    deleteModerator,
+    // Audit Log
+    auditLog: storeAuditLog,
+    addAuditEvent
   } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
@@ -2503,12 +2506,24 @@ export default function Admin() {
     }
     
     try {
-      createModeratorAccount({
+      const newMod = createModeratorAccount({
         email: modFormEmail.trim(),
         displayName: modFormDisplayName.trim(),
         tempPassword: modFormPassword.trim(),
         permissions: modFormPermissions
       });
+      
+      // Log audit event
+      if (user?.email) {
+        addAuditEvent({
+          action: 'moderator.create',
+          targetType: 'moderator',
+          targetId: newMod.id,
+          byEmail: user.email,
+          meta: { email: newMod.email, displayName: newMod.displayName }
+        });
+      }
+      
       setModFormSuccess(lang === 'ar' ? 'تم إنشاء المشرف بنجاح' : 'Moderator created successfully');
       setModFormEmail('');
       setModFormDisplayName('');
@@ -2528,6 +2543,18 @@ export default function Admin() {
   const handleSaveModPermissions = () => {
     if (editingMod) {
       updateModeratorPermissions(editingMod.id, editingModPermissions);
+      
+      // Log audit event
+      if (user?.email) {
+        addAuditEvent({
+          action: 'moderator.permissions.update',
+          targetType: 'moderator',
+          targetId: editingMod.id,
+          byEmail: user.email,
+          meta: { email: editingMod.email, permissions: editingModPermissions }
+        });
+      }
+      
       setEditModPermissionsOpen(false);
       setEditingMod(null);
       setEditingModPermissions([]);
@@ -2539,7 +2566,33 @@ export default function Admin() {
       ? `هل أنت متأكد من حذف المشرف "${mod.displayName}"؟`
       : `Are you sure you want to delete moderator "${mod.displayName}"?`;
     if (window.confirm(confirmMsg)) {
+      // Log audit event before deletion
+      if (user?.email) {
+        addAuditEvent({
+          action: 'moderator.delete',
+          targetType: 'moderator',
+          targetId: mod.id,
+          byEmail: user.email,
+          meta: { email: mod.email, displayName: mod.displayName }
+        });
+      }
+      
       deleteModerator(mod.id);
+    }
+  };
+  
+  const handleToggleModActive = (mod: ModeratorAccount) => {
+    toggleModeratorActive(mod.id);
+    
+    // Log audit event
+    if (user?.email) {
+      addAuditEvent({
+        action: 'moderator.toggleActive',
+        targetType: 'moderator',
+        targetId: mod.id,
+        byEmail: user.email,
+        meta: { email: mod.email, wasActive: mod.isActive }
+      });
     }
   };
 
@@ -2712,7 +2765,7 @@ export default function Admin() {
                     <Button
                       variant={mod.isActive ? 'secondary' : 'default'}
                       size="sm"
-                      onClick={() => toggleModeratorActive(mod.id)}
+                      onClick={() => handleToggleModActive(mod)}
                       data-testid={`button-toggle-active-${mod.id}`}
                     >
                       {mod.isActive 
