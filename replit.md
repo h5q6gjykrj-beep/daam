@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
   - `daam_auth_users_v1`: JSON array of registered users with password hashes
   - `daam_hidden_posts_v1`: JSON array of hidden post IDs (moderation feature)
   - `daam_audit_v1`: JSON array of audit log events (200 entry limit, newest first)
+  - `daam_mutes_v1`: JSON array of muted users (MuteRecord objects)
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
 
 ### Audit Log System
@@ -89,6 +90,17 @@ Preferred communication style: Simple, everyday language.
 - **Hidden Post UI**: Amber-styled placeholder card with Show button for staff
 - **Delete with Verification**: Confirmation dialog before deleting posts/replies
 - **Permission-based UI**: Menu options shown based on user permissions
+
+### User Mute System
+- **Storage**: localStorage (`daam_mutes_v1`) with MuteRecord objects
+- **MuteRecord Structure**: { userEmail, mutedBy, reason, mutedAt, expiresAt }
+- **Duration Options**: 10 minutes, 1 hour, 1 day, permanent (null expiresAt)
+- **Auto-Expiry**: Expired mutes are automatically removed when checked
+- **Restrictions**: Muted users cannot create posts or replies (shows expiry time toast)
+- **Permission**: Requires `mod.users.mute` permission to mute/unmute users
+- **Audit Actions**: `user.mute` and `user.unmute` logged to audit system
+- **Admin View**: Muted Users section in Admin Dashboard → Moderators tab with unmute button
+- **Bilingual**: Full Arabic/English support for mute dialog and error messages
 
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab
