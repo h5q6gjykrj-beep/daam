@@ -30,6 +30,9 @@ Preferred communication style: Simple, everyday language.
   - `daam_posts_v1`: JSON array of posts
   - `daam_lang`: Language preference (ar/en)
   - `daam_reports`: JSON array of user reports
+  - `daam_moderators_v1`: JSON array of moderator accounts
+  - `daam_auth_users_v1`: JSON array of registered users with password hashes
+  - `daam_hidden_posts_v1`: JSON array of hidden post IDs (moderation feature)
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
 
 ### Reporting System
@@ -49,10 +52,26 @@ Preferred communication style: Simple, everyday language.
 - **Biometric Login**: UI placeholder ready for future WebAuthn implementation
 - **Security**: loginSimple function is disabled; only password-based login allowed
 
-### User Roles
-- **Moderator Email**: `w.qq89@hotmail.com` (hardcoded)
-- **Moderator Permissions**: Edit/delete any post or reply, ban/unban users
-- **Moderator Badge**: Amber color (#fbbf24) displayed on profile and posts
+### User Roles & RBAC System
+- **Admin Emails**: Configured in `client/src/config/admin.ts` (includes `w.qq89@hotmail.com`)
+- **Role Types**: `admin`, `moderator`, `user`
+- **7 Permissions**: 
+  - `mod.posts.delete` - Delete any post
+  - `mod.posts.hide` - Hide posts from feed
+  - `mod.comments.delete` - Delete any comment/reply
+  - `mod.users.mute` - Mute users
+  - `mod.users.ban` - Ban users
+  - `admin.moderators.manage` - Manage moderator accounts
+  - `admin.settings.manage` - Manage platform settings
+- **Staff Badge**: Shield icon (14-18px, text-emerald-400) shown next to staff names
+- **Moderator Management**: Admin dashboard Moderators tab for CRUD operations
+- **Helper Functions**: `isAdmin()`, `isModerator()`, `isStaff()`, `canCurrentUser()`, `can()` in use-daam-store.tsx
+
+### Feed Moderation
+- **Hide Posts**: Staff can hide posts from regular users (stored in `daam_hidden_posts_v1`)
+- **Hidden Post UI**: Amber-styled placeholder card with Show button for staff
+- **Delete with Verification**: Confirmation dialog before deleting posts/replies
+- **Permission-based UI**: Menu options shown based on user permissions
 
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab

@@ -1,0 +1,59 @@
+[RBAC-4] فعّل صلاحيات الموديريشن على إجراءات المنشورات والردود في feed.tsx (UI + تحقق قبل التنفيذ) بدون Back-end وبنفس النهج الاقتصادي.
+
+الملف المستهدف: client/src/pages/feed.tsx (أو feed.tsx حسب المسار عندكم)
+
+1) اجلب من store:
+- currentUser (أو email المستخدم الحالي)
+- currentUserPermissions
+- canCurrentUser(permission) إن كانت موجودة
+(إذا غير موجودة: استخدم currentUser.role + currentUserPermissions مع دالة can)
+
+2) أضف 3 صلاحيات عمليّة الآن:
+A) حذف منشور: "mod.posts.delete"
+B) إخفاء منشور: "mod.posts.hide"
+C) حذف رد/تعليق: "mod.comments.delete"
+
+3) UI gates (إظهار الخيارات فقط للمصرّح):
+- في قائمة خيارات المنشور (مثل زر ⋯ أو قائمة actions):
+  - أظهر خيار "إخفاء المنشور" فقط إذا canCurrentUser("mod.posts.hide") أو role=admin
+  - أظهر خيار "حذف المنشور" فقط إذا canCurrentUser("mod.posts.delete") أو role=admin
+
+- في خيارات الرد/التعليق:
+  - أظهر "حذف الرد" فقط إذا canCurrentUser("mod.comments.delete") أو role=admin
+
+4) تحقق قبل التنفيذ (Mandatory):
+حتى لو ظهر الزر، عند الضغط نفّذ تحقق ثانية:
+- إذا غير مصرح: اعرض toast/alert "غير مصرح" وانهِ العملية.
+
+5) التنفيذ الاقتصادي:
+- إذا عندكم deletePost/deleteReply موجودة على state:
+  - استخدمها مع التحقق.
+- إذا ما عندكم مفهوم "إخفاء":
+  - أضف طريقة اقتصادية: hiddenPosts: string[] في store أو داخل feed state مع localStorage key "daam_hidden_posts_v1"
+  - عند إخفاء منشور:
+    - أضف postId إلى hiddenPosts
+    - في العرض: إذا postId ضمن hiddenPosts:
+      * لا تحذف المنشور من البيانات، فقط اعرض مكانه بطاقة صغيرة مكتوب فيها:
+        "هذا المنشور مخفي" + زر "إظهار" يظهر فقط لمن يملك mod.posts.hide (يعكس العملية)
+  - الهدف: إخفاء قابل للإرجاع بدون Back-end.
+
+6) تأكد من دعم RTL/Arabic:
+نصوص الأزرار بالعربي:
+- "إخفاء المنشور"
+- "إظهار المنشور"
+- "حذف المنشور"
+- "حذف الرد"
+- "غير مصرح لك"
+
+7) قيود صارمة:
+- لا تلمس نظام الحملات التسويقية أو أي Tab "الحملات".
+- لا تغيّر تصميم layout جذريًا.
+- أي إضافة localStorage لازم تكون مستقلة (key جديد) ولا تكسر بيانات سابقة.
+
+8) بعد التنفيذ اختبر:
+- student: لا يرى خيارات الحذف/الإخفاء
+- moderator مع mod.posts.hide فقط: يرى إخفاء/إظهار فقط
+- moderator مع mod.posts.delete: يرى حذف منشور
+- moderator مع mod.comments.delete: يرى حذف رد
+- admin: يرى كل شيء
+- البناء يمر TypeScript بدون أخطاء

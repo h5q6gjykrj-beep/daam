@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { Link, useSearch } from "wouter";
-import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount } from "@/hooks/use-daam-store";
+import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount, type DaamPermission } from "@/hooks/use-daam-store";
 import { isAdminEmail } from "@/config/admin";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
-  MoreVertical, Pencil, Trash2, Flag
+  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,7 +40,18 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser } = useDaamStore();
+  
+  // Hidden posts state (localStorage-based)
+  const LS_HIDDEN_POSTS = 'daam_hidden_posts_v1';
+  const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(LS_HIDDEN_POSTS);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const filterParam = searchParams.get('filter');
@@ -281,7 +292,16 @@ export default function Feed() {
     });
   };
 
-  const handleDeletePost = (postId: string) => {
+  const handleDeletePost = (postId: string, post: typeof posts[0]) => {
+    // Double-check permission before execution
+    if (!canDeletePost(post)) {
+      toast({
+        title: lang === 'ar' ? 'غير مصرح' : 'Unauthorized',
+        description: lang === 'ar' ? 'غير مصرح لك بهذا الإجراء' : 'You are not authorized for this action',
+        variant: 'destructive'
+      });
+      return;
+    }
     deletePost(postId);
     toast({
       title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
@@ -289,13 +309,68 @@ export default function Feed() {
     });
   };
 
+  // RBAC-based permission checks
+  const isCurrentUserAdmin = user ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
+  
   const canEditPost = (post: typeof posts[0]) => {
     return user?.email === post.authorEmail || user?.isModerator;
   };
 
+  // Check if user can delete post (owner OR has mod.posts.delete OR is admin)
   const canDeletePost = (post: typeof posts[0]) => {
-    return user?.email === post.authorEmail || user?.isAdmin || user?.isModerator;
+    if (user?.email === post.authorEmail) return true;
+    if (isCurrentUserAdmin) return true;
+    return canCurrentUser('mod.posts.delete');
   };
+  
+  // Check if user can hide/unhide post (has mod.posts.hide OR is admin)
+  const canHidePost = () => {
+    if (isCurrentUserAdmin) return true;
+    return canCurrentUser('mod.posts.hide');
+  };
+  
+  // Hide post action
+  const handleHidePost = (postId: string) => {
+    // Double-check permission before execution
+    if (!canHidePost()) {
+      toast({
+        title: lang === 'ar' ? 'غير مصرح' : 'Unauthorized',
+        description: lang === 'ar' ? 'غير مصرح لك بهذا الإجراء' : 'You are not authorized for this action',
+        variant: 'destructive'
+      });
+      return;
+    }
+    const updated = [...hiddenPostIds, postId];
+    setHiddenPostIds(updated);
+    localStorage.setItem(LS_HIDDEN_POSTS, JSON.stringify(updated));
+    toast({
+      title: lang === 'ar' ? 'تم الإخفاء' : 'Hidden',
+      description: lang === 'ar' ? 'تم إخفاء المنشور' : 'Post hidden'
+    });
+  };
+  
+  // Unhide post action
+  const handleUnhidePost = (postId: string) => {
+    // Double-check permission before execution
+    if (!canHidePost()) {
+      toast({
+        title: lang === 'ar' ? 'غير مصرح' : 'Unauthorized',
+        description: lang === 'ar' ? 'غير مصرح لك بهذا الإجراء' : 'You are not authorized for this action',
+        variant: 'destructive'
+      });
+      return;
+    }
+    const updated = hiddenPostIds.filter(id => id !== postId);
+    setHiddenPostIds(updated);
+    localStorage.setItem(LS_HIDDEN_POSTS, JSON.stringify(updated));
+    toast({
+      title: lang === 'ar' ? 'تم الإظهار' : 'Visible',
+      description: lang === 'ar' ? 'تم إظهار المنشور' : 'Post is now visible'
+    });
+  };
+  
+  // Check if a post is hidden
+  const isPostHidden = (postId: string) => hiddenPostIds.includes(postId);
 
   const getInitials = (email: string) => {
     const profile = getProfile(email);
@@ -335,8 +410,11 @@ export default function Feed() {
     return user?.email === reply.authorEmail || user?.isModerator;
   };
 
+  // Check if user can delete reply (owner OR has mod.comments.delete OR is admin)
   const canDeleteReply = (reply: LocalReply) => {
-    return user?.email === reply.authorEmail || user?.isModerator;
+    if (user?.email === reply.authorEmail) return true;
+    if (isCurrentUserAdmin) return true;
+    return canCurrentUser('mod.comments.delete');
   };
 
   const startEditReply = (reply: LocalReply) => {
@@ -360,7 +438,16 @@ export default function Feed() {
     });
   };
 
-  const handleDeleteReply = (postId: string, replyId: string) => {
+  const handleDeleteReply = (postId: string, replyId: string, reply: LocalReply) => {
+    // Double-check permission before execution
+    if (!canDeleteReply(reply)) {
+      toast({
+        title: lang === 'ar' ? 'غير مصرح' : 'Unauthorized',
+        description: lang === 'ar' ? 'غير مصرح لك بهذا الإجراء' : 'You are not authorized for this action',
+        variant: 'destructive'
+      });
+      return;
+    }
     deleteReply(postId, replyId);
     toast({
       title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
@@ -466,12 +553,12 @@ export default function Feed() {
                       )}
                       {canDeleteReply(reply) && (
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteReply(postId, reply.id)}
+                          onClick={() => handleDeleteReply(postId, reply.id, reply)}
                           className="text-destructive focus:text-destructive"
                           data-testid={`button-delete-reply-${reply.id}`}
                         >
                           <Trash2 className="w-3 h-3 me-2" />
-                          {lang === 'ar' ? 'حذف' : 'Delete'}
+                          {tr.deleteReply}
                         </DropdownMenuItem>
                       )}
                       {user?.email !== reply.authorEmail && (
@@ -588,18 +675,23 @@ export default function Feed() {
   const getLikeCount = (postId: string) => posts.find(p => p.id === postId)?.likedBy?.length || 0;
   const getReplyCount = (postId: string) => posts.find(p => p.id === postId)?.replies?.length || 0;
 
-  const isCurrentUserAdmin = isAdminEmail(user?.email);
-
   // Apply URL-based and type filters
+  // Check if current user is staff (admin or moderator)
+  const isCurrentUserStaff = isCurrentUserAdmin || (user ? isModerator(user.email) : false);
+
   const filteredPosts = useMemo(() => {
     let result = posts;
 
-    // Admin override: show ALL posts including hidden/flagged, from banned users, and demo accounts
-    // Non-admin users: filter out hidden/flagged posts, posts from banned users, and demo accounts
-    if (!isCurrentUserAdmin) {
+    // Admin/staff override: show ALL posts including hidden/flagged, from banned users, and demo accounts
+    // Non-staff users: filter out hidden/flagged posts, hidden posts (localStorage), posts from banned users, and demo accounts
+    if (!isCurrentUserStaff) {
       result = result.filter(post => {
-        // Filter out hidden/flagged posts
+        // Filter out hidden/flagged posts (status field)
         if (post.status === 'hidden' || post.status === 'flagged') {
+          return false;
+        }
+        // Filter out posts hidden via moderation (localStorage)
+        if (hiddenPosts.includes(post.id)) {
           return false;
         }
         const authorAccount = getAccount(post.authorEmail);
@@ -640,7 +732,7 @@ export default function Feed() {
     // 'top' filter is handled by sorting, not filtering
 
     return result;
-  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserAdmin, getAccount]);
+  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPosts, getAccount]);
 
   const sortedPosts = useMemo(() => {
     const result = [...filteredPosts];
@@ -734,7 +826,13 @@ export default function Feed() {
     statusHidden: lang === 'ar' ? 'مخفي' : 'Hidden',
     statusFlagged: lang === 'ar' ? 'مُبلغ عنه' : 'Flagged',
     bannedUser: lang === 'ar' ? 'مستخدم محظور' : 'Banned User',
-    demoAccount: lang === 'ar' ? 'حساب تجريبي' : 'Demo Account'
+    demoAccount: lang === 'ar' ? 'حساب تجريبي' : 'Demo Account',
+    // RBAC moderation actions
+    hidePost: lang === 'ar' ? 'إخفاء المنشور' : 'Hide Post',
+    showPost: lang === 'ar' ? 'إظهار المنشور' : 'Show Post',
+    deletePost: lang === 'ar' ? 'حذف المنشور' : 'Delete Post',
+    deleteReply: lang === 'ar' ? 'حذف الرد' : 'Delete Reply',
+    postHiddenByMod: lang === 'ar' ? 'هذا المنشور مخفي' : 'This post is hidden'
   };
 
   const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
@@ -987,6 +1085,27 @@ export default function Feed() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
+              {isPostHidden(post.id) ? (
+                <Card className="border-amber-500/30 bg-amber-500/5 transition-colors" data-testid={`post-hidden-${post.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <EyeOff className="w-5 h-5 text-amber-500" />
+                        <span className="text-sm text-muted-foreground">{tr.hiddenPost}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUnhidePost(post.id)}
+                        data-testid={`button-unhide-${post.id}`}
+                      >
+                        <Eye className="w-4 h-4 me-2" />
+                        {tr.showPost}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
               <Card className="border-white/5 bg-card/50 hover:bg-card/70 transition-colors" data-testid={`post-${post.id}`}>
                 <CardContent className="p-4">
                   <div className="flex gap-3">
@@ -1078,14 +1197,23 @@ export default function Feed() {
                                 {tr.edit}
                               </DropdownMenuItem>
                             )}
+                            {canHidePost() && !isPostHidden(post.id) && (
+                              <DropdownMenuItem 
+                                onClick={() => handleHidePost(post.id)}
+                                data-testid={`button-hide-${post.id}`}
+                              >
+                                <EyeOff className="w-4 h-4 me-2" />
+                                {tr.hidePost}
+                              </DropdownMenuItem>
+                            )}
                             {canDeletePost(post) && (
                               <DropdownMenuItem 
-                                onClick={() => handleDeletePost(post.id)}
+                                onClick={() => handleDeletePost(post.id, post)}
                                 className="text-destructive focus:text-destructive"
                                 data-testid={`button-delete-${post.id}`}
                               >
                                 <Trash2 className="w-4 h-4 me-2" />
-                                {tr.delete}
+                                {tr.deletePost}
                               </DropdownMenuItem>
                             )}
                             {user?.email !== post.authorEmail && (
@@ -1367,6 +1495,7 @@ export default function Feed() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </motion.div>
           ))
         )}
