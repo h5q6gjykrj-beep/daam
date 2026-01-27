@@ -105,12 +105,14 @@ export type AuditAction =
   | "moderator.create"
   | "moderator.permissions.update"
   | "moderator.toggleActive"
-  | "moderator.delete";
+  | "moderator.delete"
+  | "report.create"
+  | "report.status.update";
 
 export type AuditEvent = {
   id: string;
   action: AuditAction;
-  targetType: "post" | "reply" | "moderator";
+  targetType: "post" | "reply" | "moderator" | "report";
   targetId: string;
   byEmail: string;
   at: number; // Date.now()
@@ -252,6 +254,7 @@ interface DaamStoreContextType {
   deleteReply: (postId: string, replyId: string) => void;
   editReply: (postId: string, replyId: string, content: string) => void;
   reports: Report[];
+  hasUserReported: (targetType: ReportTargetType, targetId: string) => boolean;
   submitReport: (targetType: ReportTargetType, targetId: string, targetTitle: string, reason: ReportReason, note?: string) => void;
   updateReportStatus: (reportId: string, status: ReportStatus, resolutionReason?: string) => void;
   allowedDomains: string[];
@@ -1017,6 +1020,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
+  // Check if user has already reported this target
+  const hasUserReported = useCallback((targetType: ReportTargetType, targetId: string) => {
+    if (!user) return false;
+    return reports.some(r => r.targetType === targetType && r.targetId === targetId && r.reporterEmail === user.email);
+  }, [user, reports]);
+
   const submitReport = useCallback((
     targetType: ReportTargetType, 
     targetId: string, 
@@ -1025,6 +1034,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     note?: string
   ) => {
     if (!user) return;
+    
+    // Prevent duplicate reports from same user on same target
+    if (reports.some(r => r.targetType === targetType && r.targetId === targetId && r.reporterEmail === user.email)) {
+      return; // Already reported
+    }
+    
     const profile = profiles[user.email];
     const reporterName = profile?.name || user.email.split('@')[0];
     
@@ -1044,17 +1059,52 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const updatedReports = [newReport, ...reports];
     setReports(updatedReports);
     localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
+    
+    // Add audit event for report creation
+    const auditEvent: AuditEvent = {
+      id: crypto.randomUUID(),
+      action: 'report.create',
+      targetType: targetType as any, // post, comment, or user
+      targetId,
+      byEmail: user.email,
+      at: Date.now(),
+      meta: { reason, targetTitle }
+    };
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, [user, profiles, reports]);
 
   const updateReportStatus = useCallback((reportId: string, status: ReportStatus, resolutionReason?: string) => {
-    const updatedReports = reports.map(report => 
-      report.id === reportId 
-        ? { ...report, status, resolutionReason } 
-        : report
+    const report = reports.find(r => r.id === reportId);
+    const updatedReports = reports.map(r => 
+      r.id === reportId 
+        ? { ...r, status, resolutionReason } 
+        : r
     );
     setReports(updatedReports);
     localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
-  }, [reports]);
+    
+    // Add audit event for status update (if user is logged in)
+    if (user && report) {
+      const auditEvent: AuditEvent = {
+        id: crypto.randomUUID(),
+        action: 'report.status.update',
+        targetType: 'report',
+        targetId: reportId,
+        byEmail: user.email,
+        at: Date.now(),
+        meta: { status, targetTitle: report.targetTitle, resolutionReason }
+      };
+      setAuditLog(prev => {
+        const updated = [auditEvent, ...prev].slice(0, 200);
+        localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [user, reports]);
 
   // Domain management functions
   const addAllowedDomain = useCallback((domain: string): boolean => {
@@ -1271,6 +1321,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     deleteReply,
     editReply,
     reports,
+    hasUserReported,
     submitReport,
     updateReportStatus,
     allowedDomains,

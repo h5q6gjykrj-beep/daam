@@ -1,0 +1,138 @@
+[RBAC-6] أضف نظام بلاغات (Reports) اقتصادي Client-only + localStorage، متكامل مع RBAC وAudit Log.
+
+الهدف:
+- تمكين الطلاب من الإبلاغ عن منشور أو رد
+- تمكين المشرفين من مراجعة البلاغات واتخاذ إجراء
+- تسجيل كل خطوة في Audit Log
+- بدون Back-end
+
+────────────────────────
+1) Types جديدة
+────────────────────────
+أضف types (في use-daam-store.tsx أو ملف types):
+
+type ReportTargetType = "post" | "reply";
+
+type ReportReason =
+  | "spam"
+  | "abuse"
+  | "harassment"
+  | "misinformation"
+  | "other";
+
+type ReportStatus = "open" | "reviewed" | "resolved" | "dismissed";
+
+type ReportItem = {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ReportReason;
+  message?: string;
+  reportedBy: string; // email
+  createdAt: number;
+  status: ReportStatus;
+  reviewedBy?: string;
+  reviewedAt?: number;
+};
+
+────────────────────────
+2) localStorage
+────────────────────────
+- key: "daam_reports_v1"
+
+في store:
+- reports: ReportItem[]
+- load/save تلقائي مع localStorage
+
+────────────────────────
+3) Actions في Store
+────────────────────────
+- createReport({ targetType, targetId, reason, message })
+  * reportedBy = currentUser.email
+  * status = "open"
+  * منع تكرار البلاغ من نفس المستخدم على نفس الهدف
+
+- updateReportStatus(reportId, status)
+  * status ∈ reviewed | resolved | dismissed
+  * reviewedBy = currentUser.email
+  * reviewedAt = Date.now()
+
+- getOpenReports()
+- getReportsByTarget(targetType, targetId)
+
+────────────────────────
+4) الربط مع Audit Log
+────────────────────────
+عند:
+- إنشاء بلاغ:
+  addAuditEvent({
+    action: "report.create",
+    targetType,
+    targetId,
+    byEmail: currentUser.email
+  })
+
+- تحديث حالة البلاغ:
+  addAuditEvent({
+    action: "report.status.update",
+    targetType,
+    targetId,
+    byEmail: currentUser.email,
+    meta: { status }
+  })
+
+(أضف audit action types الجديدة إن لزم)
+
+────────────────────────
+5) واجهة المستخدم (Feed)
+────────────────────────
+في feed.tsx:
+
+A) للطلاب:
+- أضف خيار "إبلاغ" في قائمة ⋯ لكل:
+  - منشور
+  - رد
+- يفتح Dialog بسيط:
+  - Dropdown للأسباب (spam / إساءة / تحرش / معلومات مضللة / أخرى)
+  - Textarea اختياري
+  - زر "إرسال البلاغ"
+
+B) بعد الإرسال:
+- رسالة نجاح
+- منع الإبلاغ مرة ثانية على نفس العنصر
+
+────────────────────────
+6) واجهة المشرفين (Admin)
+────────────────────────
+في admin.tsx:
+- أضف تبويب جديد: "البلاغات"
+
+يعرض:
+- جدول البلاغات المفتوحة أولًا
+- الأعمدة:
+  السبب | النوع | المُبلِّغ | التاريخ | الحالة | إجراء
+
+إجراءات المشرف:
+- "مراجعة" → status = reviewed
+- "حل" → status = resolved
+- "تجاهل" → status = dismissed
+(الأزرار تظهر فقط لمن يملك صلاحيات الموديريشن)
+
+────────────────────────
+7) صلاحيات
+────────────────────────
+- إنشاء بلاغ: أي user
+- إدارة البلاغات:
+  admin
+  أو moderator مع أي من:
+    mod.posts.delete
+    mod.comments.delete
+    mod.posts.hide
+
+────────────────────────
+8) قيود صارمة
+────────────────────────
+- لا تلمس نظام الحملات التسويقية
+- لا تضف Back-end
+- حافظ على RTL / AR-EN
+- TypeScript بدون أخطاء
