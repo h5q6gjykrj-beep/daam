@@ -6,13 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useDaamStore, type Report as StoreReport, type ReportStatus as StoreReportStatus } from "@/hooks/use-daam-store";
+import { 
+  useDaamStore, 
+  type Report as StoreReport, 
+  type ReportStatus as StoreReportStatus,
+  type DaamPermission,
+  type ModeratorAccount,
+  ADMIN_EMAILS,
+  ALL_PERMISSIONS
+} from "@/hooks/use-daam-store";
 import { 
   Users, MessageSquare, FileText, Flag, ClipboardList, LayoutDashboard,
   Search, Trash2, Ban, Eye, EyeOff, CheckCircle, XCircle, ChevronDown, ChevronUp,
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
-  Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip
+  Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip,
+  UserCheck, Home
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
@@ -165,7 +174,23 @@ const computePriority = (reason: string): ReportPriority => {
 };
 
 export default function Admin() {
-  const { lang, user, reports: storeReports, updateReportStatus, allowedDomains, addAllowedDomain, removeAllowedDomain } = useDaamStore();
+  const { 
+    lang, 
+    user, 
+    reports: storeReports, 
+    updateReportStatus, 
+    allowedDomains, 
+    addAllowedDomain, 
+    removeAllowedDomain,
+    // RBAC
+    moderators,
+    currentUserPermissions,
+    canCurrentUser,
+    createModeratorAccount,
+    updateModeratorPermissions,
+    toggleModeratorActive,
+    deleteModerator
+  } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
   
@@ -266,8 +291,25 @@ export default function Admin() {
   });
   const [mediaToolbarTab, setMediaToolbarTab] = useState<'video' | 'images' | 'files' | 'survey'>('video');
 
+  // RBAC Moderators management state
+  const [modFormEmail, setModFormEmail] = useState('');
+  const [modFormDisplayName, setModFormDisplayName] = useState('');
+  const [modFormPassword, setModFormPassword] = useState('');
+  const [modFormShowPassword, setModFormShowPassword] = useState(false);
+  const [modFormPermissions, setModFormPermissions] = useState<DaamPermission[]>([]);
+  const [modFormError, setModFormError] = useState('');
+  const [modFormSuccess, setModFormSuccess] = useState('');
+  const [editModPermissionsOpen, setEditModPermissionsOpen] = useState(false);
+  const [editingMod, setEditingMod] = useState<ModeratorAccount | null>(null);
+  const [editingModPermissions, setEditingModPermissions] = useState<DaamPermission[]>([]);
+
   const isRTL = lang === 'ar';
   const currentUser = user?.email || 'admin@utas.edu.om';
+
+  // RBAC Guard - check if current user can access admin
+  const isAdmin = user ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
+  const hasModeratorManage = canCurrentUser('admin.moderators.manage');
+  const canAccessAdmin = isAdmin || hasModeratorManage;
 
   const addAuditLog = (action: ActionType, targetType: AuditLogEntry['targetType'], targetId: string, targetName: string, details?: string) => {
     const entry: AuditLogEntry = {
@@ -533,6 +575,7 @@ export default function Admin() {
     { id: 'content', label: tr.content, icon: FileText },
     { id: 'reports', label: tr.reports, icon: Flag },
     { id: 'campaigns', label: tr.campaigns, icon: Megaphone },
+    { id: 'moderators', label: tr.moderators, icon: UserCheck },
     { id: 'universities', label: tr.universities, icon: Building },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
@@ -2439,6 +2482,303 @@ export default function Admin() {
     </Card>
   );
 
+  // Permission labels for display
+  const permissionLabels: Record<DaamPermission, { ar: string; en: string }> = {
+    'mod.posts.delete': { ar: 'حذف المنشورات', en: 'Delete Posts' },
+    'mod.posts.hide': { ar: 'إخفاء المنشورات', en: 'Hide Posts' },
+    'mod.comments.delete': { ar: 'حذف التعليقات', en: 'Delete Comments' },
+    'mod.users.mute': { ar: 'كتم المستخدمين', en: 'Mute Users' },
+    'mod.users.ban': { ar: 'حظر المستخدمين', en: 'Ban Users' },
+    'admin.moderators.manage': { ar: 'إدارة المشرفين', en: 'Manage Moderators' },
+    'admin.settings.manage': { ar: 'إدارة الإعدادات', en: 'Manage Settings' },
+  };
+
+  const handleCreateModerator = () => {
+    setModFormError('');
+    setModFormSuccess('');
+    
+    if (!modFormEmail.trim() || !modFormDisplayName.trim() || !modFormPassword.trim()) {
+      setModFormError(lang === 'ar' ? 'جميع الحقول مطلوبة' : 'All fields are required');
+      return;
+    }
+    
+    try {
+      createModeratorAccount({
+        email: modFormEmail.trim(),
+        displayName: modFormDisplayName.trim(),
+        tempPassword: modFormPassword.trim(),
+        permissions: modFormPermissions
+      });
+      setModFormSuccess(lang === 'ar' ? 'تم إنشاء المشرف بنجاح' : 'Moderator created successfully');
+      setModFormEmail('');
+      setModFormDisplayName('');
+      setModFormPassword('');
+      setModFormPermissions([]);
+    } catch (error: any) {
+      setModFormError(error.message);
+    }
+  };
+
+  const handleEditModPermissions = (mod: ModeratorAccount) => {
+    setEditingMod(mod);
+    setEditingModPermissions([...mod.permissions]);
+    setEditModPermissionsOpen(true);
+  };
+
+  const handleSaveModPermissions = () => {
+    if (editingMod) {
+      updateModeratorPermissions(editingMod.id, editingModPermissions);
+      setEditModPermissionsOpen(false);
+      setEditingMod(null);
+      setEditingModPermissions([]);
+    }
+  };
+
+  const handleDeleteMod = (mod: ModeratorAccount) => {
+    const confirmMsg = lang === 'ar' 
+      ? `هل أنت متأكد من حذف المشرف "${mod.displayName}"؟`
+      : `Are you sure you want to delete moderator "${mod.displayName}"?`;
+    if (window.confirm(confirmMsg)) {
+      deleteModerator(mod.id);
+    }
+  };
+
+  const togglePermission = (perm: DaamPermission, currentList: DaamPermission[], setter: (perms: DaamPermission[]) => void) => {
+    if (currentList.includes(perm)) {
+      setter(currentList.filter(p => p !== perm));
+    } else {
+      setter([...currentList, perm]);
+    }
+  };
+
+  const renderModerators = () => (
+    <div className="space-y-6">
+      {/* Create New Moderator */}
+      <Card className="border-white/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            {lang === 'ar' ? 'إنشاء مشرف جديد' : 'Create New Moderator'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {modFormError && (
+              <div className="p-3 bg-destructive/20 text-destructive rounded-lg text-sm" data-testid="mod-form-error">
+                {modFormError}
+              </div>
+            )}
+            {modFormSuccess && (
+              <div className="p-3 bg-green-500/20 text-green-400 rounded-lg text-sm" data-testid="mod-form-success">
+                {modFormSuccess}
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">
+                  {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                </label>
+                <Input
+                  type="email"
+                  value={modFormEmail}
+                  onChange={(e) => setModFormEmail(e.target.value)}
+                  placeholder={lang === 'ar' ? 'email@example.com' : 'email@example.com'}
+                  data-testid="input-mod-email"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">
+                  {lang === 'ar' ? 'الاسم المعروض' : 'Display Name'}
+                </label>
+                <Input
+                  type="text"
+                  value={modFormDisplayName}
+                  onChange={(e) => setModFormDisplayName(e.target.value)}
+                  placeholder={lang === 'ar' ? 'الاسم' : 'Name'}
+                  data-testid="input-mod-displayname"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">
+                  {lang === 'ar' ? 'كلمة المرور المؤقتة' : 'Temporary Password'}
+                </label>
+                <div className="relative">
+                  <Input
+                    type={modFormShowPassword ? 'text' : 'password'}
+                    value={modFormPassword}
+                    onChange={(e) => setModFormPassword(e.target.value)}
+                    placeholder="••••••••"
+                    data-testid="input-mod-password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => setModFormShowPassword(!modFormShowPassword)}
+                    data-testid="button-toggle-password"
+                  >
+                    {modFormShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {lang === 'ar' ? 'الصلاحيات' : 'Permissions'}
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {ALL_PERMISSIONS.map((perm) => (
+                  <label 
+                    key={perm} 
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
+                    data-testid={`checkbox-perm-${perm}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modFormPermissions.includes(perm)}
+                      onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
+                      className="rounded border-white/20"
+                    />
+                    <span>{permissionLabels[perm][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={handleCreateModerator} data-testid="button-create-moderator">
+              <Plus className="w-4 h-4 me-2" />
+              {lang === 'ar' ? 'إنشاء مشرف' : 'Create Moderator'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Existing Moderators */}
+      <Card className="border-white/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserCheck className="w-5 h-5" />
+            {lang === 'ar' ? 'المشرفون الحاليون' : 'Current Moderators'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {moderators.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8" data-testid="no-moderators">
+              {lang === 'ar' ? 'لا يوجد مشرفون بعد' : 'No moderators yet'}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {moderators.map((mod) => (
+                <div 
+                  key={mod.id} 
+                  className="flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-lg bg-white/5 border border-white/10"
+                  data-testid={`mod-card-${mod.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{mod.displayName}</span>
+                      <span className="text-sm text-muted-foreground">{mod.email}</span>
+                      <Badge variant={mod.isActive ? 'default' : 'secondary'} data-testid={`badge-status-${mod.id}`}>
+                        {mod.isActive 
+                          ? (lang === 'ar' ? 'مفعّل' : 'Active') 
+                          : (lang === 'ar' ? 'موقوف' : 'Inactive')}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {mod.permissions.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {lang === 'ar' ? 'لا صلاحيات' : 'No permissions'}
+                        </span>
+                      ) : (
+                        mod.permissions.map((perm) => (
+                          <Badge key={perm} variant="outline" className="text-xs" data-testid={`perm-badge-${mod.id}-${perm}`}>
+                            {permissionLabels[perm]?.[lang] || perm}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditModPermissions(mod)}
+                      data-testid={`button-edit-perms-${mod.id}`}
+                    >
+                      {lang === 'ar' ? 'تعديل الصلاحيات' : 'Edit Permissions'}
+                    </Button>
+                    <Button
+                      variant={mod.isActive ? 'secondary' : 'default'}
+                      size="sm"
+                      onClick={() => toggleModeratorActive(mod.id)}
+                      data-testid={`button-toggle-active-${mod.id}`}
+                    >
+                      {mod.isActive 
+                        ? (lang === 'ar' ? 'تعطيل' : 'Disable') 
+                        : (lang === 'ar' ? 'تفعيل' : 'Enable')}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteMod(mod)}
+                      data-testid={`button-delete-mod-${mod.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Permissions Modal */}
+      <Dialog open={editModPermissionsOpen} onOpenChange={(open) => { 
+        if (!open) { 
+          setEditModPermissionsOpen(false); 
+          setEditingMod(null); 
+          setEditingModPermissions([]); 
+        } 
+      }}>
+        <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'تعديل صلاحيات' : 'Edit Permissions for'} {editingMod?.displayName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {ALL_PERMISSIONS.map((perm) => (
+              <label 
+                key={perm} 
+                className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                data-testid={`edit-checkbox-perm-${perm}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={editingModPermissions.includes(perm)}
+                  onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
+                  className="rounded border-white/20"
+                />
+                <span className="text-sm">{permissionLabels[perm][lang]}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setEditModPermissionsOpen(false)} data-testid="button-cancel-edit-perms">
+              {tr.cancel}
+            </Button>
+            <Button onClick={handleSaveModPermissions} data-testid="button-save-perms">
+              {tr.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
   const renderUniversities = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -3207,6 +3547,33 @@ export default function Admin() {
     );
   };
 
+  // RBAC Guard - check access before rendering
+  if (!canAccessAdmin) {
+    return (
+      <div className="min-h-screen pb-20 flex items-center justify-center" dir={isRTL ? 'rtl' : 'ltr'} data-testid="admin-access-denied">
+        <Card className="max-w-md border-white/10 bg-card/50">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-destructive/20 rounded-full flex items-center justify-center">
+              <Shield className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-bold">
+              {lang === 'ar' ? 'غير مصرح لك بالدخول' : 'Access Denied'}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {lang === 'ar' 
+                ? 'ليس لديك الصلاحيات الكافية للوصول إلى لوحة الإدارة'
+                : 'You do not have sufficient permissions to access the admin dashboard'}
+            </p>
+            <Button onClick={() => window.location.href = '/dashboard'} data-testid="button-go-home">
+              <Home className="w-4 h-4 me-2" />
+              {lang === 'ar' ? 'العودة للرئيسية' : 'Go to Dashboard'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-20" dir={isRTL ? 'rtl' : 'ltr'} data-testid="admin-page">
       <motion.div
@@ -3263,6 +3630,7 @@ export default function Admin() {
                 {activeTab === 'content' && renderContent()}
                 {activeTab === 'reports' && renderReports()}
                 {activeTab === 'campaigns' && renderCampaigns()}
+                {activeTab === 'moderators' && renderModerators()}
                 {activeTab === 'universities' && renderUniversities()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>

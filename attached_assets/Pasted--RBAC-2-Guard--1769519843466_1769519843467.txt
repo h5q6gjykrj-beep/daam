@@ -1,0 +1,62 @@
+[RBAC-2] أضف تبويب "المشرفون" داخل لوحة الأدمن مع Guard صلاحيات (بدون أي تعديل على نظام الحملات التسويقية).
+
+عدّل الملف: client/src/pages/admin.tsx
+
+1) Guard أعلى الصفحة:
+- اجلب من store:
+  currentUser (أو المستخدم الحالي حسب اسمكم)
+  currentUserPermissions
+  ودالة canCurrentUser (أو استخدم can + role/perms إذا عندكم)
+
+- المنطق:
+  اسمح بالدخول إذا المستخدم role="admin"
+  أو إذا يملك permission "admin.moderators.manage"
+  غير ذلك: اعرض Card بسيطة برسالة عربية واضحة "غير مصرح لك بالدخول" وزر رجوع للرئيسية (إن كان عندكم).
+
+2) Tabs:
+- أضف Tab جديد بعنوان: "المشرفون" بجانب تبويبات الأدمن الحالية (لا تغيّر ترتيب بقية التبويبات إلا إذا ضروري).
+- محتوى التبويب ينقسم لقسمين:
+
+(أ) إنشاء مشرف جديد:
+- حقول:
+  email (input)
+  displayName (input)
+  tempPassword (input type=password مع زر إظهار/إخفاء إن سهل)
+- Permissions checklist (Checkbox list) للعناصر التالية على الأقل:
+  - mod.posts.delete
+  - mod.posts.hide
+  - mod.comments.delete
+  - mod.users.mute
+  - mod.users.ban
+  - admin.moderators.manage
+  - admin.settings.manage
+- زر رئيسي: "إنشاء مشرف"
+- عند الضغط:
+  استدع createModeratorAccount({ email, displayName, tempPassword, permissions })
+  ثم نظّف الحقول واظهر Message/Toast نجاح.
+- عند الخطأ (تكرار ايميل أو غيره): اعرض رسالة خطأ.
+
+(ب) إدارة المشرفين الحاليين:
+- اعرض قائمة (Table أو Cards):
+  لكل مشرف:
+    displayName + email
+    Badge للحالة: "مفعّل" / "موقوف"
+    عرض صلاحياته الحالية (مختصر: Chips/Badges أو سطر نصي)
+    أزرار:
+      1) "تعديل الصلاحيات" (يفتح Modal أو Accordion):
+         - نفس قائمة الصلاحيات كـ checkboxes
+         - زر "حفظ" يستدعي updateModeratorPermissions(moderatorId, permissions)
+      2) "تعطيل/تفعيل" يستدعي toggleModeratorActive(moderatorId)
+      3) "حذف" يستدعي deleteModerator(moderatorId)
+         - ضع confirm بسيط (window.confirm) قبل الحذف
+
+3) قيود مهمة:
+- لا تمنع إنشاء إيميل غير جامعي هنا (هذه إدارة داخلية).
+- لا تلمس أي كود أو UI متعلق بالحملات التسويقية.
+- حافظ على نفس تصميم UI العام المستخدم في الأدمن (Button/Card/Badge من مكوناتكم الحالية).
+- تأكد أن الملف يبني بدون أخطاء TypeScript.
+
+بعد التنفيذ:
+- جرّب إنشاء مشرف جديد من تبويب "المشرفون"
+- جرّب تعطيل/تفعيل مشرف وتحديث صلاحياته
+- جرّب Guard: حساب student لا يدخل، admin يدخل.
