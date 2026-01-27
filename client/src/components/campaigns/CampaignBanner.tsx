@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Bug, Sparkles, ImageOff } from 'lucide-react';
+import { X, Bug, Sparkles, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useDaamStore } from '@/hooks/use-daam-store';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
 import { getCampaigns, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
-import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
 import { isCampaignActive } from '@/lib/campaign-helpers';
 import { ADMIN_EMAILS } from '@/config/admin';
@@ -30,13 +29,13 @@ const translations = {
     sponsored: 'مُموّل',
     explore: 'اكتشف',
     hide: 'إخفاء',
-    loadError: 'لا يمكن تحميل المعاينة',
+    attachmentsHint: 'مرفقات متاحة — اضغط «اكتشف»',
   },
   en: {
     sponsored: 'Sponsored',
     explore: 'Explore',
     hide: 'Hide',
-    loadError: 'Cannot load preview',
+    attachmentsHint: 'Attachments available — tap "Explore"',
   }
 };
 
@@ -49,10 +48,6 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const impressionTracked = useRef(false);
   const isRTL = lang === 'ar';
-
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [thumbType, setThumbType] = useState<'image' | 'video' | null>(null);
-  const [thumbErr, setThumbErr] = useState<string | null>(null);
 
   const isDebugMode = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -123,78 +118,6 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     }
   }, [campaign, placement]);
 
-  const videoMediaId = campaign?.video?.id;
-  const attachmentsKey = campaign?.attachments?.map(a => a.id).join(',') || '';
-
-  useEffect(() => {
-    let cancelled = false;
-    let currentUrl: string | null = null;
-
-    setThumbUrl(null);
-    setThumbType(null);
-    setThumbErr(null);
-
-    if (!campaign) return;
-
-    const imageAtt = campaign.attachments?.find(a => a.kind === 'image');
-    const videoAtt = campaign.attachments?.find(a => a.kind === 'video');
-
-    let chosenId: string | null = null;
-    let chosenKind: 'image' | 'video' | null = null;
-
-    if (imageAtt) {
-      chosenId = imageAtt.id;
-      chosenKind = 'image';
-    } else if (videoAtt) {
-      chosenId = videoAtt.id;
-      chosenKind = 'video';
-    } else if (videoMediaId) {
-      chosenId = videoMediaId;
-      chosenKind = 'video';
-    }
-
-    if (!chosenId || !chosenKind) {
-      return;
-    }
-
-    const loadThumb = async () => {
-      try {
-        const blob = await getCampaignAttachmentBlob(chosenId!);
-        
-        if (cancelled) return;
-
-        if (!blob) {
-          setThumbErr(`blob_null:${chosenKind}`);
-          return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-
-        currentUrl = url;
-        setThumbUrl(url);
-        setThumbType(chosenKind);
-      } catch (err) {
-        if (!cancelled) {
-          setThumbErr(`exception:${chosenKind}:${String(err)}`);
-        }
-      }
-    };
-
-    loadThumb();
-
-    return () => {
-      cancelled = true;
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl);
-      }
-    };
-  }, [campaign?.id, campaign?.updatedAt, videoMediaId, attachmentsKey]);
-
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (campaign) {
@@ -239,12 +162,6 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             <span className="text-green-400">Showing: "{campaign.title.en}"</span>
           </>
         )}
-        {thumbErr && (
-          <>
-            <span className="text-zinc-400">|</span>
-            <span className="text-orange-400">ThumbErr: {thumbErr}</span>
-          </>
-        )}
       </div>
     </div>
   );
@@ -255,7 +172,7 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
-  const hasMediaAttachments = campaign.video || campaign.attachments?.some(a => a.kind === 'image' || a.kind === 'video');
+  const hasMediaAttachments = campaign.video || (campaign.attachments && campaign.attachments.length > 0);
 
   return (
     <>
@@ -286,40 +203,10 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
             </Button>
           </div>
 
-          {thumbUrl && thumbType === 'image' && (
-            <div className="mb-3 rounded-lg overflow-hidden bg-muted/30">
-              <img
-                src={thumbUrl}
-                alt=""
-                className="max-h-48 w-full object-cover rounded-lg border"
-                onError={() => setThumbErr('img_onError')}
-                data-testid="campaign-card-image"
-              />
-            </div>
-          )}
-
-          {thumbUrl && thumbType === 'video' && (
-            <div className="mb-3 rounded-lg overflow-hidden bg-muted/30">
-              <video
-                src={thumbUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="max-h-48 w-full object-cover rounded-lg border"
-                onError={() => setThumbErr('video_onError')}
-                data-testid="campaign-card-video"
-              />
-            </div>
-          )}
-
-          {thumbErr && hasMediaAttachments && (
-            <div className="mb-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              <ImageOff className="w-8 h-8 opacity-50" />
-              <span className="text-xs">{t.loadError}</span>
-              {isDebugMode && (
-                <span className="text-[10px] text-red-400 font-mono">{thumbErr}</span>
-              )}
+          {hasMediaAttachments && (
+            <div className="mb-3 rounded-lg border border-dashed border-primary/20 bg-primary/5 p-4 flex items-center justify-center gap-2 text-primary/70">
+              <Paperclip className="w-4 h-4" />
+              <span className="text-xs">{t.attachmentsHint}</span>
             </div>
           )}
 
