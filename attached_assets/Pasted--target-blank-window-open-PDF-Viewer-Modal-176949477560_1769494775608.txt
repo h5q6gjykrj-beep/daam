@@ -1,0 +1,60 @@
+الهدف
+إلغاء أي target="_blank" أو window.open.
+عند الضغط على ملف PDF: يفتح Viewer داخل نفس الـ Modal (مثل معاينة الصورة).
+زر “تحميل” اختياري فقط، لكن الافتراضي يكون عرض داخل الصفحة.
+الملفات
+client/src/components/campaigns/CampaignModal.tsx
+(اختياري) client/src/components/campaigns/CampaignBanner.tsx إذا عنده زر فتح PDF
+1) أضف state للـ PDF الحالي داخل CampaignModal
+const [activePdfId, setActivePdfId] = useState<string | null>(null);
+const [pdfUrlById, setPdfUrlById] = useState<Record<string, string>>({});
+const [pdfErrorById, setPdfErrorById] = useState<Record<string, string>>({});
+2) عند فتح المودال: جهّز ObjectURL لكل PDF من IndexedDB (مرة واحدة)
+في useEffect داخل CampaignModal (عند open === true ووجود campaign):
+اجلب كل attachments من نوع pdf
+لكل ملف:
+blob = await getCampaignAttachmentBlob(id)
+إذا blob.type فارغ، لفّه:
+pdfBlob = blob.type ? blob : new Blob([blob], { type: "application/pdf" })
+url = URL.createObjectURL(pdfBlob)
+خزّنه في pdfUrlById[id]
+لا تعمل revokeObjectURL إلا في cleanup عند إغلاق المودال أو تغيير الحملة.
+Cleanup:
+مرّ على كل القيم في pdfUrlById واعمل URL.revokeObjectURL(url) ثم صفّرها.
+3) بدّل قائمة PDF إلى “زر معاينة داخلية” بدل فتح تبويب
+بدل:
+<a href=... target="_blank">فتح الملف</a>
+استخدم:
+زر/سطر قابل للنقر:
+عند الضغط: setActivePdfId(id); trackClick(...)
+وأظهر حالة التحضير:
+إذا !pdfUrlById[id] اعرض “جاري تجهيز المعاينة...”.
+4) أضف PDF Viewer داخل المودال (داخل نفس الصفحة)
+في قسم “عرض المحتوى” داخل CampaignModal:
+إذا activePdfId && pdfUrlById[activePdfId]:
+اعرض iframe مدمج:
+Viewer UI
+شريط صغير فوق الـ iframe:
+عنوان الملف
+زر “إغلاق المعاينة” (يرجع للقائمة) => setActivePdfId(null)
+زر “تحميل” اختياري:
+<a href={pdfUrlById[activePdfId]} download>تحميل</a>
+iframe
+<iframe src={pdfUrlById[activePdfId]} className="w-full h-[70vh] rounded-lg border bg-white" title="PDF Preview" />
+ملاحظة:
+اجعل خلفية iframe بيضاء حتى في الداكن (PDF أبيض غالبًا).
+5) منع مشكلة “تم حظر نافذة منبثقة”
+لا تستخدم window.open نهائيًا.
+لا تستخدم target="_blank" نهائيًا.
+كل شيء داخل المودال.
+6) سلوك المستخدم
+المستخدم يرى:
+بطاقة الإعلان
+يضغط “اكتشف”
+تفتح CampaignModal
+يرى قائمة ملفات + زر “معاينة”
+يضغط “معاينة” → يظهر PDF داخل نفس المودال مباشرة
+✅ معيار النجاح
+الضغط على ملف PDF يفتح داخل CampaignModal بدون أي تبويب.
+لا يظهر أي تحذير “تم حظر نافذة منبثقة”.
+زر “تحميل” (إن وُجد) يحمّل بدون تبويب.

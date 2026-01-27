@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, FileText, ExternalLink, ClipboardList, Image as ImageIcon, Video } from 'lucide-react';
+import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
@@ -16,7 +16,7 @@ interface CampaignModalProps {
 const translations = {
   ar: {
     close: 'إغلاق',
-    openFile: 'فتح الملف',
+    preview: 'معاينة',
     download: 'تحميل',
     takeSurvey: 'المشاركة في الاستبيان',
     images: 'الصور',
@@ -25,11 +25,12 @@ const translations = {
     survey: 'استبيان',
     noContent: 'لا يوجد محتوى',
     loading: 'جاري التحميل...',
-    openInNewTab: 'فتح في تبويب جديد',
+    preparing: 'جاري تجهيز المعاينة...',
+    backToList: 'العودة للقائمة',
   },
   en: {
     close: 'Close',
-    openFile: 'Open File',
+    preview: 'Preview',
     download: 'Download',
     takeSurvey: 'Take Survey',
     images: 'Images',
@@ -38,7 +39,8 @@ const translations = {
     survey: 'Survey',
     noContent: 'No content',
     loading: 'Loading...',
-    openInNewTab: 'Open in new tab',
+    preparing: 'Preparing preview...',
+    backToList: 'Back to list',
   }
 };
 
@@ -51,6 +53,8 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const [activePdfId, setActivePdfId] = useState<string | null>(null);
+  const [activeSurvey, setActiveSurvey] = useState(false);
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
@@ -119,7 +123,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     };
   }, [open, images.length]);
 
-  // Load file URLs (PDFs)
+  // Load file URLs (PDFs) with proper MIME type
   useEffect(() => {
     if (!open || files.length === 0) return;
 
@@ -129,7 +133,9 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       for (const file of files) {
         const blob = await getCampaignAttachmentBlob(file.id);
         if (blob) {
-          urls.set(file.id, URL.createObjectURL(blob));
+          // Ensure PDF has correct MIME type for iframe rendering
+          const pdfBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
+          urls.set(file.id, URL.createObjectURL(pdfBlob));
         }
       }
       
@@ -141,6 +147,8 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     return () => {
       fileUrls.forEach(url => URL.revokeObjectURL(url));
       setFileUrls(new Map());
+      setActivePdfId(null);
+      setActiveSurvey(false);
     };
   }, [open, files.length]);
 
@@ -232,7 +240,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             </div>
           )}
 
-          {files.length > 0 && (
+          {files.length > 0 && !activePdfId && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <FileText className="w-4 h-4" />
@@ -254,19 +262,20 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                         </span>
                       </div>
                       {fileUrl ? (
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => trackClick(campaign.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors flex-shrink-0"
-                          data-testid={`link-open-file-${file.id}`}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            trackClick(campaign.id);
+                            setActivePdfId(file.id);
+                          }}
+                          data-testid={`button-preview-file-${file.id}`}
                         >
-                          <ExternalLink className="w-4 h-4" />
-                          {t.openFile}
-                        </a>
+                          <Eye className="w-4 h-4 ltr:mr-1 rtl:ml-1" />
+                          {t.preview}
+                        </Button>
                       ) : (
-                        <span className="text-sm text-muted-foreground animate-pulse">{t.loading}</span>
+                        <span className="text-sm text-muted-foreground animate-pulse">{t.preparing}</span>
                       )}
                     </div>
                   );
@@ -275,23 +284,102 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             </div>
           )}
 
-          {campaign.survey?.url && (
+          {activePdfId && (() => {
+            const activeFile = files.find(f => f.id === activePdfId);
+            const pdfUrl = fileUrls.get(activePdfId);
+            
+            if (!activeFile) return null;
+            
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{activeFile.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {pdfUrl && (
+                      <a
+                        href={pdfUrl}
+                        download={activeFile.name}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border rounded bg-background hover:bg-muted transition-colors"
+                        data-testid="link-download-pdf"
+                      >
+                        <Download className="w-3 h-3" />
+                        {t.download}
+                      </a>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setActivePdfId(null)}
+                      data-testid="button-back-to-files"
+                    >
+                      <ArrowLeft className="w-4 h-4 ltr:mr-1 rtl:ml-1 rtl:rotate-180" />
+                      {t.backToList}
+                    </Button>
+                  </div>
+                </div>
+                
+                {pdfUrl ? (
+                  <iframe
+                    src={pdfUrl}
+                    className="w-full h-[70vh] rounded-lg border bg-white"
+                    title={activeFile.name}
+                    data-testid="pdf-viewer-iframe"
+                  />
+                ) : (
+                  <div className="w-full h-[70vh] rounded-lg border bg-muted flex items-center justify-center">
+                    <span className="text-muted-foreground animate-pulse">{t.preparing}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {campaign.survey?.url && !activeSurvey && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <ClipboardList className="w-4 h-4" />
                 {t.survey}
               </div>
-              <a
-                href={campaign.survey.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackClick(campaign.id)}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                data-testid="link-take-survey"
+              <Button
+                onClick={() => {
+                  trackClick(campaign.id);
+                  setActiveSurvey(true);
+                }}
+                className="w-full"
+                data-testid="button-open-survey"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ClipboardList className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
                 {surveyLabel}
-              </a>
+              </Button>
+            </div>
+          )}
+
+          {activeSurvey && campaign.survey?.url && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm font-medium">{surveyLabel}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setActiveSurvey(false)}
+                  data-testid="button-back-from-survey"
+                >
+                  <ArrowLeft className="w-4 h-4 ltr:mr-1 rtl:ml-1 rtl:rotate-180" />
+                  {t.backToList}
+                </Button>
+              </div>
+              <iframe
+                src={campaign.survey.url}
+                className="w-full h-[70vh] rounded-lg border bg-white"
+                title={surveyLabel}
+                data-testid="survey-iframe"
+              />
             </div>
           )}
 
@@ -338,13 +426,12 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             <div className="flex items-center justify-between gap-2">
               <a
                 href={previewImage.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                download={previewImage.name}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors"
-                data-testid="link-open-image-new-tab"
+                data-testid="link-download-image"
               >
-                <ExternalLink className="w-4 h-4" />
-                {t.openInNewTab}
+                <Download className="w-4 h-4" />
+                {t.download}
               </a>
               <Button 
                 variant="outline" 

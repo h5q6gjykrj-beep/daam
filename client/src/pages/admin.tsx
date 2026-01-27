@@ -3332,12 +3332,11 @@ export default function Admin() {
               <div className="flex items-center justify-between gap-2">
                 <a
                   href={imagePreviewUrl.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={imagePreviewUrl.name}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors"
-                  data-testid="link-open-image-new-tab"
+                  data-testid="link-download-image"
                 >
-                  {lang === 'ar' ? 'فتح في تبويب جديد' : 'Open in new tab'}
+                  {lang === 'ar' ? 'تحميل' : 'Download'}
                 </a>
                 <Button 
                   variant="outline" 
