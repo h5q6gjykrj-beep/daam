@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft, ExternalLink, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
@@ -27,6 +27,8 @@ const translations = {
     loading: 'جاري التحميل...',
     preparing: 'جاري تجهيز المعاينة...',
     backToList: 'العودة للقائمة',
+    invalidPdf: 'ملف PDF غير صالح أو تالف',
+    pdfNotAvailable: 'الملف غير متاح للتحميل',
   },
   en: {
     close: 'Close',
@@ -41,17 +43,42 @@ const translations = {
     loading: 'Loading...',
     preparing: 'Preparing preview...',
     backToList: 'Back to list',
+    invalidPdf: 'Invalid or corrupted PDF file',
+    pdfNotAvailable: 'File not available for download',
   }
 };
 
+async function isPdfBlob(blob: Blob): Promise<boolean> {
+  if (!blob || blob.size === 0) return false;
+  try {
+    const slice = blob.slice(0, 4);
+    const buffer = await slice.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const header = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+    return header === '%PDF';
+  } catch {
+    return false;
+  }
+}
+
+function getMimeTypeFromFilename(filename: string): string {
+  const ext = filename.toLowerCase().split('.').pop();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return 'image/png';
+}
+
 export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalProps) {
   const { lang } = useDaamStore();
-  const t = translations[lang];
+  const t = lang === 'ar' ? translations.ar : translations.en;
   const isRTL = lang === 'ar';
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
+  const [pdfErrors, setPdfErrors] = useState<Map<string, string>>(new Map());
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [activePdfId, setActivePdfId] = useState<string | null>(null);
 
@@ -62,12 +89,24 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
   const videos = campaign.attachments?.filter(a => a.kind === 'video') || [];
   const files = campaign.attachments?.filter(a => a.kind === 'file') || [];
 
-  // Check for legacy video format
   const hasLegacyVideo = !videos.length && campaign.video?.id;
 
-  // Load video URL (supports both legacy and new attachment format)
+  const imageKey = useMemo(() => images.map(i => i.id).join('|'), [images]);
+  const fileKey = useMemo(() => files.map(f => f.id).join('|'), [files]);
+  const videoKey = useMemo(() => {
+    if (videos.length > 0) return videos[0].id;
+    if (hasLegacyVideo) return campaign.video?.id || '';
+    return '';
+  }, [videos, hasLegacyVideo, campaign.video?.id]);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || !videoKey) {
+      setVideoUrl(null);
+      return;
+    }
+
+    let localUrl: string | null = null;
+    let cancelled = false;
 
     const loadVideo = async () => {
       let videoId: string | undefined;
@@ -80,9 +119,9 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
 
       if (videoId) {
         const blob = await getCampaignMedia(videoId);
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          setVideoUrl(url);
+        if (blob && !cancelled) {
+          localUrl = URL.createObjectURL(blob);
+          setVideoUrl(localUrl);
         }
       }
     };
@@ -90,82 +129,116 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     loadVideo();
 
     return () => {
-      if (videoUrl) {
-        URL.revokeObjectURL(videoUrl);
-        setVideoUrl(null);
+      cancelled = true;
+      if (localUrl) {
+        URL.revokeObjectURL(localUrl);
       }
+      setVideoUrl(null);
     };
-  }, [open, videos, hasLegacyVideo, campaign.video?.id]);
+  }, [open, videoKey]);
 
-  // Load image URLs with proper MIME type
   useEffect(() => {
-    if (!open || images.length === 0) return;
+    if (!open || images.length === 0) {
+      setImageUrls(new Map());
+      return;
+    }
+
+    const localUrls = new Map<string, string>();
+    let cancelled = false;
 
     const loadImages = async () => {
-      const urls = new Map<string, string>();
-      
       for (const img of images) {
-        const blob = await getCampaignAttachmentBlob(img.id);
-        if (blob) {
-          // Detect MIME type from filename or use blob type
-          let mimeType = blob.type;
-          if (!mimeType || mimeType === 'application/octet-stream') {
-            const ext = img.name.toLowerCase().split('.').pop();
-            if (ext === 'png') mimeType = 'image/png';
-            else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
-            else if (ext === 'webp') mimeType = 'image/webp';
-            else if (ext === 'gif') mimeType = 'image/gif';
-            else mimeType = 'image/png'; // fallback
+        if (cancelled) break;
+        
+        try {
+          const blob = await getCampaignAttachmentBlob(img.id);
+          if (blob && !cancelled) {
+            let mimeType = blob.type;
+            if (!mimeType || mimeType === 'application/octet-stream') {
+              mimeType = getMimeTypeFromFilename(img.name);
+            }
+            const typedBlob = new Blob([blob], { type: mimeType });
+            const url = URL.createObjectURL(typedBlob);
+            localUrls.set(img.id, url);
           }
-          // Create new blob with correct MIME type
-          const typedBlob = new Blob([blob], { type: mimeType });
-          urls.set(img.id, URL.createObjectURL(typedBlob));
+        } catch {
+          // Skip failed images
         }
       }
       
-      setImageUrls(urls);
+      if (!cancelled) {
+        setImageUrls(new Map(localUrls));
+      }
     };
 
     loadImages();
 
     return () => {
-      imageUrls.forEach(url => URL.revokeObjectURL(url));
+      cancelled = true;
+      localUrls.forEach(url => URL.revokeObjectURL(url));
       setImageUrls(new Map());
     };
-  }, [open, images.length]);
+  }, [open, imageKey]);
 
-  // Load file URLs (PDFs) with proper MIME type
   useEffect(() => {
-    if (!open || files.length === 0) return;
+    if (!open || files.length === 0) {
+      setFileUrls(new Map());
+      setPdfErrors(new Map());
+      setActivePdfId(null);
+      return;
+    }
+
+    const localUrls = new Map<string, string>();
+    const localErrors = new Map<string, string>();
+    let cancelled = false;
 
     const loadFiles = async () => {
-      const urls = new Map<string, string>();
-      
       for (const file of files) {
+        if (cancelled) break;
+        
         try {
           const blob = await getCampaignAttachmentBlob(file.id);
-          if (blob) {
-            // Always create a new blob with application/pdf MIME type
-            // This fixes iframe rendering issues when blob.type is missing or wrong
-            const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-            urls.set(file.id, URL.createObjectURL(pdfBlob));
+          if (!blob || cancelled) {
+            if (!cancelled) {
+              localErrors.set(file.id, t.pdfNotAvailable);
+            }
+            continue;
           }
-        } catch (error) {
-          console.error(`Failed to load PDF ${file.id}:`, error);
+
+          const isValidPdf = await isPdfBlob(blob);
+          if (cancelled) break;
+
+          if (!isValidPdf) {
+            localErrors.set(file.id, t.invalidPdf);
+            continue;
+          }
+
+          const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+          const url = URL.createObjectURL(pdfBlob);
+          localUrls.set(file.id, url);
+        } catch {
+          if (!cancelled) {
+            localErrors.set(file.id, t.pdfNotAvailable);
+          }
         }
       }
       
-      setFileUrls(urls);
+      if (!cancelled) {
+        setFileUrls(new Map(localUrls));
+        setPdfErrors(new Map(localErrors));
+      }
     };
 
     loadFiles();
 
     return () => {
-      fileUrls.forEach(url => URL.revokeObjectURL(url));
+      cancelled = true;
+      localUrls.forEach(url => URL.revokeObjectURL(url));
       setFileUrls(new Map());
+      setPdfErrors(new Map());
       setActivePdfId(null);
     };
-  }, [open, files.length]);
+  }, [open, fileKey, t.invalidPdf, t.pdfNotAvailable]);
 
   const surveyLabel = campaign.survey?.label 
     ? (lang === 'ar' ? campaign.survey.label.ar : campaign.survey.label.en)
@@ -264,6 +337,9 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
               <div className="space-y-2">
                 {files.map((file) => {
                   const fileUrl = fileUrls.get(file.id);
+                  const errorMsg = pdfErrors.get(file.id);
+                  const isLoading = !fileUrl && !errorMsg;
+                  
                   return (
                     <div 
                       key={file.id}
@@ -276,7 +352,19 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                           ({(file.sizeBytes / 1024).toFixed(0)} KB)
                         </span>
                       </div>
-                      {fileUrl ? (
+                      
+                      {isLoading && (
+                        <span className="text-sm text-muted-foreground animate-pulse">{t.preparing}</span>
+                      )}
+                      
+                      {errorMsg && (
+                        <div className="flex items-center gap-1 text-destructive text-sm">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="hidden sm:inline">{errorMsg}</span>
+                        </div>
+                      )}
+                      
+                      {fileUrl && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -289,8 +377,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                           <Eye className="w-4 h-4 ltr:mr-1 rtl:ml-1" />
                           {t.preview}
                         </Button>
-                      ) : (
-                        <span className="text-sm text-muted-foreground animate-pulse">{t.preparing}</span>
                       )}
                     </div>
                   );
@@ -302,6 +388,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
           {activePdfId && (() => {
             const activeFile = files.find(f => f.id === activePdfId);
             const pdfUrl = fileUrls.get(activePdfId);
+            const errorMsg = pdfErrors.get(activePdfId);
             
             if (!activeFile) return null;
             
@@ -343,6 +430,11 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                     title={activeFile.name}
                     data-testid="pdf-viewer-iframe"
                   />
+                ) : errorMsg ? (
+                  <div className="w-full h-[70vh] rounded-lg border bg-muted flex flex-col items-center justify-center gap-2">
+                    <AlertCircle className="w-8 h-8 text-destructive" />
+                    <span className="text-destructive font-medium">{errorMsg}</span>
+                  </div>
                 ) : (
                   <div className="w-full h-[70vh] rounded-lg border bg-muted flex items-center justify-center">
                     <span className="text-muted-foreground animate-pulse">{t.preparing}</span>
