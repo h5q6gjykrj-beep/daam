@@ -2228,6 +2228,25 @@ export default function Admin() {
                           <Image className="w-3 h-3 me-1" />
                           {tr.uploadImages} ({getAttachmentCountByKind(editingCampaign, 'image')}/{ATTACHMENT_LIMITS.image.maxCount})
                         </Button>
+
+                        {/* Image upload helper text */}
+                        <div className={`text-sm text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg border border-muted/50 ${isRTL ? 'text-right' : 'text-left'}`}>
+                          <p className="font-medium flex items-center gap-1">
+                            📐 {lang === 'ar' ? 'المقاس الموصى به للصورة الإعلانية:' : 'Recommended ad image size:'}
+                          </p>
+                          <p className="font-semibold text-foreground">
+                            1200 × 630 {lang === 'ar' ? 'بكسل' : 'px'} ({lang === 'ar' ? 'نسبة' : 'Aspect ratio'} 1.91:1)
+                          </p>
+                          <ul className="list-disc list-inside space-y-0.5 text-xs">
+                            <li>{lang === 'ar' ? 'صورة أفقية فقط' : 'Horizontal images only'}</li>
+                            <li>{lang === 'ar' ? 'تُعرض بشكل احترافي داخل ساحة النقاش' : 'Optimized for in-feed ads'}</li>
+                            <li>{lang === 'ar' ? 'الحجم المفضل أقل من 300KB' : 'Preferred size under 300KB'}</li>
+                            <li>{lang === 'ar' ? 'الصيغ المدعومة: JPG / WebP' : 'Supported formats: JPG / WebP'}</li>
+                          </ul>
+                          <p className="text-xs text-amber-500 flex items-center gap-1">
+                            ⚠️ {lang === 'ar' ? 'الصور المربعة أو العمودية قد تُقص أو لا تظهر بشكل مناسب.' : 'Square or vertical images may be cropped or display incorrectly.'}
+                          </p>
+                        </div>
                         
                         {/* Images list */}
                         {editingCampaign.attachments?.filter(a => a.kind === 'image').map((attachment) => (
