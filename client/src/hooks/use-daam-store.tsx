@@ -112,7 +112,7 @@ export type AuditAction =
 export type AuditEvent = {
   id: string;
   action: AuditAction;
-  targetType: "post" | "reply" | "moderator" | "report";
+  targetType: "post" | "reply" | "moderator" | "report" | "user" | "comment" | "file";
   targetId: string;
   byEmail: string;
   at: number; // Date.now()

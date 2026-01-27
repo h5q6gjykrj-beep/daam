@@ -438,7 +438,10 @@ export default function Admin() {
       'moderator.permissions.update': lang === 'ar' ? 'تحديث صلاحيات' : 'Permissions Updated',
       'moderator.toggleActive': lang === 'ar' ? 'تغيير حالة المشرف' : 'Status Toggled',
       'moderator.delete': lang === 'ar' ? 'حذف مشرف' : 'Moderator Deleted',
-    },
+      // Report actions
+      'report.create': lang === 'ar' ? 'إنشاء بلاغ' : 'Report Created',
+      'report.status.update': lang === 'ar' ? 'تحديث حالة بلاغ' : 'Report Status Updated',
+    } as Record<string, string>,
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
     low: lang === 'ar' ? 'منخفضة' : 'Low',
@@ -823,8 +826,8 @@ export default function Admin() {
 
   // User Details: Get moderation history for user
   const getUserModerationHistory = (user: AdminUser) => {
-    return auditLog.filter(log => 
-      log.targetType === 'user' && (log.targetId === user.id || log.targetName === user.name || log.targetId === user.email)
+    return storeAuditLog.filter(log => 
+      log.targetType === 'user' && (log.targetId === user.id || (log.meta as any)?.displayName === user.name || log.targetId === user.email)
     );
   };
 
@@ -998,8 +1001,8 @@ export default function Admin() {
   const filteredAuditLog = useMemo(() => {
     return storeAuditLog
       .filter(log => {
-        const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
-        const matchesSearch = (targetName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        const targetName = String(log.meta?.displayName || log.meta?.email || log.targetId || '');
+        const matchesSearch = targetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               log.byEmail.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesSearch;
       })
@@ -1159,7 +1162,7 @@ export default function Admin() {
                 .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
                 .slice(0, 5)
                 .map(log => {
-                  const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
+                  const targetName = String(log.meta?.displayName || log.meta?.email || log.targetId || '');
                   const formattedDate = new Date(log.at).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -2929,7 +2932,7 @@ export default function Admin() {
                 <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
               ) : (
                 filteredAuditLog.map(log => {
-                  const targetName = log.meta?.displayName || log.meta?.email || log.targetId;
+                  const targetName = String(log.meta?.displayName || log.meta?.email || log.targetId || '');
                   const targetTypeLabel = log.targetType === 'user' ? tr.users : 
                                           log.targetType === 'post' ? tr.posts :
                                           log.targetType === 'reply' ? (lang === 'ar' ? 'رد' : 'Reply') :
@@ -3555,19 +3558,27 @@ export default function Admin() {
                 {moderationHistory.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">{tr.noModerationHistory}</p>
                 ) : (
-                  moderationHistory.map(log => (
-                    <div key={log.id} className="p-3 bg-white/5 rounded-lg flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {tr.actionLabels[log.action]}
-                        </Badge>
-                        {log.details && (
-                          <span className="text-xs text-muted-foreground truncate max-w-xs">{log.details}</span>
-                        )}
+                  moderationHistory.map(log => {
+                    const formattedDate = new Date(log.at).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                    return (
+                      <div key={log.id} className="p-3 bg-white/5 rounded-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {tr.actionLabels[log.action] || log.action}
+                          </Badge>
+                          {typeof log.meta?.displayName === 'string' && log.meta.displayName && (
+                            <span className="text-xs text-muted-foreground truncate max-w-xs">{log.meta.displayName}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formattedDate}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{log.performedAt}</span>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
