@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
@@ -16,8 +17,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   
-  const { login, lang, toggleLang, theme, toggleTheme } = useDaamStore();
+  const { login, resetPassword, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -36,6 +42,14 @@ export default function Login() {
     biometric: lang === 'ar' ? 'الدخول بالبصمة' : 'Biometric Login',
     home: lang === 'ar' ? 'الرئيسية' : 'Home',
     onlyUniversity: lang === 'ar' ? 'متاح فقط لحسابات @utas.edu.om' : 'Only @utas.edu.om accounts supported',
+    forgotPassword: lang === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot password?',
+    resetPassword: lang === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password',
+    resetPasswordDesc: lang === 'ar' ? 'متاح فقط لحسابات المشرفين' : 'Available only for moderator accounts',
+    newPassword: lang === 'ar' ? 'كلمة المرور الجديدة' : 'New Password',
+    confirmPassword: lang === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password',
+    passwordMismatch: lang === 'ar' ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
+    resetBtn: lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password',
+    passwordResetSuccess: lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully',
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,6 +87,38 @@ export default function Login() {
     });
   };
 
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: lang === 'ar' ? 'خطأ' : 'Error',
+        description: tr.passwordMismatch,
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    try {
+      resetPassword(resetEmail, newPassword);
+      toast({
+        title: lang === 'ar' ? 'تم بنجاح' : 'Success',
+        description: tr.passwordResetSuccess,
+      });
+      setShowForgotPassword(false);
+      setResetEmail("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      // Pre-fill login email
+      setEmail(resetEmail);
+    } catch (error: any) {
+      toast({
+        title: lang === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
   
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
@@ -169,7 +215,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <Checkbox 
                     id="rememberMe" 
@@ -184,6 +230,17 @@ export default function Login() {
                     {tr.rememberMe}
                   </label>
                 </div>
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setShowForgotPassword(true);
+                  }}
+                  data-testid="button-forgot-password"
+                >
+                  {tr.forgotPassword}
+                </button>
               </div>
 
               <Button 
@@ -226,6 +283,76 @@ export default function Login() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5" />
+              {tr.resetPassword}
+            </DialogTitle>
+            <DialogDescription>
+              {tr.resetPasswordDesc}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">{tr.email}</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="w.qq89@hotmail.com"
+                dir="ltr"
+                required
+                data-testid="input-reset-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">{tr.newPassword}</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pe-12"
+                  dir="ltr"
+                  required
+                  minLength={6}
+                  data-testid="input-new-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute end-0 top-0 h-10 w-10 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">{tr.confirmPassword}</Label>
+              <Input
+                id="confirm-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                dir="ltr"
+                required
+                minLength={6}
+                data-testid="input-confirm-password"
+              />
+            </div>
+            <Button type="submit" className="w-full" data-testid="button-reset-password">
+              {tr.resetBtn}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

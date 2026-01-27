@@ -259,6 +259,7 @@ interface DaamStoreContextType {
   loginSimple: (email: string) => void;
   logout: () => void;
   register: (data: RegistrationData) => PendingVerification;
+  resetPassword: (email: string, newPassword: string) => void;
   verifyEmail: (token: string) => boolean;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
@@ -745,6 +746,32 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     };
     
     return verification;
+  };
+  
+  // Reset password for admin/moderator accounts
+  const resetPassword = (email: string, newPassword: string) => {
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    
+    if (!account) {
+      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+    }
+    
+    // Only allow reset for admin/moderator accounts
+    const isAdminOrMod = ADMIN_EMAILS.includes(emailLower) || emailLower === MODERATOR_EMAIL.toLowerCase();
+    if (!isAdminOrMod) {
+      throw new Error(lang === 'ar' ? 'إعادة تعيين كلمة المرور متاحة فقط للمشرفين' : 'Password reset only available for moderators');
+    }
+    
+    if (newPassword.length < 6) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters');
+    }
+    
+    // Update password
+    const updatedAccount = { ...account, passwordHash: simpleHash(newPassword) };
+    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
   
   // Verify email with token
@@ -1583,6 +1610,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     loginSimple,
     logout,
     register,
+    resetPassword,
     verifyEmail,
     createPost,
     deletePost,
