@@ -241,6 +241,7 @@ export default function Admin() {
   const [campaignVideoPreview, setCampaignVideoPreview] = useState<string | null>(null);
   const [campaignSaving, setCampaignSaving] = useState(false);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<{ url: string; name: string } | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2268,8 +2269,7 @@ export default function Admin() {
                                     const blob = await getCampaignAttachmentBlob(attachment.id);
                                     if (blob) {
                                       const url = URL.createObjectURL(blob);
-                                      window.open(url, '_blank');
-                                      setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                      setImagePreviewUrl({ url, name: attachment.name });
                                     }
                                   } catch (err) {
                                     console.error('Preview failed:', err);
@@ -3303,6 +3303,59 @@ export default function Admin() {
               {tr.confirm}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!imagePreviewUrl} onOpenChange={() => {
+        if (imagePreviewUrl) {
+          URL.revokeObjectURL(imagePreviewUrl.url);
+        }
+        setImagePreviewUrl(null);
+      }}>
+        <DialogContent className="max-w-4xl p-4" dir={lang === 'ar' ? 'rtl' : 'ltr'} data-testid="image-preview-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-base truncate">
+              {imagePreviewUrl?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {imagePreviewUrl && (
+            <div className="flex flex-col gap-4">
+              <img
+                src={imagePreviewUrl.url}
+                alt={imagePreviewUrl.name}
+                className="w-full max-h-[70vh] object-contain rounded-lg"
+                data-testid="preview-image"
+              />
+              
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={imagePreviewUrl.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors"
+                  data-testid="link-open-image-new-tab"
+                >
+                  {lang === 'ar' ? 'فتح في تبويب جديد' : 'Open in new tab'}
+                </a>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    if (imagePreviewUrl) {
+                      URL.revokeObjectURL(imagePreviewUrl.url);
+                    }
+                    setImagePreviewUrl(null);
+                  }}
+                  data-testid="button-close-preview"
+                >
+                  <X className="w-4 h-4 me-1" />
+                  {lang === 'ar' ? 'إغلاق' : 'Close'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { X, FileText, Download, ExternalLink, ClipboardList, Image as ImageIcon, Video } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, FileText, ExternalLink, ClipboardList, Image as ImageIcon, Video } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
-import type { Campaign, CampaignAttachment } from '@/types/campaign';
+import type { Campaign } from '@/types/campaign';
 import { getCampaignMedia, getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { trackClick } from '@/lib/campaign-tracking';
 
@@ -25,6 +25,7 @@ const translations = {
     survey: 'استبيان',
     noContent: 'لا يوجد محتوى',
     loading: 'جاري التحميل...',
+    openInNewTab: 'فتح في تبويب جديد',
   },
   en: {
     close: 'Close',
@@ -37,6 +38,7 @@ const translations = {
     survey: 'Survey',
     noContent: 'No content',
     loading: 'Loading...',
+    openInNewTab: 'Open in new tab',
   }
 };
 
@@ -47,7 +49,8 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
-  const [loadingFile, setLoadingFile] = useState<string | null>(null);
+  const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
@@ -116,46 +119,30 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     };
   }, [open, images.length]);
 
-  // Handle file open/download
-  const handleFileOpen = useCallback(async (attachment: CampaignAttachment) => {
-    setLoadingFile(attachment.id);
-    trackClick(campaign.id);
+  // Load file URLs (PDFs)
+  useEffect(() => {
+    if (!open || files.length === 0) return;
 
-    try {
-      const blob = await getCampaignAttachmentBlob(attachment.id);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        
-        // Open PDF in new tab
-        if (attachment.mime === 'application/pdf') {
-          window.open(url, '_blank');
-        } else {
-          // Download other files
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = attachment.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+    const loadFiles = async () => {
+      const urls = new Map<string, string>();
+      
+      for (const file of files) {
+        const blob = await getCampaignAttachmentBlob(file.id);
+        if (blob) {
+          urls.set(file.id, URL.createObjectURL(blob));
         }
-        
-        // Revoke after a short delay to allow download/open
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-    } catch (error) {
-      console.error('Failed to open file:', error);
-    } finally {
-      setLoadingFile(null);
-    }
-  }, [campaign.id]);
+      
+      setFileUrls(urls);
+    };
 
-  // Handle survey click
-  const handleSurveyClick = useCallback(() => {
-    if (campaign.survey?.url) {
-      trackClick(campaign.id);
-      window.open(campaign.survey.url, '_blank', 'noopener,noreferrer');
-    }
-  }, [campaign.id, campaign.survey?.url]);
+    loadFiles();
+
+    return () => {
+      fileUrls.forEach(url => URL.revokeObjectURL(url));
+      setFileUrls(new Map());
+    };
+  }, [open, files.length]);
 
   const surveyLabel = campaign.survey?.label 
     ? (lang === 'ar' ? campaign.survey.label.ar : campaign.survey.label.en)
@@ -164,6 +151,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
   const hasAnyContent = images.length > 0 || videos.length > 0 || hasLegacyVideo || files.length > 0 || campaign.survey?.url;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className="max-w-2xl max-h-[85vh] overflow-y-auto"
@@ -213,7 +201,19 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {images.map((img) => (
-                  <div key={img.id} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                  <button
+                    key={img.id}
+                    type="button"
+                    className="aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                    onClick={() => {
+                      const url = imageUrls.get(img.id);
+                      if (url) {
+                        trackClick(campaign.id);
+                        setPreviewImage({ url, name: img.name });
+                      }
+                    }}
+                    data-testid={`button-preview-image-${img.id}`}
+                  >
                     {imageUrls.get(img.id) ? (
                       <img
                         src={imageUrls.get(img.id)}
@@ -226,7 +226,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                         <span className="text-muted-foreground text-xs">{t.loading}</span>
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -239,37 +239,38 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                 {t.files} ({files.length})
               </div>
               <div className="space-y-2">
-                {files.map((file) => (
-                  <div 
-                    key={file.id}
-                    className="flex items-center justify-between gap-3 p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
-                      <span className="text-sm truncate">{file.name}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
-                        ({(file.sizeBytes / 1024).toFixed(0)} KB)
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFileOpen(file)}
-                      disabled={loadingFile === file.id}
-                      className="flex-shrink-0"
-                      data-testid={`button-open-file-${file.id}`}
+                {files.map((file) => {
+                  const fileUrl = fileUrls.get(file.id);
+                  return (
+                    <div 
+                      key={file.id}
+                      className="flex items-center justify-between gap-3 p-3 bg-muted/50 rounded-lg"
                     >
-                      {loadingFile === file.id ? (
-                        <span className="animate-spin">⏳</span>
-                      ) : (
-                        <>
-                          <ExternalLink className="w-4 h-4 ltr:mr-1 rtl:ml-1" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        <span className="text-sm truncate">{file.name}</span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          ({(file.sizeBytes / 1024).toFixed(0)} KB)
+                        </span>
+                      </div>
+                      {fileUrl ? (
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => trackClick(campaign.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors flex-shrink-0"
+                          data-testid={`link-open-file-${file.id}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
                           {t.openFile}
-                        </>
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground animate-pulse">{t.loading}</span>
                       )}
-                    </Button>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -280,15 +281,17 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                 <ClipboardList className="w-4 h-4" />
                 {t.survey}
               </div>
-              <Button
-                variant="default"
-                onClick={handleSurveyClick}
-                className="w-full"
-                data-testid="button-take-survey"
+              <a
+                href={campaign.survey.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackClick(campaign.id)}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                data-testid="link-take-survey"
               >
-                <ExternalLink className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
+                <ExternalLink className="w-4 h-4" />
                 {surveyLabel}
-              </Button>
+              </a>
             </div>
           )}
 
@@ -309,6 +312,55 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Image Preview Dialog */}
+    <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <DialogContent 
+        className="max-w-4xl p-4"
+        dir={isRTL ? 'rtl' : 'ltr'}
+        data-testid="image-preview-dialog"
+      >
+        <DialogHeader>
+          <DialogTitle className="text-base truncate">
+            {previewImage?.name}
+          </DialogTitle>
+        </DialogHeader>
+        
+        {previewImage && (
+          <div className="flex flex-col gap-4">
+            <img
+              src={previewImage.url}
+              alt={previewImage.name}
+              className="w-full max-h-[70vh] object-contain rounded-lg"
+              data-testid="preview-image"
+            />
+            
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={previewImage.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-muted transition-colors"
+                data-testid="link-open-image-new-tab"
+              >
+                <ExternalLink className="w-4 h-4" />
+                {t.openInNewTab}
+              </a>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setPreviewImage(null)}
+                data-testid="button-close-preview"
+              >
+                <X className="w-4 h-4 ltr:mr-1 rtl:ml-1" />
+                {t.close}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
