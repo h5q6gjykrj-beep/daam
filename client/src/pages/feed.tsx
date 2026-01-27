@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
-  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye
+  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,7 +40,7 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 type SortType = 'newest' | 'trending';
 
 export default function Feed() {
-  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent } = useDaamStore();
+  const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent, isUserMuted, getMuteRecord, muteUser, unmuteUser } = useDaamStore();
   
   // Hidden posts state (localStorage-based)
   const LS_HIDDEN_POSTS = 'daam_hidden_posts_v1';
@@ -80,6 +80,13 @@ export default function Feed() {
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string; title: string } | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason | ''>('');
   const [reportNote, setReportNote] = useState('');
+  
+  // Mute dialog state
+  const [muteModalOpen, setMuteModalOpen] = useState(false);
+  const [muteTarget, setMuteTarget] = useState<{ email: string; name: string } | null>(null);
+  const [muteDuration, setMuteDuration] = useState<'10' | '60' | '1440' | 'permanent'>('60');
+  const [muteReason, setMuteReason] = useState('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isRTL = lang === 'ar';
@@ -161,6 +168,22 @@ export default function Feed() {
 
   const handlePost = () => {
     if (!content.trim()) return;
+    
+    // Check if user is muted
+    if (currentUserMuted) {
+      const muteExpiry = currentUserMuteRecord?.expiresAt 
+        ? new Date(currentUserMuteRecord.expiresAt).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US')
+        : null;
+      toast({
+        title: lang === 'ar' ? 'تم كتمك مؤقتًا' : 'You are muted',
+        description: muteExpiry 
+          ? `${lang === 'ar' ? 'ينتهي الكتم في' : 'Mute expires at'}: ${muteExpiry}`
+          : (lang === 'ar' ? 'تم كتمك مؤقتًا ولا يمكنك التفاعل حاليًا' : 'You are temporarily muted and cannot interact'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     createPost(content, newPostType, newPostSubject || undefined, undefined, attachments.length > 0 ? attachments : undefined);
     setContent("");
     setShowCreateForm(false);
@@ -515,6 +538,22 @@ export default function Feed() {
     const inputKey = parentReplyId ? `${postId}-${parentReplyId}` : postId;
     const replyContent = replyInputs[inputKey];
     if (!replyContent?.trim()) return;
+    
+    // Check if user is muted
+    if (currentUserMuted) {
+      const muteExpiry = currentUserMuteRecord?.expiresAt 
+        ? new Date(currentUserMuteRecord.expiresAt).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US')
+        : null;
+      toast({
+        title: lang === 'ar' ? 'تم كتمك مؤقتًا' : 'You are muted',
+        description: muteExpiry 
+          ? `${lang === 'ar' ? 'ينتهي الكتم في' : 'Mute expires at'}: ${muteExpiry}`
+          : (lang === 'ar' ? 'تم كتمك مؤقتًا ولا يمكنك التفاعل حاليًا' : 'You are temporarily muted and cannot interact'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     addReply(postId, replyContent, parentReplyId);
     setReplyInputs(prev => ({ ...prev, [inputKey]: "" }));
     setActiveReplyId(null);
@@ -618,6 +657,28 @@ export default function Feed() {
                           <Flag className="w-3 h-3 me-2" />
                           {tr.report}
                         </DropdownMenuItem>
+                      )}
+                      {/* Mute/Unmute user option for staff with mod.users.mute permission */}
+                      {user?.email !== reply.authorEmail && canCurrentUser('mod.users.mute') && (
+                        isUserMuted(reply.authorEmail) ? (
+                          <DropdownMenuItem 
+                            onClick={() => handleUnmuteUser(reply.authorEmail)}
+                            className="text-green-500 focus:text-green-500"
+                            data-testid={`button-unmute-reply-user-${reply.id}`}
+                          >
+                            <Volume2 className="w-3 h-3 me-2" />
+                            {tr.unmuteUser}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem 
+                            onClick={() => openMuteModal(reply.authorEmail, getDisplayName(reply.authorEmail))}
+                            className="text-orange-500 focus:text-orange-500"
+                            data-testid={`button-mute-reply-user-${reply.id}`}
+                          >
+                            <VolumeX className="w-3 h-3 me-2" />
+                            {tr.muteUser}
+                          </DropdownMenuItem>
+                        )
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -880,7 +941,24 @@ export default function Feed() {
     showPost: lang === 'ar' ? 'إظهار المنشور' : 'Show Post',
     deletePost: lang === 'ar' ? 'حذف المنشور' : 'Delete Post',
     deleteReply: lang === 'ar' ? 'حذف الرد' : 'Delete Reply',
-    postHiddenByMod: lang === 'ar' ? 'هذا المنشور مخفي' : 'This post is hidden'
+    postHiddenByMod: lang === 'ar' ? 'هذا المنشور مخفي' : 'This post is hidden',
+    // Mute system
+    muteUser: lang === 'ar' ? 'كتم المستخدم' : 'Mute User',
+    unmuteUser: lang === 'ar' ? 'فك كتم المستخدم' : 'Unmute User',
+    muteTitle: lang === 'ar' ? 'كتم المستخدم' : 'Mute User',
+    muteDuration: lang === 'ar' ? 'مدة الكتم' : 'Mute Duration',
+    muteReason: lang === 'ar' ? 'سبب الكتم (اختياري)' : 'Reason for mute (optional)',
+    muteSubmit: lang === 'ar' ? 'تأكيد الكتم' : 'Confirm Mute',
+    muteSuccess: lang === 'ar' ? 'تم كتم المستخدم' : 'User Muted',
+    muteSuccessDesc: lang === 'ar' ? 'لن يتمكن المستخدم من النشر أو التعليق' : 'User can no longer post or comment',
+    unmuteSuccess: lang === 'ar' ? 'تم فك كتم المستخدم' : 'User Unmuted',
+    unmuteSuccessDesc: lang === 'ar' ? 'يمكن للمستخدم الآن النشر والتعليق' : 'User can now post and comment',
+    mute10Min: lang === 'ar' ? '10 دقائق' : '10 minutes',
+    mute1Hour: lang === 'ar' ? 'ساعة واحدة' : '1 hour',
+    mute1Day: lang === 'ar' ? 'يوم واحد' : '1 day',
+    mutePermanent: lang === 'ar' ? 'دائم' : 'Permanent',
+    youAreMuted: lang === 'ar' ? 'تم كتمك مؤقتًا ولا يمكنك التفاعل حاليًا' : 'You are temporarily muted and cannot interact',
+    muteExpiresAt: lang === 'ar' ? 'ينتهي الكتم في' : 'Mute expires at'
   };
 
   const openReportModal = (type: 'post' | 'comment', id: string, title: string) => {
@@ -902,6 +980,40 @@ export default function Feed() {
       description: tr.reportSuccessDesc
     });
   };
+
+  // Mute modal handlers
+  const openMuteModal = (email: string, name: string) => {
+    setMuteTarget({ email, name });
+    setMuteDuration('60');
+    setMuteReason('');
+    setMuteModalOpen(true);
+  };
+
+  const handleSubmitMute = () => {
+    if (!muteTarget) return;
+    const durationMinutes = muteDuration === 'permanent' ? undefined : parseInt(muteDuration);
+    muteUser(muteTarget.email, muteReason || undefined, durationMinutes);
+    setMuteModalOpen(false);
+    setMuteTarget(null);
+    setMuteDuration('60');
+    setMuteReason('');
+    toast({
+      title: tr.muteSuccess,
+      description: tr.muteSuccessDesc
+    });
+  };
+
+  const handleUnmuteUser = (email: string) => {
+    unmuteUser(email);
+    toast({
+      title: tr.unmuteSuccess,
+      description: tr.unmuteSuccessDesc
+    });
+  };
+
+  // Check if current user is muted
+  const currentUserMuted = user ? isUserMuted(user.email) : false;
+  const currentUserMuteRecord = user ? getMuteRecord(user.email) : undefined;
 
   const getPostTypeLabel = (type: PostType) => {
     const typeInfo = POST_TYPES.find(t => t.value === type);
@@ -1274,6 +1386,28 @@ export default function Feed() {
                                 {tr.report}
                               </DropdownMenuItem>
                             )}
+                            {/* Mute/Unmute user option for staff with mod.users.mute permission */}
+                            {user?.email !== post.authorEmail && canCurrentUser('mod.users.mute') && (
+                              isUserMuted(post.authorEmail) ? (
+                                <DropdownMenuItem 
+                                  onClick={() => handleUnmuteUser(post.authorEmail)}
+                                  className="text-green-500 focus:text-green-500"
+                                  data-testid={`button-unmute-user-${post.authorEmail}`}
+                                >
+                                  <Volume2 className="w-4 h-4 me-2" />
+                                  {tr.unmuteUser}
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => openMuteModal(post.authorEmail, getDisplayName(post.authorEmail))}
+                                  className="text-orange-500 focus:text-orange-500"
+                                  data-testid={`button-mute-user-${post.authorEmail}`}
+                                >
+                                  <VolumeX className="w-4 h-4 me-2" />
+                                  {tr.muteUser}
+                                </DropdownMenuItem>
+                              )
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1643,6 +1777,58 @@ export default function Feed() {
             >
               <Flag className="w-4 h-4 me-2" />
               {tr.reportSubmit}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mute Modal */}
+      <Dialog open={muteModalOpen} onOpenChange={setMuteModalOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-mute">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <VolumeX className="w-5 h-5" />
+              {tr.muteTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {muteTarget && (
+              <p className="text-sm text-muted-foreground" data-testid="text-mute-target">
+                {lang === 'ar' ? 'كتم المستخدم:' : 'Muting user:'} {muteTarget.name} ({muteTarget.email})
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>{tr.muteDuration}</Label>
+              <Select value={muteDuration} onValueChange={(val) => setMuteDuration(val as '10' | '60' | '1440' | 'permanent')}>
+                <SelectTrigger data-testid="select-mute-duration">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10" data-testid="option-mute-10min">{tr.mute10Min}</SelectItem>
+                  <SelectItem value="60" data-testid="option-mute-1hour">{tr.mute1Hour}</SelectItem>
+                  <SelectItem value="1440" data-testid="option-mute-1day">{tr.mute1Day}</SelectItem>
+                  <SelectItem value="permanent" data-testid="option-mute-permanent">{tr.mutePermanent}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tr.muteReason}</Label>
+              <Textarea 
+                value={muteReason}
+                onChange={(e) => setMuteReason(e.target.value)}
+                placeholder={lang === 'ar' ? 'سبب الكتم...' : 'Reason for muting...'}
+                className="resize-none"
+                rows={3}
+                data-testid="textarea-mute-reason"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitMute}
+              className="w-full"
+              data-testid="button-submit-mute"
+            >
+              <VolumeX className="w-4 h-4 me-2" />
+              {tr.muteSubmit}
             </Button>
           </div>
         </DialogContent>

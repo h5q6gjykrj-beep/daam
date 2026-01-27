@@ -1,0 +1,119 @@
+[RBAC-7] أضف نظام كتم المستخدم (Mute) اقتصادي (Client-only + localStorage) متكامل مع RBAC وAudit Log.
+
+الهدف:
+- تمكين المشرفين من كتم مستخدم لفترة محددة
+- المستخدم المكتوم:
+  * لا يستطيع إنشاء منشورات
+  * لا يستطيع إضافة تعليقات/ردود
+  * يرى رسالة واضحة بأنه مكتوم مؤقتًا
+- لا يمنع تسجيل الدخول
+- بدون Back-end
+
+────────────────────────
+1) Types جديدة
+────────────────────────
+أضف types (في use-daam-store.tsx أو ملف types):
+
+type MuteRecord = {
+  userEmail: string;
+  mutedBy: string; // email المشرف
+  reason?: string;
+  mutedAt: number;
+  expiresAt?: number; // undefined = كتم دائم
+};
+
+────────────────────────
+2) localStorage
+────────────────────────
+- key: "daam_mutes_v1"
+
+في store:
+- mutes: MuteRecord[]
+- load/save تلقائي مع localStorage
+
+────────────────────────
+3) Actions في Store
+────────────────────────
+- muteUser({ userEmail, reason, durationMinutes? })
+  * mutedBy = currentUser.email
+  * mutedAt = Date.now()
+  * expiresAt = mutedAt + durationMinutes*60*1000 (إن وُجد)
+  * إذا المستخدم مكتوم مسبقًا → حدّث السجل
+- unmuteUser(userEmail)
+- isUserMuted(userEmail): boolean
+  * إذا expiresAt موجودة وانتهت → فك الكتم تلقائيًا واحذف السجل
+
+────────────────────────
+4) الربط مع Audit Log
+────────────────────────
+عند:
+- muteUser:
+  addAuditEvent({
+    action: "user.mute",
+    targetType: "user",
+    targetId: userEmail,
+    byEmail: currentUser.email,
+    meta: { reason, expiresAt }
+  })
+
+- unmuteUser:
+  addAuditEvent({
+    action: "user.unmute",
+    targetType: "user",
+    targetId: userEmail,
+    byEmail: currentUser.email
+  })
+
+(أضف AuditAction الجديدة إن لزم)
+
+────────────────────────
+5) واجهة المشرف (Feed / Profile)
+────────────────────────
+في feed.tsx (أو ملف المستخدم/الرد):
+
+A) في قائمة ⋯ بجانب المستخدم (أو الرد):
+- خيار "كتم المستخدم"
+- يظهر فقط إذا:
+  admin
+  أو moderator يملك "mod.users.mute"
+
+B) Dialog كتم:
+- اختيار المدة:
+  * 10 دقائق
+  * ساعة
+  * يوم
+  * دائم
+- حقل سبب (اختياري)
+- زر "تأكيد الكتم"
+
+C) خيار "فك الكتم" يظهر فقط إذا المستخدم مكتوم
+
+────────────────────────
+6) تقييد التفاعل للمستخدم المكتوم
+────────────────────────
+- قبل:
+  * إنشاء منشور
+  * إرسال تعليق/رد
+تحقق:
+  if isUserMuted(currentUser.email):
+    - امنع التنفيذ
+    - اعرض رسالة عربية واضحة:
+      "تم كتمك مؤقتًا ولا يمكنك التفاعل حاليًا"
+    - إذا expiresAt موجودة، اعرض وقت انتهاء الكتم بصيغة مناسبة
+
+────────────────────────
+7) واجهة الأدمن (اختياري بسيط)
+────────────────────────
+في admin.tsx:
+- أضف قسم داخل "المشرفون" أو تبويب فرعي:
+  "المستخدمون المكتومون"
+- يعرض:
+  email | mutedBy | السبب | تاريخ الانتهاء | زر فك الكتم
+
+────────────────────────
+8) قيود صارمة
+────────────────────────
+- لا تلمس نظام الحملات التسويقية
+- لا تضف Back-end
+- احترم RTL / AR-EN
+- TypeScript بدون أخطاء

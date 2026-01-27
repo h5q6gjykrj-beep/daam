@@ -21,7 +21,7 @@ import {
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
   Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip,
-  UserCheck, Home
+  UserCheck, Home, VolumeX, Volume2
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
@@ -182,7 +182,10 @@ export default function Admin() {
     deleteModerator,
     // Audit Log
     auditLog: storeAuditLog,
-    addAuditEvent
+    addAuditEvent,
+    // Mute System
+    mutes,
+    unmuteUser
   } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
@@ -441,6 +444,9 @@ export default function Admin() {
       // Report actions
       'report.create': lang === 'ar' ? 'إنشاء بلاغ' : 'Report Created',
       'report.status.update': lang === 'ar' ? 'تحديث حالة بلاغ' : 'Report Status Updated',
+      // Mute actions
+      'user.mute': lang === 'ar' ? 'كتم مستخدم' : 'User Muted',
+      'user.unmute': lang === 'ar' ? 'فك كتم مستخدم' : 'User Unmuted',
     } as Record<string, string>,
     // Priority translations
     priority: lang === 'ar' ? 'الأولوية' : 'Priority',
@@ -565,6 +571,13 @@ export default function Admin() {
     everyone: lang === 'ar' ? 'الجميع' : 'Everyone',
     students: lang === 'ar' ? 'الطلاب' : 'Students',
     moderators: lang === 'ar' ? 'المشرفين' : 'Moderators',
+    mutedUsers: lang === 'ar' ? 'المكتومون' : 'Muted Users',
+    noMutedUsers: lang === 'ar' ? 'لا يوجد مستخدمون مكتومون' : 'No muted users',
+    unmute: lang === 'ar' ? 'فك الكتم' : 'Unmute',
+    mutedBy: lang === 'ar' ? 'كتم بواسطة' : 'Muted by',
+    muteReason: lang === 'ar' ? 'السبب' : 'Reason',
+    expiresAt: lang === 'ar' ? 'ينتهي في' : 'Expires at',
+    permanent: lang === 'ar' ? 'دائم' : 'Permanent',
     newUsers: lang === 'ar' ? 'المستخدمين الجدد' : 'New Users',
     // Campaign placements
     homePlacement: lang === 'ar' ? 'الصفحة الرئيسية' : 'Home',
@@ -2844,6 +2857,64 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Muted Users Section */}
+      <Card className="border-white/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <VolumeX className="w-5 h-5" />
+            {tr.mutedUsers}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {mutes.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8" data-testid="no-muted-users">
+              {tr.noMutedUsers}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mutes.map((mute) => {
+                const isExpired = mute.expiresAt && mute.expiresAt < Date.now();
+                if (isExpired) return null;
+                return (
+                  <div
+                    key={mute.userEmail}
+                    className="p-4 rounded-lg border border-white/10 bg-white/5"
+                    data-testid={`muted-user-${mute.userEmail}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <VolumeX className="w-4 h-4 text-amber-500" />
+                          <span className="font-medium truncate">{mute.userEmail}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <div>{tr.mutedBy}: {mute.mutedBy}</div>
+                          {mute.reason && <div>{tr.muteReason}: {mute.reason}</div>}
+                          <div>
+                            {tr.expiresAt}: {mute.expiresAt 
+                              ? new Date(mute.expiresAt).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US')
+                              : tr.permanent}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unmuteUser(mute.userEmail)}
+                        data-testid={`button-unmute-${mute.userEmail}`}
+                      >
+                        <Volume2 className="w-4 h-4 me-2" />
+                        {tr.unmute}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 

@@ -95,6 +95,7 @@ const KEYS = {
 const LS_MODS = "daam_moderators_v1";
 const LS_AUTH = "daam_auth_users_v1";
 const LS_AUDIT = "daam_audit_v1";
+const LS_MUTES = "daam_mutes_v1";
 
 // ========== Audit Log Types ==========
 export type AuditAction =
@@ -107,7 +108,9 @@ export type AuditAction =
   | "moderator.toggleActive"
   | "moderator.delete"
   | "report.create"
-  | "report.status.update";
+  | "report.status.update"
+  | "user.mute"
+  | "user.unmute";
 
 export type AuditEvent = {
   id: string;
@@ -136,6 +139,15 @@ export interface Report {
   reporterEmail: string;
   status: ReportStatus;
   createdAt: string;
+}
+
+// ========== Mute System Types ==========
+export interface MuteRecord {
+  userEmail: string;
+  mutedBy: string;
+  reason?: string;
+  mutedAt: number;
+  expiresAt?: number; // undefined = permanent mute
 }
 
 // Simple hash function for demo (in production, use bcrypt on server)
@@ -274,6 +286,12 @@ interface DaamStoreContextType {
   // Audit Log
   auditLog: AuditEvent[];
   addAuditEvent: (event: Omit<AuditEvent, 'id' | 'at'>) => void;
+  // Mute System
+  mutes: MuteRecord[];
+  muteUser: (userEmail: string, reason?: string, durationMinutes?: number) => void;
+  unmuteUser: (userEmail: string) => void;
+  isUserMuted: (userEmail: string) => boolean;
+  getMuteRecord: (userEmail: string) => MuteRecord | undefined;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -308,6 +326,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   
   // Audit Log State
   const [auditLog, setAuditLog] = useState<AuditEvent[]>([]);
+  
+  // Mute System State
+  const [mutes, setMutes] = useState<MuteRecord[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -555,6 +576,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setAuditLog(JSON.parse(storedAudit));
       } catch (e) {
         console.error("Failed to parse audit log", e);
+      }
+    }
+    
+    // Load mutes
+    const storedMutes = localStorage.getItem(LS_MUTES);
+    if (storedMutes) {
+      try {
+        setMutes(JSON.parse(storedMutes));
+      } catch (e) {
+        console.error("Failed to parse mutes", e);
       }
     }
     
@@ -1288,6 +1319,111 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return moderators.find(m => m.email.toLowerCase() === email.toLowerCase());
   }, [moderators]);
 
+  // ========== Mute System Actions ==========
+  
+  // Check if user is currently muted (auto-removes expired mutes)
+  const isUserMuted = useCallback((userEmail: string): boolean => {
+    const record = mutes.find(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
+    if (!record) return false;
+    
+    // Check if mute has expired
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      // Auto-remove expired mute
+      const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setMutes(updatedMutes);
+      localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+      return false;
+    }
+    
+    return true;
+  }, [mutes]);
+
+  // Get mute record for a user
+  const getMuteRecord = useCallback((userEmail: string): MuteRecord | undefined => {
+    const record = mutes.find(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
+    if (!record) return undefined;
+    
+    // Check if mute has expired
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      // Auto-remove expired mute
+      const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setMutes(updatedMutes);
+      localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+      return undefined;
+    }
+    
+    return record;
+  }, [mutes]);
+
+  // Mute a user
+  const muteUser = useCallback((userEmail: string, reason?: string, durationMinutes?: number): void => {
+    if (!user) return;
+    
+    const now = Date.now();
+    const expiresAt = durationMinutes ? now + (durationMinutes * 60 * 1000) : undefined;
+    
+    const newMuteRecord: MuteRecord = {
+      userEmail: userEmail.toLowerCase(),
+      mutedBy: user.email,
+      reason,
+      mutedAt: now,
+      expiresAt
+    };
+    
+    // Update or add mute record
+    const existingIndex = mutes.findIndex(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
+    let updatedMutes: MuteRecord[];
+    
+    if (existingIndex >= 0) {
+      updatedMutes = mutes.map((m, i) => i === existingIndex ? newMuteRecord : m);
+    } else {
+      updatedMutes = [...mutes, newMuteRecord];
+    }
+    
+    setMutes(updatedMutes);
+    localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+    
+    // Add audit event
+    const auditEvent: AuditEvent = {
+      id: crypto.randomUUID(),
+      action: 'user.mute',
+      targetType: 'user',
+      targetId: userEmail,
+      byEmail: user.email,
+      at: now,
+      meta: { reason, expiresAt }
+    };
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+  }, [user, mutes]);
+
+  // Unmute a user
+  const unmuteUser = useCallback((userEmail: string): void => {
+    if (!user) return;
+    
+    const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+    setMutes(updatedMutes);
+    localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+    
+    // Add audit event
+    const auditEvent: AuditEvent = {
+      id: crypto.randomUUID(),
+      action: 'user.unmute',
+      targetType: 'user',
+      targetId: userEmail,
+      byEmail: user.email,
+      at: Date.now()
+    };
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+  }, [user, mutes]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -1340,7 +1476,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     canCurrentUser,
     // Audit Log
     auditLog,
-    addAuditEvent
+    addAuditEvent,
+    // Mute System
+    mutes,
+    muteUser,
+    unmuteUser,
+    isUserMuted,
+    getMuteRecord
   };
 
   return (
