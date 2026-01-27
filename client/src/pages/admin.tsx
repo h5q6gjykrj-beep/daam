@@ -20,7 +20,7 @@ import {
   updateCampaignStatus, getCampaignStats, attachCampaignVideo, removeCampaignVideo,
   attachCampaignAttachment, removeCampaignAttachment, getAttachmentCountByKind, ATTACHMENT_LIMITS
 } from "@/lib/campaign-storage";
-import { getCampaignMedia, detectAttachmentKind, validateAttachment } from "@/lib/campaign-media";
+import { getCampaignMedia, getCampaignAttachmentBlob, detectAttachmentKind, validateAttachment } from "@/lib/campaign-media";
 import { CAMPAIGN_TRANSLATIONS, formatCampaignDate, getCampaignStatusColor } from "@/lib/campaign-helpers";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -473,6 +473,7 @@ export default function Admin() {
     uploadImages: lang === 'ar' ? 'رفع صور' : 'Upload Images',
     uploadFiles: lang === 'ar' ? 'رفع ملفات PDF' : 'Upload PDF Files',
     removeAttachment: lang === 'ar' ? 'إزالة' : 'Remove',
+    preview: lang === 'ar' ? 'معاينة' : 'Preview',
     imagesLimit: lang === 'ar' ? `الحد: 5 صور، 2MB لكل صورة (PNG/JPG/WebP)` : `Limit: 5 images, 2MB each (PNG/JPG/WebP)`,
     filesLimit: lang === 'ar' ? `الحد: 3 ملفات PDF، 10MB لكل ملف` : `Limit: 3 PDF files, 10MB each`,
     videoLimit: lang === 'ar' ? `الحد: فيديو واحد، 10 ثواني، 8MB (MP4/WebM)` : `Limit: 1 video, 10 seconds, 8MB (MP4/WebM)`,
@@ -2241,7 +2242,7 @@ export default function Admin() {
                             <li>{lang === 'ar' ? 'صورة أفقية فقط' : 'Horizontal images only'}</li>
                             <li>{lang === 'ar' ? 'تُعرض بشكل احترافي داخل ساحة النقاش' : 'Optimized for in-feed ads'}</li>
                             <li>{lang === 'ar' ? 'الحجم المفضل أقل من 300KB' : 'Preferred size under 300KB'}</li>
-                            <li>{lang === 'ar' ? 'الصيغ المدعومة: JPG / WebP' : 'Supported formats: JPG / WebP'}</li>
+                            <li>{lang === 'ar' ? 'الصيغ المدعومة: PNG / JPG / WebP' : 'Supported formats: PNG / JPG / WebP'}</li>
                           </ul>
                           <p className="text-xs text-amber-500 flex items-center gap-1">
                             ⚠️ {lang === 'ar' ? 'الصور المربعة أو العمودية قد تُقص أو لا تظهر بشكل مناسب.' : 'Square or vertical images may be cropped or display incorrectly.'}
@@ -2258,15 +2259,37 @@ export default function Admin() {
                                 {formatFileSize(attachment.sizeBytes)}
                               </Badge>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
-                              className="shrink-0 text-destructive hover:text-destructive"
-                              data-testid={`button-remove-attachment-${attachment.id}`}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={async () => {
+                                  try {
+                                    const blob = await getCampaignAttachmentBlob(attachment.id);
+                                    if (blob) {
+                                      const url = URL.createObjectURL(blob);
+                                      window.open(url, '_blank');
+                                      setTimeout(() => URL.revokeObjectURL(url), 30000);
+                                    }
+                                  } catch (err) {
+                                    console.error('Preview failed:', err);
+                                  }
+                                }}
+                                data-testid={`button-preview-attachment-${attachment.id}`}
+                              >
+                                <Eye className="w-3 h-3 me-1" />
+                                {tr.preview}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveAttachment(attachment.id, attachment.name)}
+                                className="text-destructive hover:text-destructive"
+                                data-testid={`button-remove-attachment-${attachment.id}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </>
