@@ -67,8 +67,17 @@ export default function Landing() {
       }
     };
 
+    // Listen for custom event (when admin updates content in the same tab)
+    const handleOfficialPagesUpdated = () => {
+      refreshOfficialPages();
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
+    };
   }, [refreshOfficialPages]);
 
   const trendingPosts = [...posts]

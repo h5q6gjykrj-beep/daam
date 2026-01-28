@@ -68,6 +68,8 @@ function getOfficialPages(): OfficialPage[] {
 
 function saveOfficialPages(pages: OfficialPage[]) {
   localStorage.setItem(OFFICIAL_PAGES_KEY, JSON.stringify(pages));
+  // Dispatch custom event for same-tab reactivity (storage event only fires cross-tab)
+  window.dispatchEvent(new CustomEvent('officialPagesUpdated'));
 }
 
 interface AdminNote {
@@ -3515,7 +3517,19 @@ export default function Admin() {
     }
   };
 
-  const renderOfficialContent = () => (
+  const renderOfficialContent = () => {
+    // Explicit admin-only guard - prevent access even if activeTab is set programmatically
+    if (!isAdmin) {
+      return (
+        <Card className="border-white/10 bg-card/50">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">{lang === 'ar' ? 'ليس لديك صلاحية للوصول إلى هذا القسم' : 'You do not have permission to access this section'}</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -3587,7 +3601,8 @@ export default function Admin() {
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   const renderAuditLog = () => (
     <Card className="border-white/10 bg-card/50">
