@@ -1896,7 +1896,7 @@ export default function Feed() {
       </Dialog>
 
       {/* FAB Button */}
-      <div className={`fixed bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] md:bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
         <Button
           onClick={() => setShowCreateForm(true)}
           className="rounded-full bg-[#865994] border-[#865994] text-white shadow-lg shadow-[#865994]/30 p-4"
