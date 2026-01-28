@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Globe, MessageSquare, Sparkles, Users, FileText, Heart, 
   ArrowLeft, ArrowRight, BookOpen, Zap, GraduationCap, TrendingUp,
@@ -13,10 +15,41 @@ import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
+interface OfficialPage {
+  id: 'privacy' | 'contact';
+  title_ar: string;
+  title_en: string;
+  content_ar: string;
+  content_en: string;
+  status: 'draft' | 'published' | 'archived';
+  updatedAt: string;
+  updatedBy: string;
+}
+
+const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
+
+function getPublishedOfficialPage(pageId: 'privacy' | 'contact'): OfficialPage | null {
+  try {
+    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
+    if (stored) {
+      const pages: OfficialPage[] = JSON.parse(stored);
+      const page = pages.find(p => p.id === pageId && p.status === 'published');
+      return page || null;
+    }
+  } catch {}
+  return null;
+}
+
 export default function Landing() {
   const { posts, t, lang, toggleLang, theme, toggleTheme, getProfile } = useDaamStore();
   const [_, setLocation] = useLocation();
   const isRTL = lang === 'ar';
+
+  // Official page modals
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const privacyPage = getPublishedOfficialPage('privacy');
+  const contactPage = getPublishedOfficialPage('contact');
 
   const trendingPosts = [...posts]
     .sort((a, b) => {
@@ -84,6 +117,8 @@ export default function Landing() {
     contact: lang === 'ar' ? 'تواصل معنا' : 'Contact Us',
     likes: lang === 'ar' ? 'إعجاب' : 'likes',
     comments: lang === 'ar' ? 'تعليق' : 'comments',
+    pageUnderConstruction: lang === 'ar' ? 'هذه الصفحة قيد الإعداد' : 'This page is under construction',
+    close: lang === 'ar' ? 'إغلاق' : 'Close',
   };
 
   const topSubject = hotTopics[0];
@@ -368,8 +403,20 @@ export default function Landing() {
             </div>
             
             <nav className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors">{tr.privacy}</a>
-              <a href="#" className="hover:text-foreground transition-colors">{tr.contact}</a>
+              <button 
+                onClick={() => setPrivacyModalOpen(true)} 
+                className="hover:text-foreground transition-colors"
+                data-testid="button-footer-privacy"
+              >
+                {tr.privacy}
+              </button>
+              <button 
+                onClick={() => setContactModalOpen(true)} 
+                className="hover:text-foreground transition-colors"
+                data-testid="button-footer-contact"
+              >
+                {tr.contact}
+              </button>
               <Button 
                 variant="ghost" 
                 size="sm"
@@ -387,6 +434,42 @@ export default function Landing() {
           </p>
         </div>
       </footer>
+
+      {/* Privacy Policy Modal */}
+      <Dialog open={privacyModalOpen} onOpenChange={setPrivacyModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>{tr.privacy}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {privacyPage ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-foreground">
+                {lang === 'ar' ? privacyPage.content_ar : privacyPage.content_en}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">{tr.pageUnderConstruction}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Us Modal */}
+      <Dialog open={contactModalOpen} onOpenChange={setContactModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>{tr.contact}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {contactPage ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-foreground">
+                {lang === 'ar' ? contactPage.content_ar : contactPage.content_en}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">{tr.pageUnderConstruction}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
