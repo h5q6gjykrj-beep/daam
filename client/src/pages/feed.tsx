@@ -1927,32 +1927,35 @@ export default function Feed() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] overflow-hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col"
               dir={isRTL ? 'rtl' : 'ltr'}
               data-testid="sheet-composer"
             >
-              {/* Handle bar */}
-              <div className="flex justify-center py-2">
-                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              {/* A) Fixed Header */}
+              <div className="flex-shrink-0">
+                {/* Handle bar */}
+                <div className="flex justify-center py-2">
+                  <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                </div>
+                
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 pb-3 border-b border-white/10">
+                  <h2 className="text-lg font-semibold">
+                    {lang === 'ar' ? 'إنشاء منشور' : 'Create post'}
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowCreateForm(false)}
+                    data-testid="button-close-composer"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
               
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 pb-3 border-b border-white/10">
-                <h2 className="text-lg font-semibold">
-                  {lang === 'ar' ? 'إنشاء منشور' : 'Create post'}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowCreateForm(false)}
-                  data-testid="button-close-composer"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              
-              {/* Content */}
-              <div className="p-4 overflow-y-auto max-h-[calc(85vh-120px)]">
+              {/* B) Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex gap-3 mb-4">
                   <Avatar className="w-10 h-10 flex-shrink-0">
                     <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
@@ -1965,7 +1968,7 @@ export default function Feed() {
                       placeholder={tr.writePost}
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      className="min-h-[120px] bg-background/50 border-white/10 resize-none text-base"
+                      className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
                       autoFocus
                       dir={isRTL ? 'rtl' : 'ltr'}
                       data-testid="textarea-composer"
@@ -2051,8 +2054,8 @@ export default function Feed() {
                 )}
               </div>
               
-              {/* Footer Actions */}
-              <div className="flex items-center justify-between gap-3 p-4 border-t border-white/10 bg-card">
+              {/* C) Fixed Footer with safe-area padding */}
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 pt-4 border-t border-white/10 bg-card pb-[calc(env(safe-area-inset-bottom,16px)+16px)]">
                 <input
                   ref={fileInputRef}
                   type="file"
