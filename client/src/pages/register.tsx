@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
@@ -132,6 +133,8 @@ export default function Register() {
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { register, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
@@ -162,35 +165,49 @@ export default function Register() {
     passwordMismatch: lang === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match',
     passwordTooShort: lang === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters',
     fillAllFields: lang === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields',
+    agreeToTerms: lang === 'ar' ? 'أوافق على' : 'I agree to the',
+    termsAndConditions: lang === 'ar' ? 'الشروط والأحكام' : 'Terms & Conditions',
+    requiredField: lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required',
+    mustAgreeToTerms: lang === 'ar' ? 'يجب الموافقة على الشروط والأحكام' : 'You must agree to the Terms & Conditions',
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password || !formData.name || !formData.phone || !formData.governorate || !formData.wilayat) {
-      toast({
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        description: tr.fillAllFields,
-        variant: 'destructive'
-      });
-      return;
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = tr.requiredField;
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = tr.requiredField;
+    }
+    if (!formData.password) {
+      newErrors.password = tr.requiredField;
+    } else if (formData.password.length < 6) {
+      newErrors.password = tr.passwordTooShort;
+    }
+    if (!confirmPassword) {
+      newErrors.confirmPassword = tr.requiredField;
+    } else if (formData.password !== confirmPassword) {
+      newErrors.confirmPassword = tr.passwordMismatch;
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = tr.requiredField;
+    }
+    if (!formData.governorate) {
+      newErrors.governorate = tr.requiredField;
+    }
+    if (!formData.wilayat) {
+      newErrors.wilayat = tr.requiredField;
+    }
+    if (!agreeToTerms) {
+      newErrors.agreeToTerms = tr.mustAgreeToTerms;
     }
     
-    if (formData.password.length < 6) {
-      toast({
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        description: tr.passwordTooShort,
-        variant: 'destructive'
-      });
-      return;
-    }
+    setErrors(newErrors);
     
-    if (formData.password !== confirmPassword) {
-      toast({
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        description: tr.passwordMismatch,
-        variant: 'destructive'
-      });
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
     
@@ -200,7 +217,6 @@ export default function Register() {
         title: lang === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration Successful!',
         description: lang === 'ar' ? 'يمكنك الآن تسجيل الدخول' : 'You can now login',
       });
-      // Redirect to login page
       setLocation('/login');
     } catch (error: any) {
       toast({
@@ -276,41 +292,43 @@ export default function Register() {
                 <CardContent className="p-6">
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">{tr.name}</Label>
+                      <Label htmlFor="name">{tr.name} <span className="text-destructive">*</span></Label>
                       <Input
                         id="name"
                         type="text"
                         placeholder={tr.namePlaceholder}
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="bg-black/20 border-white/10 h-11 focus:border-primary/50"
+                        onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setErrors(prev => ({ ...prev, name: '' })); }}
+                        className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 ${errors.name ? 'border-destructive' : ''}`}
                         data-testid="input-name"
                       />
+                      {errors.name && <p className="text-sm text-destructive" data-testid="error-name">{errors.name}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">{tr.email}</Label>
+                      <Label htmlFor="email">{tr.email} <span className="text-destructive">*</span></Label>
                       <Input
                         id="email"
                         type="email"
                         placeholder={tr.emailPlaceholder}
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="bg-black/20 border-white/10 h-11 focus:border-primary/50"
+                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors(prev => ({ ...prev, email: '' })); }}
+                        className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 ${errors.email ? 'border-destructive' : ''}`}
                         dir="ltr"
                         data-testid="input-email"
                       />
+                      {errors.email && <p className="text-sm text-destructive" data-testid="error-email">{errors.email}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="password">{tr.password}</Label>
+                      <Label htmlFor="password">{tr.password} <span className="text-destructive">*</span></Label>
                       <div className="relative">
                         <Input
                           id="password"
                           type={showPassword ? 'text' : 'password'}
                           value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          className="bg-black/20 border-white/10 h-11 focus:border-primary/50 pe-10"
+                          onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setErrors(prev => ({ ...prev, password: '' })); }}
+                          className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 pe-10 ${errors.password ? 'border-destructive' : ''}`}
                           dir="ltr"
                           data-testid="input-password"
                         />
@@ -324,43 +342,46 @@ export default function Register() {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       </div>
+                      {errors.password && <p className="text-sm text-destructive" data-testid="error-password">{errors.password}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">{tr.confirmPassword}</Label>
+                      <Label htmlFor="confirmPassword">{tr.confirmPassword} <span className="text-destructive">*</span></Label>
                       <Input
                         id="confirmPassword"
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="bg-black/20 border-white/10 h-11 focus:border-primary/50"
+                        onChange={(e) => { setConfirmPassword(e.target.value); setErrors(prev => ({ ...prev, confirmPassword: '' })); }}
+                        className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 ${errors.confirmPassword ? 'border-destructive' : ''}`}
                         dir="ltr"
                         data-testid="input-confirm-password"
                       />
+                      {errors.confirmPassword && <p className="text-sm text-destructive" data-testid="error-confirm-password">{errors.confirmPassword}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="phone">{tr.phone}</Label>
+                      <Label htmlFor="phone">{tr.phone} <span className="text-destructive">*</span></Label>
                       <Input
                         id="phone"
                         type="tel"
                         placeholder={tr.phonePlaceholder}
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="bg-black/20 border-white/10 h-11 focus:border-primary/50"
+                        onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setErrors(prev => ({ ...prev, phone: '' })); }}
+                        className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 ${errors.phone ? 'border-destructive' : ''}`}
                         dir="ltr"
                         data-testid="input-phone"
                       />
+                      {errors.phone && <p className="text-sm text-destructive" data-testid="error-phone">{errors.phone}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label>{tr.governorate}</Label>
+                        <Label>{tr.governorate} <span className="text-destructive">*</span></Label>
                         <Select 
                           value={formData.governorate} 
-                          onValueChange={(val) => setFormData({ ...formData, governorate: val, wilayat: '' })}
+                          onValueChange={(val) => { setFormData({ ...formData, governorate: val, wilayat: '' }); setErrors(prev => ({ ...prev, governorate: '' })); }}
                         >
-                          <SelectTrigger className="bg-black/20 border-white/10 h-11" data-testid="select-governorate">
+                          <SelectTrigger className={`bg-black/20 border-white/10 h-11 ${errors.governorate ? 'border-destructive' : ''}`} data-testid="select-governorate">
                             <SelectValue placeholder={tr.selectGovernorate} />
                           </SelectTrigger>
                           <SelectContent>
@@ -369,16 +390,17 @@ export default function Register() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {errors.governorate && <p className="text-sm text-destructive" data-testid="error-governorate">{errors.governorate}</p>}
                       </div>
 
                       <div className="space-y-2">
-                        <Label>{tr.wilayat}</Label>
+                        <Label>{tr.wilayat} <span className="text-destructive">*</span></Label>
                         <Select 
                           value={formData.wilayat} 
-                          onValueChange={(val) => setFormData({ ...formData, wilayat: val })}
+                          onValueChange={(val) => { setFormData({ ...formData, wilayat: val }); setErrors(prev => ({ ...prev, wilayat: '' })); }}
                           disabled={!formData.governorate}
                         >
-                          <SelectTrigger className="bg-black/20 border-white/10 h-11" data-testid="select-wilayat">
+                          <SelectTrigger className={`bg-black/20 border-white/10 h-11 ${errors.wilayat ? 'border-destructive' : ''}`} data-testid="select-wilayat">
                             <SelectValue placeholder={tr.selectWilayat} />
                           </SelectTrigger>
                           <SelectContent>
@@ -387,7 +409,35 @@ export default function Register() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {errors.wilayat && <p className="text-sm text-destructive" data-testid="error-wilayat">{errors.wilayat}</p>}
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="agreeToTerms"
+                          checked={agreeToTerms}
+                          onCheckedChange={(checked) => { setAgreeToTerms(checked === true); setErrors(prev => ({ ...prev, agreeToTerms: '' })); }}
+                          data-testid="checkbox-agree-terms"
+                          className={errors.agreeToTerms ? 'border-destructive' : ''}
+                        />
+                        <Label htmlFor="agreeToTerms" className="text-sm leading-relaxed cursor-pointer">
+                          {tr.agreeToTerms}{' '}
+                          <a 
+                            href="/terms" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                            data-testid="link-terms"
+                          >
+                            {tr.termsAndConditions}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          {' '}<span className="text-destructive">*</span>
+                        </Label>
+                      </div>
+                      {errors.agreeToTerms && <p className="text-sm text-destructive" data-testid="error-agree-terms">{errors.agreeToTerms}</p>}
                     </div>
 
                     <Button 
