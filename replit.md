@@ -117,6 +117,24 @@ Preferred communication style: Simple, everyday language.
 - **Admin View**: Banned Users section in Admin Dashboard → Moderators tab with unban button
 - **Bilingual**: Full Arabic/English support for ban dialog, ban screen, and error messages
 
+### Direct Messaging (DM) System
+- **Storage**: 
+  - `daam_conversations_v1`: JSON array of Conversation objects
+  - `daam_messages_v1`: JSON array of DirectMessage objects
+  - `daam_dm_rate_limit_v1`: Rate limit tracking data
+- **Conversation Structure**: { id, participants[], lastMessageAt, lastMessagePreview, unreadCount }
+- **Message Structure**: { id, conversationId, senderEmail, content, sentAt, readBy[] }
+- **Privacy Controls**: Users can set allowDM to 'everyone' or 'none' in their account settings
+- **Rate Limiting**: 10 messages per 60 seconds per user
+- **UI**: 
+  - Desktop: 2-column layout (conversation list + chat view)
+  - Mobile: Switchable views (list or chat)
+  - Query param ?to= to open/create conversation with specific user
+- **Access**: Message button on profile page (respects allowDM setting)
+- **Navigation**: Mail icon in bottom nav leads to /messages page
+- **Sorting**: Conversations sorted by lastMessageAt (newest first), empty conversations sort to bottom
+- **Bilingual**: Full Arabic/English support for all DM interface elements
+
 ### Official Content System
 - **Storage**: localStorage (`daam_official_pages_v1`) with OfficialPage objects
 - **OfficialPage Structure**: { id, title_ar, title_en, content_ar, content_en, status, updatedAt, updatedBy }
@@ -153,6 +171,7 @@ client/           # React frontend
       feed.tsx      # Discussion arena with report functionality
       tutor.tsx     # AI tutor page
       profile.tsx   # User profile page with report user button
+      messages.tsx  # Direct messaging page with conversation list and chat
       admin.tsx     # Admin dashboard with reports management
     lib/          # Utilities and query client
 server/           # Express backend
