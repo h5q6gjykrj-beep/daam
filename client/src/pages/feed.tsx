@@ -1927,7 +1927,7 @@ export default function Feed() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col"
+              className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col"
               dir={isRTL ? 'rtl' : 'ltr'}
               data-testid="sheet-composer"
             >
@@ -2055,7 +2055,7 @@ export default function Feed() {
               </div>
               
               {/* C) Fixed Footer with safe-area padding */}
-              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 pt-4 border-t border-white/10 bg-card pb-[calc(env(safe-area-inset-bottom,16px)+16px)]">
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 pt-4 border-t border-white/10 bg-card pb-[calc(env(safe-area-inset-bottom,0px)+16px)] md:pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
                 <input
                   ref={fileInputRef}
                   type="file"
