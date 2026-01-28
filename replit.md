@@ -36,6 +36,7 @@ Preferred communication style: Simple, everyday language.
   - `daam_audit_v1`: JSON array of audit log events (200 entry limit, newest first)
   - `daam_mutes_v1`: JSON array of muted users (MuteRecord objects)
   - `daam_bans_v1`: JSON array of banned users (BanRecord objects)
+  - `daam_official_pages_v1`: JSON array of official content pages (privacy, contact)
 - **Database Schema**: PostgreSQL with Drizzle ORM is configured but not actively used for core features
 
 ### Audit Log System
@@ -115,6 +116,18 @@ Preferred communication style: Simple, everyday language.
 - **Audit Actions**: `user.ban` and `user.unban` logged to audit system
 - **Admin View**: Banned Users section in Admin Dashboard → Moderators tab with unban button
 - **Bilingual**: Full Arabic/English support for ban dialog, ban screen, and error messages
+
+### Official Content System
+- **Storage**: localStorage (`daam_official_pages_v1`) with OfficialPage objects
+- **OfficialPage Structure**: { id, title_ar, title_en, content_ar, content_en, status, updatedAt, updatedBy }
+- **Page Types**: Two fixed pages - 'privacy' (Privacy Policy) and 'contact' (Contact Us)
+- **Status Workflow**: draft → published → archived (no permanent deletion)
+- **Admin Access**: "Official Content" tab in Admin Dashboard for admins only
+- **CRUD Operations**: Edit title/content for each language, change status via dropdown
+- **Landing Page Display**: Footer links open modal dialogs showing published content
+- **Fallback**: Shows "under construction" message if no published content exists
+- **Bilingual**: Full Arabic/English support for admin editor and public display
+- **No Code Required**: Admins can manage all official content without touching code
 
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab

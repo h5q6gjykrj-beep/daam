@@ -717,7 +717,7 @@ export default function Admin() {
     noChangesYet: lang === 'ar' ? 'لم يتم التعديل بعد' : 'Not yet modified',
   };
 
-  const navItems = [
+  const allNavItems = [
     { id: 'overview', label: tr.overview, icon: LayoutDashboard },
     { id: 'users', label: tr.users, icon: Users },
     { id: 'content', label: tr.content, icon: FileText },
@@ -725,9 +725,12 @@ export default function Admin() {
     { id: 'campaigns', label: tr.campaigns, icon: Megaphone },
     { id: 'moderators', label: tr.moderators, icon: UserCheck },
     { id: 'universities', label: tr.universities, icon: Building },
-    { id: 'officialContent', label: tr.officialContent, icon: Globe },
+    { id: 'officialContent', label: tr.officialContent, icon: Globe, adminOnly: true },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
+
+  // Filter navItems based on user role - only admins see officialContent
+  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin);
 
   const stats = [
     { label: tr.totalUsers, value: users.length, icon: Users, color: 'from-violet-600 to-purple-500' },

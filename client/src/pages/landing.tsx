@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,31 @@ export default function Landing() {
   const [_, setLocation] = useLocation();
   const isRTL = lang === 'ar';
 
-  // Official page modals
+  // Official page modals - reactive to localStorage changes
   const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const privacyPage = getPublishedOfficialPage('privacy');
-  const contactPage = getPublishedOfficialPage('contact');
+  const [privacyPage, setPrivacyPage] = useState<OfficialPage | null>(null);
+  const [contactPage, setContactPage] = useState<OfficialPage | null>(null);
+
+  const refreshOfficialPages = useCallback(() => {
+    setPrivacyPage(getPublishedOfficialPage('privacy'));
+    setContactPage(getPublishedOfficialPage('contact'));
+  }, []);
+
+  useEffect(() => {
+    // Initial load
+    refreshOfficialPages();
+
+    // Listen for storage events (when admin updates content in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === OFFICIAL_PAGES_KEY) {
+        refreshOfficialPages();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [refreshOfficialPages]);
 
   const trendingPosts = [...posts]
     .sort((a, b) => {
@@ -403,25 +423,28 @@ export default function Landing() {
             </div>
             
             <nav className="flex items-center gap-6 text-sm text-muted-foreground">
-              <button 
-                onClick={() => setPrivacyModalOpen(true)} 
-                className="hover:text-foreground transition-colors"
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setPrivacyModalOpen(true)}
                 data-testid="button-footer-privacy"
               >
                 {tr.privacy}
-              </button>
-              <button 
-                onClick={() => setContactModalOpen(true)} 
-                className="hover:text-foreground transition-colors"
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setContactModalOpen(true)}
                 data-testid="button-footer-contact"
               >
                 {tr.contact}
-              </button>
+              </Button>
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={toggleLang}
                 className="gap-1.5"
+                data-testid="button-footer-language"
               >
                 <Globe className="w-4 h-4" />
                 {lang === 'en' ? 'العربية' : 'English'}
