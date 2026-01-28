@@ -168,7 +168,8 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators } = useDaamStore();
+  const { user, posts, lang, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
+  const [, navigate] = useLocation();
   
   // Helper functions for staff detection
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -393,6 +394,8 @@ export default function Profile() {
     reasonImpersonation: lang === 'ar' ? 'انتحال شخصية' : 'Impersonation',
     reasonInappropriate: lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate Content',
     reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other',
+    sendMessage: lang === 'ar' ? 'مراسلة' : 'Message',
+    dmClosed: lang === 'ar' ? 'الرسائل مغلقة' : 'DMs Closed',
     editPrivate: lang === 'ar' ? 'تعديل' : 'Edit',
     savePrivate: lang === 'ar' ? 'حفظ' : 'Save',
     cancelPrivate: lang === 'ar' ? 'إلغاء' : 'Cancel',
@@ -859,6 +862,35 @@ export default function Profile() {
                       </>
                     )}
                   </Button>
+                  {(() => {
+                    const dmCheck = canSendDM(profileEmail);
+                    if (dmCheck.allowed) {
+                      return (
+                        <Button 
+                          variant="outline"
+                          onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
+                          className="gap-1.5"
+                          data-testid="button-send-message"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {tr.sendMessage}
+                        </Button>
+                      );
+                    } else {
+                      return (
+                        <Button 
+                          variant="outline"
+                          disabled
+                          className="gap-1.5 opacity-50"
+                          data-testid="button-send-message-disabled"
+                          title={tr.dmClosed}
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {tr.dmClosed}
+                        </Button>
+                      );
+                    }
+                  })()}
                   <Button 
                     variant="ghost"
                     size="icon"

@@ -98,6 +98,35 @@ const LS_AUDIT = "daam_audit_v1";
 const LS_MUTES = "daam_mutes_v1";
 const LS_BANS = "daam_bans_v1";
 
+// DM localStorage keys
+const LS_CONVERSATIONS = "daam_conversations_v1";
+const LS_MESSAGES = "daam_messages_v1";
+const LS_RATE_LIMIT = "daam_dm_rate_limit_v1";
+
+// ========== DM Types ==========
+export interface Conversation {
+  id: string;
+  participants: [string, string]; // emails
+  lastMessageAt: string; // ISO
+  lastMessagePreview: string;
+  unreadCount: Record<string, number>; // per participant
+}
+
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderEmail: string;
+  content: string;
+  sentAt: string; // ISO
+  readBy: string[]; // emails who read
+}
+
+// Rate limit tracking
+interface RateLimitEntry {
+  senderEmail: string;
+  timestamps: number[]; // unix timestamps of messages sent
+}
+
 // ========== Audit Log Types ==========
 export type AuditAction =
   | "post.hide"
@@ -312,6 +341,15 @@ interface DaamStoreContextType {
   unbanUserRecord: (userEmail: string) => void;
   isUserBanned: (userEmail: string) => { banned: boolean; expiresAt?: number; reason?: string };
   getBanRecord: (userEmail: string) => BanRecord | undefined;
+  // DM System
+  conversations: Conversation[];
+  directMessages: DirectMessage[];
+  getOrCreateConversation: (otherEmail: string) => Conversation | null;
+  getConversationsForUser: (userEmail: string) => Conversation[];
+  getMessages: (conversationId: string) => DirectMessage[];
+  sendDirectMessage: (conversationId: string, senderEmail: string, content: string) => { success: boolean; error?: string };
+  markConversationRead: (conversationId: string, userEmail: string) => void;
+  canSendDM: (targetEmail: string) => { allowed: boolean; reason?: string };
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -352,6 +390,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   
   // Ban System State
   const [bans, setBans] = useState<BanRecord[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+  const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -619,6 +660,34 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setBans(JSON.parse(storedBans));
       } catch (e) {
         console.error("Failed to parse bans", e);
+      }
+    }
+    
+    // Load DM data
+    const storedConversations = localStorage.getItem(LS_CONVERSATIONS);
+    if (storedConversations) {
+      try {
+        setConversations(JSON.parse(storedConversations));
+      } catch (e) {
+        console.error("Failed to parse conversations", e);
+      }
+    }
+    
+    const storedMessages = localStorage.getItem(LS_MESSAGES);
+    if (storedMessages) {
+      try {
+        setDirectMessages(JSON.parse(storedMessages));
+      } catch (e) {
+        console.error("Failed to parse messages", e);
+      }
+    }
+    
+    const storedRateLimit = localStorage.getItem(LS_RATE_LIMIT);
+    if (storedRateLimit) {
+      try {
+        setRateLimitEntries(JSON.parse(storedRateLimit));
+      } catch (e) {
+        console.error("Failed to parse rate limit", e);
       }
     }
     
@@ -1614,6 +1683,163 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return record;
   }, [bans]);
 
+  // ========== DM System Functions ==========
+  
+  const canSendDM = useCallback((targetEmail: string): { allowed: boolean; reason?: string } => {
+    const targetAccount = accounts[targetEmail.toLowerCase()];
+    const allowDM = targetAccount?.allowDM ?? 'everyone';
+    
+    if (allowDM === 'none') {
+      return { allowed: false, reason: 'dm_closed' };
+    }
+    
+    return { allowed: true };
+  }, [accounts]);
+  
+  const getOrCreateConversation = useCallback((otherEmail: string): Conversation | null => {
+    if (!user?.email) return null;
+    
+    const myEmail = user.email.toLowerCase();
+    const theirEmail = otherEmail.toLowerCase();
+    
+    // Check if conversation already exists
+    const existing = conversations.find(c => 
+      c.participants.includes(myEmail) && c.participants.includes(theirEmail)
+    );
+    
+    if (existing) return existing;
+    
+    // Create new conversation (set old date so it sorts at bottom until first message)
+    const newConv: Conversation = {
+      id: crypto.randomUUID(),
+      participants: [myEmail, theirEmail],
+      lastMessageAt: new Date(0).toISOString(), // Epoch - sorts at bottom until first message
+      lastMessagePreview: '',
+      unreadCount: { [myEmail]: 0, [theirEmail]: 0 }
+    };
+    
+    const updatedConversations = [...conversations, newConv];
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
+    return newConv;
+  }, [user, conversations]);
+  
+  const getConversationsForUser = useCallback((userEmail: string): Conversation[] => {
+    const email = userEmail.toLowerCase();
+    return conversations
+      .filter(c => c.participants.includes(email))
+      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }, [conversations]);
+  
+  const getMessages = useCallback((conversationId: string): DirectMessage[] => {
+    return directMessages
+      .filter(m => m.conversationId === conversationId)
+      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  }, [directMessages]);
+  
+  const sendDirectMessage = useCallback((conversationId: string, senderEmail: string, content: string): { success: boolean; error?: string } => {
+    const sender = senderEmail.toLowerCase();
+    const conversation = conversations.find(c => c.id === conversationId);
+    
+    if (!conversation) {
+      return { success: false, error: 'conversation_not_found' };
+    }
+    
+    // Find the other participant
+    const otherEmail = conversation.participants.find(p => p !== sender);
+    if (!otherEmail) {
+      return { success: false, error: 'invalid_conversation' };
+    }
+    
+    // Check allowDM for receiver
+    const dmCheck = canSendDM(otherEmail);
+    if (!dmCheck.allowed) {
+      return { success: false, error: dmCheck.reason };
+    }
+    
+    // Check rate limit (10 messages per 60 seconds)
+    const now = Date.now();
+    const oneMinuteAgo = now - 60000;
+    const senderEntry = rateLimitEntries.find(e => e.senderEmail === sender);
+    const recentTimestamps = senderEntry?.timestamps.filter(t => t > oneMinuteAgo) || [];
+    
+    if (recentTimestamps.length >= 10) {
+      return { success: false, error: 'rate_limit' };
+    }
+    
+    // Update rate limit
+    const updatedRateLimitEntries = rateLimitEntries.filter(e => e.senderEmail !== sender);
+    updatedRateLimitEntries.push({
+      senderEmail: sender,
+      timestamps: [...recentTimestamps, now]
+    });
+    setRateLimitEntries(updatedRateLimitEntries);
+    localStorage.setItem(LS_RATE_LIMIT, JSON.stringify(updatedRateLimitEntries));
+    
+    // Create the message
+    const newMessage: DirectMessage = {
+      id: crypto.randomUUID(),
+      conversationId,
+      senderEmail: sender,
+      content,
+      sentAt: new Date().toISOString(),
+      readBy: [sender]
+    };
+    
+    const updatedMessages = [...directMessages, newMessage];
+    setDirectMessages(updatedMessages);
+    localStorage.setItem(LS_MESSAGES, JSON.stringify(updatedMessages));
+    
+    // Update conversation
+    const updatedConversations = conversations.map(c => {
+      if (c.id !== conversationId) return c;
+      return {
+        ...c,
+        lastMessageAt: newMessage.sentAt,
+        lastMessagePreview: content.slice(0, 50),
+        unreadCount: {
+          ...c.unreadCount,
+          [otherEmail]: (c.unreadCount[otherEmail] || 0) + 1
+        }
+      };
+    });
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
+    return { success: true };
+  }, [conversations, directMessages, rateLimitEntries, canSendDM]);
+  
+  const markConversationRead = useCallback((conversationId: string, userEmail: string): void => {
+    const email = userEmail.toLowerCase();
+    
+    // Update unread count
+    const updatedConversations = conversations.map(c => {
+      if (c.id !== conversationId) return c;
+      return {
+        ...c,
+        unreadCount: {
+          ...c.unreadCount,
+          [email]: 0
+        }
+      };
+    });
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
+    // Update readBy on messages
+    const updatedMessages = directMessages.map(m => {
+      if (m.conversationId !== conversationId) return m;
+      if (m.readBy.includes(email)) return m;
+      return {
+        ...m,
+        readBy: [...m.readBy, email]
+      };
+    });
+    setDirectMessages(updatedMessages);
+    localStorage.setItem(LS_MESSAGES, JSON.stringify(updatedMessages));
+  }, [conversations, directMessages]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -1680,7 +1906,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     banUserWithDuration,
     unbanUserRecord,
     isUserBanned,
-    getBanRecord
+    getBanRecord,
+    // DM System
+    conversations,
+    directMessages,
+    getOrCreateConversation,
+    getConversationsForUser,
+    getMessages,
+    sendDirectMessage,
+    markConversationRead,
+    canSendDM
   };
 
   return (

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings } from "lucide-react";
+import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { isAdminEmail } from "@/config/admin";
@@ -51,6 +51,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     feed: lang === 'ar' ? 'ساحة النقاش' : 'Discussion Arena',
     tutor: lang === 'ar' ? 'المساعد الذكي' : 'AI Tutor',
     profile: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
+    messages: lang === 'ar' ? 'الرسائل' : 'Messages',
     admin: lang === 'ar' ? 'الإدارة' : 'Admin',
     moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
     login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
@@ -62,6 +63,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     const items = [
       { path: '/dashboard', label: tr.home, icon: Home },
       { path: '/feed', label: tr.feed, icon: MessageSquare },
+      { path: '/messages', label: tr.messages, icon: Mail },
       { path: '/tutor', label: tr.tutor, icon: Bot },
       { path: '/profile', label: tr.profile, icon: User },
     ];
@@ -69,7 +71,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
       items.push({ path: '/admin', label: tr.admin, icon: Settings });
     }
     return items;
-  }, [tr.home, tr.feed, tr.tutor, tr.profile, tr.admin, isAdmin]);
+  }, [tr.home, tr.feed, tr.messages, tr.tutor, tr.profile, tr.admin, isAdmin]);
 
   const isActive = (path: string) => {
     if (path === '/profile') return location.startsWith('/profile');

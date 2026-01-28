@@ -1,0 +1,78 @@
+مهمة: تنفيذ الرسائل الخاصة DM V1 باستخدام localStorage مع احترام allowDM + منع الإزعاج (Rate limit).
+
+قيود صارمة:
+- لا تضف Backend.
+- استخدم localStorage فقط.
+- لا تغيّر منطق التسجيل/المنشورات.
+- عدّل أقل عدد ممكن من الملفات.
+- احترم allowDM الموجود في daam_accounts ('everyone' | 'none').
+
+التخزين:
+- conversations key: daam_conversations_v1
+- messages key: daam_messages_v1
+
+نماذج البيانات:
+Conversation:
+- id: string
+- participants: [string, string] (emails)
+- lastMessageAt: string ISO
+- lastMessagePreview: string
+- unreadCount: Record<string, number> (per participant)
+
+DirectMessage:
+- id: string
+- conversationId: string
+- senderEmail: string
+- content: string
+- sentAt: string ISO
+- readBy: string[] (emails who read)
+
+المطلوب (الوظائف داخل use-daam-store.tsx):
+1) getOrCreateConversation(otherEmail)
+2) getConversationsForUser(userEmail) => sorted by lastMessageAt desc
+3) getMessages(conversationId) => sorted by sentAt asc
+4) sendDirectMessage(conversationId, senderEmail, content)
+   - تحقق allowDM للطرف الآخر:
+     - إذا receiver.allowDM === 'none' امنع الإرسال واعرض رسالة "هذا المستخدم أغلق الرسائل الخاصة"
+   - Rate limit:
+     - لا تسمح بأكثر من 10 رسائل خلال 60 ثانية لكل senderEmail
+     - إن تجاوز: رسالة AR/EN "تم الإرسال بسرعة كبيرة، حاول بعد قليل"
+5) markConversationRead(conversationId, userEmail) => unreadCount[userEmail]=0 + update readBy
+
+الواجهة:
+A) صفحة جديدة: client/src/pages/messages.tsx
+- Layout عمودين على الديسكتوب (قائمة محادثات يسار + محادثة يمين)
+- وعلى الموبايل:
+  - شاشة قائمة المحادثات
+  - عند اختيار محادثة تفتح شاشة المحادثة مع زر رجوع
+- قائمة المحادثات:
+  - اسم الطرف الآخر (من الحسابات)
+  - آخر رسالة preview
+  - badge بعدد غير المقروء
+- شاشة المحادثة:
+  - messages bubbles (يمين لرسائل المستخدم، يسار للطرف الآخر)
+  - input + زر إرسال
+  - auto-scroll لآخر رسالة
+  - عند فتح المحادثة نفّذ markConversationRead
+
+B) الربط Routing:
+- App.tsx: أضف route /messages
+- LayoutShell bottom nav:
+  - أضف أيقونة رسائل (MessageSquare) تربط /messages
+
+C) زر مراسلة في ملف المستخدم الآخر:
+- في client/src/pages/profile.tsx:
+  - إذا الصفحة لغير المستخدم الحالي:
+    - أظهر زر "مراسلة" / "Message"
+    - إذا allowDM للمستهدف 'none' أخفِ الزر أو اعرضه disabled مع نص "الرسائل مغلقة"
+  - عند الضغط:
+    - افتح /messages?to=<email>
+    - في messages.tsx إذا وجدت query param "to" افتح/أنشئ المحادثة مباشرة
+
+اللغة:
+- النصوص AR/EN متوافقة مع نظام الترجمة الحالي.
+
+في النهاية:
+- اذكر الملفات التي تم تعديلها/إنشاؤها
+- اذكر مفاتيح localStorage المستخدمة
+- اذكر كيف تم تطبيق rate limit
