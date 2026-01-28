@@ -39,6 +39,36 @@ type ReportStatus = 'open' | 'in_review' | 'resolved' | 'dismissed';
 type ActionType = 'user_suspended' | 'user_banned' | 'user_activated' | 'user_unsuspended' | 'user_unbanned' | 'user_force_logout' | 'user_settings_reset' | 'post_hidden' | 'post_deleted' | 'post_restored' | 'comment_hidden' | 'comment_deleted' | 'file_deleted' | 'report_resolved' | 'report_dismissed' | 'report_reopened' | 'report_status_changed' | 'target_hidden' | 'author_suspended' | 'domain_added' | 'domain_removed' | 'campaign_created' | 'campaign_updated' | 'campaign_deleted' | 'campaign_activated' | 'campaign_paused' | 'campaign_ended' | 'campaign_duplicated';
 type ReportPriority = 'low' | 'medium' | 'high';
 type ReportSortOption = 'newest' | 'oldest' | 'priority';
+type OfficialPageStatus = 'draft' | 'published' | 'archived';
+
+interface OfficialPage {
+  id: 'privacy' | 'contact';
+  title_ar: string;
+  title_en: string;
+  content_ar: string;
+  content_en: string;
+  status: OfficialPageStatus;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
+
+function getOfficialPages(): OfficialPage[] {
+  try {
+    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  // Default pages
+  return [
+    { id: 'privacy', title_ar: 'سياسة الخصوصية', title_en: 'Privacy Policy', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
+    { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
+  ];
+}
+
+function saveOfficialPages(pages: OfficialPage[]) {
+  localStorage.setItem(OFFICIAL_PAGES_KEY, JSON.stringify(pages));
+}
 
 interface AdminNote {
   id: string;
@@ -647,6 +677,32 @@ export default function Admin() {
     cannotDeleteSelf: lang === 'ar' ? 'لا يمكنك حذف حسابك بنفسك' : 'You cannot delete your own account',
     // RBAC Enhancements - UI Hint
     permissionsWarning: lang === 'ar' ? 'هذه الصلاحيات تؤثر مباشرة على إدارة المنصة. عدّلها بحذر.' : 'These permissions directly affect platform management. Modify with caution.',
+    // Official Content Tab
+    officialContent: lang === 'ar' ? 'المحتوى الرسمي' : 'Official Content',
+    officialContentDesc: lang === 'ar' ? 'إدارة صفحات السياسات والمعلومات العامة' : 'Manage policies and public information pages',
+    privacyPage: lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy',
+    contactPage: lang === 'ar' ? 'تواصل معنا' : 'Contact Us',
+    pageTitle: lang === 'ar' ? 'الصفحة' : 'Page',
+    pageStatus: lang === 'ar' ? 'الحالة' : 'Status',
+    statusDraft: lang === 'ar' ? 'مسودة' : 'Draft',
+    statusPublished: lang === 'ar' ? 'منشور' : 'Published',
+    statusArchived: lang === 'ar' ? 'مؤرشف' : 'Archived',
+    lastUpdated: lang === 'ar' ? 'آخر تحديث' : 'Last Updated',
+    updatedBy: lang === 'ar' ? 'بواسطة' : 'Updated By',
+    editPage: lang === 'ar' ? 'تعديل الصفحة' : 'Edit Page',
+    preview: lang === 'ar' ? 'معاينة' : 'Preview',
+    publish: lang === 'ar' ? 'نشر' : 'Publish',
+    unpublish: lang === 'ar' ? 'إلغاء النشر' : 'Unpublish',
+    archive: lang === 'ar' ? 'أرشفة' : 'Archive',
+    restore: lang === 'ar' ? 'استعادة' : 'Restore',
+    titleAr: lang === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)',
+    titleEn: lang === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)',
+    contentAr: lang === 'ar' ? 'المحتوى (عربي)' : 'Content (Arabic)',
+    contentEn: lang === 'ar' ? 'المحتوى (إنجليزي)' : 'Content (English)',
+    saveDraft: lang === 'ar' ? 'حفظ كمسودة' : 'Save as Draft',
+    saveAndPublish: lang === 'ar' ? 'حفظ ونشر' : 'Save & Publish',
+    pageUnderConstruction: lang === 'ar' ? 'هذه الصفحة قيد الإعداد' : 'This page is under construction',
+    noChangesYet: lang === 'ar' ? 'لم يتم التعديل بعد' : 'Not yet modified',
   };
 
   const navItems = [
@@ -657,6 +713,7 @@ export default function Admin() {
     { id: 'campaigns', label: tr.campaigns, icon: Megaphone },
     { id: 'moderators', label: tr.moderators, icon: UserCheck },
     { id: 'universities', label: tr.universities, icon: Building },
+    { id: 'officialContent', label: tr.officialContent, icon: Globe },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
 
