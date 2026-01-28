@@ -272,7 +272,7 @@ interface DaamStoreContextType {
   updateProfile: (email: string, profile: Partial<UserProfile>) => void;
   getProfile: (email: string) => UserProfile | undefined;
   getAccount: (email: string) => UserAccount | undefined;
-  updateAccount: (email: string, data: { phone?: string; region?: { governorate: string; wilayat: string } }) => void;
+  updateAccount: (email: string, data: { phone?: string; region?: { governorate: string; wilayat: string }; allowDM?: 'everyone' | 'none' }) => void;
   toggleFollow: (targetEmail: string) => void;
   isFollowing: (targetEmail: string) => boolean;
   banUser: (email: string, reason: string) => void;
@@ -882,7 +882,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return accounts[email];
   }, [accounts]);
 
-  const updateAccount = useCallback((email: string, data: { phone?: string; region?: { governorate: string; wilayat: string } }) => {
+  const updateAccount = useCallback((email: string, data: { phone?: string; region?: { governorate: string; wilayat: string }; allowDM?: 'everyone' | 'none' }) => {
     const emailLower = email.toLowerCase();
     const existingAccount = accounts[emailLower];
     if (!existingAccount) return;
@@ -890,7 +890,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const updatedAccount: UserAccount = {
       ...existingAccount,
       ...(data.phone !== undefined && { phone: data.phone }),
-      ...(data.region !== undefined && { region: data.region })
+      ...(data.region !== undefined && { region: data.region }),
+      ...(data.allowDM !== undefined && { allowDM: data.allowDM })
     };
     
     const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };

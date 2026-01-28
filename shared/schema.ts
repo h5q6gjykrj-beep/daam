@@ -27,6 +27,9 @@ export interface Region {
   wilayat: string;
 }
 
+// Allow DM setting
+export type AllowDMSetting = 'everyone' | 'none';
+
 // User account for localStorage (registration data)
 export interface UserAccount {
   email: string;
@@ -43,6 +46,7 @@ export interface UserAccount {
   banned?: boolean;
   bannedReason?: string;
   isDemo?: boolean;
+  allowDM?: AllowDMSetting; // Default: 'everyone'
 }
 
 // User profile for localStorage

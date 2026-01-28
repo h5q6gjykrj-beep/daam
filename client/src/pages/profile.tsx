@@ -1221,6 +1221,42 @@ export default function Profile() {
                           )}
                           
                           <div className="pt-4 border-t border-white/10">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                              <div className="flex items-center gap-3">
+                                <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                                <div>
+                                  <p className="font-medium">
+                                    {lang === 'ar' ? 'الرسائل الخاصة' : 'Direct Messages'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {lang === 'ar' ? 'السماح للآخرين بإرسال رسائل لك' : 'Allow others to send you messages'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant={(account?.allowDM ?? 'everyone') === 'everyone' ? 'default' : 'outline'}
+                                  onClick={() => updateAccount(user?.email || '', { allowDM: 'everyone' })}
+                                  className="text-xs px-3"
+                                  data-testid="button-dm-on"
+                                >
+                                  {lang === 'ar' ? 'مفتوحة' : 'On'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={(account?.allowDM ?? 'everyone') === 'none' ? 'default' : 'outline'}
+                                  onClick={() => updateAccount(user?.email || '', { allowDM: 'none' })}
+                                  className="text-xs px-3"
+                                  data-testid="button-dm-off"
+                                >
+                                  {lang === 'ar' ? 'مغلقة' : 'Off'}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-4 border-t border-white/10">
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <Shield className="w-3 h-3" />
                               {lang === 'ar' 
