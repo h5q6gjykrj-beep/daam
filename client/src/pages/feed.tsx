@@ -13,7 +13,7 @@ import {
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
   MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2, Ban, UserCheck,
-  PenLine, ImagePlus
+  PenLine, ImagePlus, Search
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,6 +39,20 @@ const POST_TYPES: { value: PostType; labelAr: string; labelEn: string }[] = [
 ];
 
 type SortType = 'newest' | 'trending';
+
+function normalizeText(s: string): string {
+  if (!s) return '';
+  let text = s.toLowerCase();
+  text = text.replace(/[\u064B-\u0652\u0670]/g, '');
+  text = text.replace(/[إأآ]/g, 'ا');
+  text = text.replace(/ة/g, 'ه');
+  text = text.replace(/ى/g, 'ي');
+  text = text.replace(/ؤ/g, 'و');
+  text = text.replace(/ئ/g, 'ي');
+  text = text.replace(/(^|\s)ال/g, '$1');
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+}
 
 export default function Feed() {
   const { posts, createPost, toggleLike, toggleSave, addReply, deletePost, updatePost, deleteReply, editReply, lang, user, getProfile, submitReport, getAccount, moderators, canCurrentUser, addAuditEvent, isUserMuted, getMuteRecord, muteUser, unmuteUser, isUserBanned, getBanRecord, banUserWithDuration, unbanUserRecord } = useDaamStore();
@@ -93,6 +107,9 @@ export default function Feed() {
   const [banTarget, setBanTarget] = useState<{ email: string; name: string } | null>(null);
   const [banDuration, setBanDuration] = useState<'1' | '7' | '30' | 'permanent'>('7');
   const [banReason, setBanReason] = useState('');
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -873,7 +890,25 @@ export default function Feed() {
   }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPostIds, getAccount]);
 
   const sortedPosts = useMemo(() => {
-    const result = [...filteredPosts];
+    let result = [...filteredPosts];
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const normalizedQuery = normalizeText(searchQuery);
+      result = result.filter((post) => {
+        const profile = getProfile(post.authorEmail);
+        const searchableText = [
+          post.content || '',
+          profile?.name || '',
+          profile?.university || '',
+          profile?.major || '',
+          post.subject || '',
+          post.postType || ''
+        ].join(' ');
+        const normalizedSearchable = normalizeText(searchableText);
+        return normalizedSearchable.includes(normalizedQuery);
+      });
+    }
     
     if (sortBy === 'trending' || filterParam === 'top') {
       // Sort by engagement score (likes + replies*2)
@@ -888,7 +923,7 @@ export default function Feed() {
     }
     
     return result;
-  }, [filteredPosts, sortBy, filterParam]);
+  }, [filteredPosts, sortBy, filterParam, searchQuery, getProfile]);
 
   // Get filter-specific title and empty state messages
   const getFilterTitle = () => {
@@ -1106,6 +1141,30 @@ export default function Feed() {
 
       {/* Sticky Control Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 space-y-3 border-b border-white/5">
+        {/* Search Row */}
+        <div className="relative">
+          <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground ${isRTL ? 'right-3' : 'left-3'}`} />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={isRTL ? 'ابحث عن جامعة، كلية، أو موضوع…' : 'Search university, college, or topic…'}
+            className={`${isRTL ? 'pr-9 pl-9' : 'pl-9 pr-9'} bg-muted/50 border-white/10`}
+            data-testid="input-search"
+          />
+          {searchQuery && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setSearchQuery('')}
+              className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? 'left-1' : 'right-1'} scale-75`}
+              data-testid="button-clear-search"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+
         {/* Sort Segmented Row */}
         <div className="flex justify-center">
           <div className="inline-flex rounded-full p-1 bg-muted/50 border border-white/10">
