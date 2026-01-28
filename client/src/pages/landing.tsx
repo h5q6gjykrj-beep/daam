@@ -16,7 +16,7 @@ import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 
 interface OfficialPage {
-  id: 'privacy' | 'contact';
+  id: 'privacy' | 'contact' | 'terms';
   title_ar: string;
   title_en: string;
   content_ar: string;
@@ -28,7 +28,7 @@ interface OfficialPage {
 
 const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
 
-function getPublishedOfficialPage(pageId: 'privacy' | 'contact'): OfficialPage | null {
+function getPublishedOfficialPage(pageId: 'privacy' | 'contact' | 'terms'): OfficialPage | null {
   try {
     const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
     if (stored) {
@@ -144,6 +144,7 @@ export default function Landing() {
     footerLinks: lang === 'ar' ? 'روابط سريعة' : 'Quick Links',
     privacy: lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy',
     contact: lang === 'ar' ? 'تواصل معنا' : 'Contact Us',
+    terms: lang === 'ar' ? 'الشروط والأحكام' : 'Terms',
     likes: lang === 'ar' ? 'إعجاب' : 'likes',
     comments: lang === 'ar' ? 'تعليق' : 'comments',
     pageUnderConstruction: lang === 'ar' ? 'هذه الصفحة قيد الإعداد' : 'This page is under construction',
@@ -447,6 +448,14 @@ export default function Landing() {
                 data-testid="button-footer-contact"
               >
                 {tr.contact}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setLocation('/terms')}
+                data-testid="button-footer-terms"
+              >
+                {tr.terms}
               </Button>
               <Button 
                 variant="ghost" 

@@ -42,7 +42,7 @@ type ReportSortOption = 'newest' | 'oldest' | 'priority';
 type OfficialPageStatus = 'draft' | 'published' | 'archived';
 
 interface OfficialPage {
-  id: 'privacy' | 'contact';
+  id: 'privacy' | 'contact' | 'terms';
   title_ar: string;
   title_en: string;
   content_ar: string;
@@ -62,7 +62,8 @@ function getOfficialPages(): OfficialPage[] {
   // Default pages
   return [
     { id: 'privacy', title_ar: 'سياسة الخصوصية', title_en: 'Privacy Policy', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
-    { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
+    { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
+    { id: 'terms', title_ar: 'الشروط والأحكام', title_en: 'Terms & Conditions', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
   ];
 }
 
@@ -697,6 +698,7 @@ export default function Admin() {
     officialContentDesc: lang === 'ar' ? 'إدارة صفحات السياسات والمعلومات العامة' : 'Manage policies and public information pages',
     privacyPage: lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy',
     contactPage: lang === 'ar' ? 'تواصل معنا' : 'Contact Us',
+    termsPage: lang === 'ar' ? 'الشروط والأحكام' : 'Terms & Conditions',
     pageTitle: lang === 'ar' ? 'الصفحة' : 'Page',
     pageStatus: lang === 'ar' ? 'الحالة' : 'Status',
     statusDraft: lang === 'ar' ? 'مسودة' : 'Draft',

@@ -20,6 +20,7 @@ import Feed from "@/pages/feed";
 import Tutor from "@/pages/tutor";
 import Profile from "@/pages/profile";
 import Admin from "@/pages/admin";
+import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -77,6 +78,7 @@ function Router() {
             <Route path="/tutor" component={Tutor} />
             <Route path="/profile/:email?" component={Profile} />
             <Route path="/admin" component={AdminRoute} />
+            <Route path="/terms" component={Terms} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>
@@ -92,6 +94,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/verify" component={Verify} />
+          <Route path="/terms" component={Terms} />
           <Route>
             <Redirect to="/login" />
           </Route>

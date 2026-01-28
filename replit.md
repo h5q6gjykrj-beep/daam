@@ -120,11 +120,12 @@ Preferred communication style: Simple, everyday language.
 ### Official Content System
 - **Storage**: localStorage (`daam_official_pages_v1`) with OfficialPage objects
 - **OfficialPage Structure**: { id, title_ar, title_en, content_ar, content_en, status, updatedAt, updatedBy }
-- **Page Types**: Two fixed pages - 'privacy' (Privacy Policy) and 'contact' (Contact Us)
+- **Page Types**: Three fixed pages - 'privacy' (Privacy Policy), 'contact' (Contact Us), 'terms' (Terms & Conditions)
 - **Status Workflow**: draft → published → archived (no permanent deletion)
 - **Admin Access**: "Official Content" tab in Admin Dashboard for admins only
 - **CRUD Operations**: Edit title/content for each language, change status via dropdown
-- **Landing Page Display**: Footer links open modal dialogs showing published content
+- **Landing Page Display**: Footer links for Privacy/Contact open modal dialogs; Terms links to /terms route
+- **Terms Page**: Standalone public route (/terms) displays published terms content with bilingual support
 - **Fallback**: Shows "under construction" message if no published content exists
 - **Bilingual**: Full Arabic/English support for admin editor and public display
 - **No Code Required**: Admins can manage all official content without touching code
