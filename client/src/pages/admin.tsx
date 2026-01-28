@@ -21,7 +21,7 @@ import {
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
   Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip,
-  UserCheck, Home, VolumeX, Volume2
+  UserCheck, Home, VolumeX, Volume2, Pencil
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
@@ -334,6 +334,19 @@ export default function Admin() {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Official Content state
+  const [officialPages, setOfficialPages] = useState<OfficialPage[]>(getOfficialPages());
+  const [editingOfficialPage, setEditingOfficialPage] = useState<OfficialPage | null>(null);
+  const [officialPageDialogOpen, setOfficialPageDialogOpen] = useState(false);
+  const [previewOfficialPage, setPreviewOfficialPage] = useState<OfficialPage | null>(null);
+  const [officialPageForm, setOfficialPageForm] = useState({
+    title_ar: '',
+    title_en: '',
+    content_ar: '',
+    content_en: ''
+  });
+
   const [campaignForm, setCampaignForm] = useState({
     titleAr: '',
     titleEn: '',
@@ -690,8 +703,7 @@ export default function Admin() {
     lastUpdated: lang === 'ar' ? 'آخر تحديث' : 'Last Updated',
     updatedBy: lang === 'ar' ? 'بواسطة' : 'Updated By',
     editPage: lang === 'ar' ? 'تعديل الصفحة' : 'Edit Page',
-    preview: lang === 'ar' ? 'معاينة' : 'Preview',
-    publish: lang === 'ar' ? 'نشر' : 'Publish',
+    publishPage: lang === 'ar' ? 'نشر' : 'Publish',
     unpublish: lang === 'ar' ? 'إلغاء النشر' : 'Unpublish',
     archive: lang === 'ar' ? 'أرشفة' : 'Archive',
     restore: lang === 'ar' ? 'استعادة' : 'Restore',
@@ -3438,6 +3450,142 @@ export default function Admin() {
     </Card>
   );
 
+  // Official Content CRUD handlers
+  const handleEditOfficialPage = (page: OfficialPage) => {
+    setEditingOfficialPage(page);
+    setOfficialPageForm({
+      title_ar: page.title_ar,
+      title_en: page.title_en,
+      content_ar: page.content_ar,
+      content_en: page.content_en
+    });
+    setOfficialPageDialogOpen(true);
+  };
+
+  const handleSaveOfficialPage = (publish: boolean) => {
+    if (!editingOfficialPage) return;
+    const updatedPages = officialPages.map(p => {
+      if (p.id === editingOfficialPage.id) {
+        return {
+          ...p,
+          title_ar: officialPageForm.title_ar,
+          title_en: officialPageForm.title_en,
+          content_ar: officialPageForm.content_ar,
+          content_en: officialPageForm.content_en,
+          status: publish ? 'published' as OfficialPageStatus : p.status === 'archived' ? 'draft' as OfficialPageStatus : p.status,
+          updatedAt: new Date().toISOString(),
+          updatedBy: typeof user === 'string' ? user : (user as any)?.email || ''
+        };
+      }
+      return p;
+    });
+    setOfficialPages(updatedPages);
+    saveOfficialPages(updatedPages);
+    setOfficialPageDialogOpen(false);
+    setEditingOfficialPage(null);
+  };
+
+  const handleOfficialPageStatusChange = (pageId: string, newStatus: OfficialPageStatus) => {
+    const updatedPages = officialPages.map(p => {
+      if (p.id === pageId) {
+        return {
+          ...p,
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+          updatedBy: typeof user === 'string' ? user : (user as any)?.email || ''
+        };
+      }
+      return p;
+    });
+    setOfficialPages(updatedPages);
+    saveOfficialPages(updatedPages);
+  };
+
+  const getOfficialPageStatusBadge = (status: OfficialPageStatus) => {
+    switch (status) {
+      case 'published':
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">{tr.statusPublished}</Badge>;
+      case 'draft':
+        return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{tr.statusDraft}</Badge>;
+      case 'archived':
+        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">{tr.statusArchived}</Badge>;
+    }
+  };
+
+  const renderOfficialContent = () => (
+    <Card className="border-white/10 bg-card/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          {tr.officialContent}
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">{tr.officialContentDesc}</p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.pageTitle}</th>
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.pageStatus}</th>
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.lastUpdated}</th>
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {officialPages.map(page => {
+                const title = lang === 'ar' ? page.title_ar : page.title_en;
+                const formattedDate = page.updatedAt 
+                  ? new Date(page.updatedAt).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : tr.noChangesYet;
+                return (
+                  <tr key={page.id} className="border-b border-white/5 hover:bg-white/5 transition-colors" data-testid={`official-page-row-${page.id}`}>
+                    <td className="p-3 font-medium">{title}</td>
+                    <td className="p-3">{getOfficialPageStatusBadge(page.status)}</td>
+                    <td className="p-3 text-muted-foreground">
+                      <div>{formattedDate}</div>
+                      {page.updatedBy && <div className="text-xs">{tr.updatedBy}: {page.updatedBy}</div>}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2 flex-wrap">
+                        <Button size="sm" variant="outline" onClick={() => handleEditOfficialPage(page)} data-testid={`button-edit-${page.id}`}>
+                          <Pencil className="w-4 h-4 me-1" /> {tr.edit}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setPreviewOfficialPage(page)} data-testid={`button-preview-${page.id}`}>
+                          <Eye className="w-4 h-4 me-1" /> {tr.preview}
+                        </Button>
+                        {page.status === 'draft' && (
+                          <Button size="sm" variant="outline" className="text-green-400 border-green-500/30" onClick={() => handleOfficialPageStatusChange(page.id, 'published')} data-testid={`button-publish-${page.id}`}>
+                            <CheckCircle className="w-4 h-4 me-1" /> {tr.publishPage}
+                          </Button>
+                        )}
+                        {page.status === 'published' && (
+                          <Button size="sm" variant="outline" className="text-amber-400 border-amber-500/30" onClick={() => handleOfficialPageStatusChange(page.id, 'draft')} data-testid={`button-unpublish-${page.id}`}>
+                            <XCircle className="w-4 h-4 me-1" /> {tr.unpublish}
+                          </Button>
+                        )}
+                        {page.status !== 'archived' && (
+                          <Button size="sm" variant="outline" className="text-gray-400 border-gray-500/30" onClick={() => handleOfficialPageStatusChange(page.id, 'archived')} data-testid={`button-archive-${page.id}`}>
+                            <Download className="w-4 h-4 me-1" /> {tr.archive}
+                          </Button>
+                        )}
+                        {page.status === 'archived' && (
+                          <Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30" onClick={() => handleOfficialPageStatusChange(page.id, 'draft')} data-testid={`button-restore-${page.id}`}>
+                            <RotateCcw className="w-4 h-4 me-1" /> {tr.restore}
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   const renderAuditLog = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -4253,6 +4401,7 @@ export default function Admin() {
                 {activeTab === 'campaigns' && renderCampaigns()}
                 {activeTab === 'moderators' && renderModerators()}
                 {activeTab === 'universities' && renderUniversities()}
+                {activeTab === 'officialContent' && renderOfficialContent()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>
             </AnimatePresence>
@@ -4262,6 +4411,99 @@ export default function Admin() {
 
       {renderDetailModal()}
       {renderUserDetailModal()}
+
+      {/* Official Page Edit Dialog */}
+      <Dialog open={officialPageDialogOpen} onOpenChange={(open) => { if (!open) { setOfficialPageDialogOpen(false); setEditingOfficialPage(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5" />
+              {tr.editPage}: {editingOfficialPage && (lang === 'ar' ? editingOfficialPage.title_ar : editingOfficialPage.title_en)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">{tr.titleAr}</label>
+                <Input 
+                  value={officialPageForm.title_ar} 
+                  onChange={(e) => setOfficialPageForm(f => ({ ...f, title_ar: e.target.value }))}
+                  dir="rtl"
+                  data-testid="input-official-title-ar"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">{tr.titleEn}</label>
+                <Input 
+                  value={officialPageForm.title_en} 
+                  onChange={(e) => setOfficialPageForm(f => ({ ...f, title_en: e.target.value }))}
+                  dir="ltr"
+                  data-testid="input-official-title-en"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">{tr.contentAr}</label>
+              <Textarea 
+                value={officialPageForm.content_ar} 
+                onChange={(e) => setOfficialPageForm(f => ({ ...f, content_ar: e.target.value }))}
+                dir="rtl"
+                rows={8}
+                className="resize-none"
+                data-testid="input-official-content-ar"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">{tr.contentEn}</label>
+              <Textarea 
+                value={officialPageForm.content_en} 
+                onChange={(e) => setOfficialPageForm(f => ({ ...f, content_en: e.target.value }))}
+                dir="ltr"
+                rows={8}
+                className="resize-none"
+                data-testid="input-official-content-en"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => { setOfficialPageDialogOpen(false); setEditingOfficialPage(null); }} data-testid="button-cancel-official-edit">
+              {tr.cancel}
+            </Button>
+            <Button variant="outline" onClick={() => handleSaveOfficialPage(false)} data-testid="button-save-draft-official">
+              {tr.saveDraft}
+            </Button>
+            <Button onClick={() => handleSaveOfficialPage(true)} data-testid="button-save-publish-official">
+              {tr.saveAndPublish}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Official Page Preview Dialog */}
+      <Dialog open={!!previewOfficialPage} onOpenChange={(open) => { if (!open) setPreviewOfficialPage(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              {tr.preview}: {previewOfficialPage && (lang === 'ar' ? previewOfficialPage.title_ar : previewOfficialPage.title_en)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {previewOfficialPage && (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <div className="whitespace-pre-wrap text-foreground">
+                  {lang === 'ar' ? previewOfficialPage.content_ar : previewOfficialPage.content_en || tr.pageUnderConstruction}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOfficialPage(null)} data-testid="button-close-preview">
+              {tr.close}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={reasonModalOpen} onOpenChange={(open) => { if (!open) { setReasonModalOpen(false); setReasonModalAction(null); setActionReason(''); } }}>
         <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
