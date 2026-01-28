@@ -1165,30 +1165,6 @@ export default function Feed() {
           )}
         </div>
 
-        {/* Sort Segmented Row */}
-        <div className="flex justify-center">
-          <div className="inline-flex rounded-full p-1 bg-muted/50 border border-white/10">
-            <Button
-              size="sm"
-              variant={sortBy === 'newest' ? "default" : "ghost"}
-              onClick={() => setSortBy('newest')}
-              className={`rounded-full ${sortBy === 'newest' ? 'bg-[#865994] shadow-sm' : ''}`}
-              data-testid="button-sort-newest"
-            >
-              {tr.newest}
-            </Button>
-            <Button
-              size="sm"
-              variant={sortBy === 'trending' ? "default" : "ghost"}
-              onClick={() => setSortBy('trending')}
-              className={`rounded-full ${sortBy === 'trending' ? 'bg-[#865994] shadow-sm' : ''}`}
-              data-testid="button-sort-trending"
-            >
-              {tr.trending}
-            </Button>
-          </div>
-        </div>
-
         {/* Category Chips Row */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <Button
