@@ -55,16 +55,28 @@ interface OfficialPage {
 const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
 
 function getOfficialPages(): OfficialPage[] {
-  try {
-    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  // Default pages
-  return [
+  const defaultPages: OfficialPage[] = [
     { id: 'privacy', title_ar: 'سياسة الخصوصية', title_en: 'Privacy Policy', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
     { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
     { id: 'terms', title_ar: 'الشروط والأحكام', title_en: 'Terms & Conditions', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
   ];
+  
+  try {
+    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
+    if (stored) {
+      const parsedPages: OfficialPage[] = JSON.parse(stored);
+      // Ensure all default pages exist (add missing ones like 'terms')
+      const existingIds = parsedPages.map(p => p.id);
+      for (const defaultPage of defaultPages) {
+        if (!existingIds.includes(defaultPage.id)) {
+          parsedPages.push(defaultPage);
+        }
+      }
+      return parsedPages;
+    }
+  } catch {}
+  
+  return defaultPages;
 }
 
 function saveOfficialPages(pages: OfficialPage[]) {
