@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { 
   Send, MessageSquare, Heart, Plus, ChevronDown, ChevronUp, X, Reply,
   Bookmark, FileText, Hash, TrendingUp, Clock, Shield, Paperclip, Download, ExternalLink,
-  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2, Ban, UserCheck
+  MoreVertical, Pencil, Trash2, Flag, EyeOff, Eye, VolumeX, Volume2, Ban, UserCheck,
+  PenLine, ImagePlus
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1101,208 +1102,61 @@ export default function Feed() {
         <p className="text-muted-foreground text-sm mt-2">{tr.pageSubtitle}</p>
       </div>
 
-      <Button 
-        onClick={() => setShowCreateForm(true)}
-        className="w-full h-12 text-base font-semibold mb-6 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-        data-testid="button-new-post"
-      >
-        <Plus className="w-5 h-5 me-2" />
-        {tr.newPost}
-      </Button>
-
       <InFeedCampaignCard placement="feed" />
 
-      <AnimatePresence>
-        {showCreateForm && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-6"
-          >
-            <Card className="border-white/10 bg-card/80 backdrop-blur">
-              <CardContent className="p-4">
-                <div className="flex gap-3 mb-4">
-                  <Avatar className="w-10 h-10 flex-shrink-0">
-                    <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {user ? getInitials(user.email) : 'ME'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder={tr.writePost}
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
-                      autoFocus
-                      data-testid="textarea-create-post"
-                    />
-                  </div>
-                </div>
+      {/* Sticky Control Bar */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 space-y-3 border-b border-white/5">
+        {/* Sort Segmented Row */}
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-full p-1 bg-muted/50 border border-white/10">
+            <Button
+              size="sm"
+              variant={sortBy === 'newest' ? "default" : "ghost"}
+              onClick={() => setSortBy('newest')}
+              className={`rounded-full ${sortBy === 'newest' ? 'bg-[#865994] shadow-sm' : ''}`}
+              data-testid="button-sort-newest"
+            >
+              {tr.newest}
+            </Button>
+            <Button
+              size="sm"
+              variant={sortBy === 'trending' ? "default" : "ghost"}
+              onClick={() => setSortBy('trending')}
+              className={`rounded-full ${sortBy === 'trending' ? 'bg-[#865994] shadow-sm' : ''}`}
+              data-testid="button-sort-trending"
+            >
+              {tr.trending}
+            </Button>
+          </div>
+        </div>
 
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <div className="flex-1 min-w-[120px]">
-                    <label className="text-xs text-muted-foreground mb-1 block">{tr.postType}</label>
-                    <div className="flex flex-wrap gap-1">
-                      {POST_TYPES.map((type) => (
-                        <Button
-                          key={type.value}
-                          size="sm"
-                          variant={newPostType === type.value ? "default" : "outline"}
-                          onClick={() => setNewPostType(type.value)}
-                          className="text-xs h-7"
-                          data-testid={`button-type-${type.value}`}
-                        >
-                          {lang === 'ar' ? type.labelAr : type.labelEn}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="text-xs text-muted-foreground mb-1 block">{tr.college}</label>
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      size="sm"
-                      variant={!newPostSubject ? "default" : "outline"}
-                      onClick={() => setNewPostSubject('')}
-                      className="text-xs h-7"
-                    >
-                      -
-                    </Button>
-                    {COLLEGES.map((college) => (
-                      <Button
-                        key={college.value}
-                        size="sm"
-                        variant={newPostSubject === college.value ? "default" : "outline"}
-                        onClick={() => setNewPostSubject(college.value)}
-                        className="text-xs h-7"
-                        data-testid={`button-college-${college.value}`}
-                      >
-                        {lang === 'ar' ? college.labelAr : college.labelEn}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    data-testid="input-file-upload"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                    data-testid="button-attach-files"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                    {lang === 'ar' ? 'إرفاق ملفات' : 'Attach Files'}
-                  </Button>
-                  
-                  {attachments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {attachments.map((att, index) => (
-                        <div key={index} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
-                          <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm flex-1 truncate">{att.name}</span>
-                          <span className="text-xs text-muted-foreground">{(att.size / 1024).toFixed(1)} KB</span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => removeAttachment(index)}
-                            data-testid={`button-remove-attachment-${index}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex justify-end gap-2 pt-3 border-t border-white/5">
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => { setShowCreateForm(false); setContent(""); }}
-                    data-testid="button-cancel-post"
-                  >
-                    {tr.cancel}
-                  </Button>
-                  <Button 
-                    onClick={handlePost} 
-                    disabled={!content.trim()}
-                    className="gap-2"
-                    data-testid="button-publish-post"
-                  >
-                    <Send className="w-4 h-4" />
-                    {tr.publish}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex items-center gap-2 mb-4">
-        <Button
-          size="sm"
-          variant={sortBy === 'newest' ? "default" : "outline"}
-          onClick={() => setSortBy('newest')}
-          className="gap-1"
-          data-testid="button-sort-newest"
-        >
-          <Clock className="w-3.5 h-3.5" />
-          {tr.newest}
-        </Button>
-        <Button
-          size="sm"
-          variant={sortBy === 'trending' ? "default" : "outline"}
-          onClick={() => setSortBy('trending')}
-          className="gap-1"
-          data-testid="button-sort-trending"
-        >
-          <TrendingUp className="w-3.5 h-3.5" />
-          {tr.trending}
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Button
-          size="sm"
-          variant={selectedType === 'all' ? "secondary" : "ghost"}
-          onClick={() => setSelectedType('all')}
-          className="text-xs"
-          data-testid="button-filter-all"
-        >
-          {tr.all}
-        </Button>
-        {POST_TYPES.map((type) => (
+        {/* Category Chips Row */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <Button
-            key={type.value}
             size="sm"
-            variant={selectedType === type.value ? "secondary" : "ghost"}
-            onClick={() => setSelectedType(type.value)}
-            className="text-xs"
-            data-testid={`button-filter-${type.value}`}
+            variant={selectedType === 'all' ? "default" : "ghost"}
+            onClick={() => setSelectedType('all')}
+            className={`flex-shrink-0 rounded-full ${selectedType === 'all' ? 'bg-[#865994]' : 'bg-muted/50'}`}
+            data-testid="button-filter-all"
           >
-            {lang === 'ar' ? type.labelAr : type.labelEn}
+            {tr.all}
           </Button>
-        ))}
+          {POST_TYPES.map((type) => (
+            <Button
+              key={type.value}
+              size="sm"
+              variant={selectedType === type.value ? "default" : "ghost"}
+              onClick={() => setSelectedType(type.value)}
+              className={`flex-shrink-0 rounded-full ${selectedType === type.value ? 'bg-[#865994]' : 'bg-muted/50'}`}
+              data-testid={`button-filter-${type.value}`}
+            >
+              {lang === 'ar' ? type.labelAr : type.labelEn}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 mt-4">
         {sortedPosts.length === 0 ? (
           <Card className="border-white/5 bg-card/30">
             <CardContent className="py-16 text-center">
@@ -1981,6 +1835,198 @@ export default function Feed() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* FAB Button */}
+      <div className={`fixed bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
+        <Button
+          onClick={() => setShowCreateForm(true)}
+          className="rounded-full bg-[#865994] border-[#865994] text-white shadow-lg shadow-[#865994]/30 p-4"
+          aria-label={isRTL ? 'اكتب منشورًا' : 'Write post'}
+          data-testid="button-fab-create-post"
+        >
+          <PenLine className="w-6 h-6" />
+        </Button>
+      </div>
+
+      {/* Bottom Sheet Composer */}
+      <AnimatePresence>
+        {showCreateForm && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCreateForm(false)}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              data-testid="backdrop-composer"
+            />
+            
+            {/* Bottom Sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] overflow-hidden"
+              dir={isRTL ? 'rtl' : 'ltr'}
+              data-testid="sheet-composer"
+            >
+              {/* Handle bar */}
+              <div className="flex justify-center py-2">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+              
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 pb-3 border-b border-white/10">
+                <h2 className="text-lg font-semibold">
+                  {lang === 'ar' ? 'إنشاء منشور' : 'Create post'}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowCreateForm(false)}
+                  data-testid="button-close-composer"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 overflow-y-auto max-h-[calc(85vh-120px)]">
+                <div className="flex gap-3 mb-4">
+                  <Avatar className="w-10 h-10 flex-shrink-0">
+                    <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user ? getInitials(user.email) : 'ME'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <Textarea
+                      placeholder={tr.writePost}
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="min-h-[120px] bg-background/50 border-white/10 resize-none text-base"
+                      autoFocus
+                      dir={isRTL ? 'rtl' : 'ltr'}
+                      data-testid="textarea-composer"
+                    />
+                  </div>
+                </div>
+
+                {/* Post Type Selection */}
+                <div className="mb-4">
+                  <label className="text-xs text-muted-foreground mb-2 block">{tr.postType}</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {POST_TYPES.map((type) => (
+                      <Button
+                        key={type.value}
+                        size="sm"
+                        variant={newPostType === type.value ? "default" : "ghost"}
+                        onClick={() => setNewPostType(type.value)}
+                        className={`rounded-full text-xs ${newPostType === type.value ? 'bg-[#865994]' : ''}`}
+                        data-testid={`button-composer-type-${type.value}`}
+                      >
+                        {lang === 'ar' ? type.labelAr : type.labelEn}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* College Selection */}
+                <div className="mb-4">
+                  <label className="text-xs text-muted-foreground mb-2 block">{tr.college}</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      size="sm"
+                      variant={!newPostSubject ? "default" : "ghost"}
+                      onClick={() => setNewPostSubject('')}
+                      className={`rounded-full text-xs ${!newPostSubject ? 'bg-[#865994]' : ''}`}
+                      data-testid="button-composer-college-none"
+                    >
+                      -
+                    </Button>
+                    {COLLEGES.map((college) => (
+                      <Button
+                        key={college.value}
+                        size="sm"
+                        variant={newPostSubject === college.value ? "default" : "ghost"}
+                        onClick={() => setNewPostSubject(college.value)}
+                        className={`rounded-full text-xs ${newPostSubject === college.value ? 'bg-[#865994]' : ''}`}
+                        data-testid={`button-composer-college-${college.value}`}
+                      >
+                        {lang === 'ar' ? college.labelAr : college.labelEn}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Attachments Preview */}
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {attachments.map((att, index) => (
+                      <div key={index} className="relative group">
+                        {att.type === 'image' ? (
+                          <img 
+                            src={att.url} 
+                            alt={att.name}
+                            className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 flex items-center justify-center bg-muted/50 rounded-lg border border-white/10">
+                            <FileText className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          onClick={() => removeAttachment(index)}
+                          className="absolute -top-1.5 -right-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity scale-50"
+                          data-testid={`button-remove-attachment-${index}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between gap-3 p-4 border-t border-white/10 bg-card">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  data-testid="input-composer-file"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2"
+                  data-testid="button-add-photo"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  {lang === 'ar' ? 'إضافة صورة' : 'Add photo'}
+                </Button>
+                <Button
+                  onClick={handlePost}
+                  disabled={!content.trim()}
+                  className="bg-[#865994] gap-2"
+                  data-testid="button-publish-post"
+                >
+                  <Send className="w-4 h-4" />
+                  {lang === 'ar' ? 'نشر' : 'Post'}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
