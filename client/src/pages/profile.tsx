@@ -1,6 +1,116 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute, Link } from "wouter";
 import { useDaamStore, type ReportReason, ADMIN_EMAILS } from "@/hooks/use-daam-store";
+
+const GOVERNORATES = {
+  ar: [
+    { value: 'muscat', label: 'محافظة مسقط' },
+    { value: 'dhofar', label: 'محافظة ظفار' },
+    { value: 'musandam', label: 'محافظة مسندم' },
+    { value: 'buraimi', label: 'محافظة البريمي' },
+    { value: 'dakhiliyah', label: 'محافظة الداخلية' },
+    { value: 'north_batinah', label: 'محافظة شمال الباطنة' },
+    { value: 'south_batinah', label: 'محافظة جنوب الباطنة' },
+    { value: 'north_sharqiyah', label: 'محافظة شمال الشرقية' },
+    { value: 'south_sharqiyah', label: 'محافظة جنوب الشرقية' },
+    { value: 'dhahirah', label: 'محافظة الظاهرة' },
+    { value: 'wusta', label: 'محافظة الوسطى' },
+  ],
+  en: [
+    { value: 'muscat', label: 'Muscat Governorate' },
+    { value: 'dhofar', label: 'Dhofar Governorate' },
+    { value: 'musandam', label: 'Musandam Governorate' },
+    { value: 'buraimi', label: 'Al Buraimi Governorate' },
+    { value: 'dakhiliyah', label: 'Ad Dakhiliyah Governorate' },
+    { value: 'north_batinah', label: 'North Al Batinah Governorate' },
+    { value: 'south_batinah', label: 'South Al Batinah Governorate' },
+    { value: 'north_sharqiyah', label: 'North Ash Sharqiyah Governorate' },
+    { value: 'south_sharqiyah', label: 'South Ash Sharqiyah Governorate' },
+    { value: 'dhahirah', label: 'Ad Dhahirah Governorate' },
+    { value: 'wusta', label: 'Al Wusta Governorate' },
+  ]
+};
+
+const WILAYAT: Record<string, { ar: string; en: string }[]> = {
+  muscat: [
+    { ar: 'مسقط', en: 'Muscat' },
+    { ar: 'مطرح', en: 'Muttrah' },
+    { ar: 'بوشر', en: 'Bawshar' },
+    { ar: 'السيب', en: 'As Seeb' },
+    { ar: 'العامرات', en: 'Al Amrat' },
+    { ar: 'قريات', en: 'Qurayyat' },
+  ],
+  dhofar: [
+    { ar: 'صلالة', en: 'Salalah' },
+    { ar: 'طاقة', en: 'Taqah' },
+    { ar: 'مرباط', en: 'Mirbat' },
+    { ar: 'ثمريت', en: 'Thumrait' },
+    { ar: 'رخيوت', en: 'Rakhyut' },
+  ],
+  dakhiliyah: [
+    { ar: 'نزوى', en: 'Nizwa' },
+    { ar: 'بهلاء', en: 'Bahla' },
+    { ar: 'منح', en: 'Manah' },
+    { ar: 'أدم', en: 'Adam' },
+    { ar: 'الحمراء', en: 'Al Hamra' },
+    { ar: 'إزكي', en: 'Izki' },
+    { ar: 'سمائل', en: 'Samail' },
+    { ar: 'بدبد', en: 'Bidbid' },
+  ],
+  north_batinah: [
+    { ar: 'صحار', en: 'Sohar' },
+    { ar: 'شناص', en: 'Shinas' },
+    { ar: 'لوى', en: 'Liwa' },
+    { ar: 'صحم', en: 'Saham' },
+    { ar: 'الخابورة', en: 'Al Khaburah' },
+    { ar: 'السويق', en: 'As Suwaiq' },
+  ],
+  south_batinah: [
+    { ar: 'الرستاق', en: 'Rustaq' },
+    { ar: 'العوابي', en: 'Al Awabi' },
+    { ar: 'نخل', en: 'Nakhal' },
+    { ar: 'وادي المعاول', en: 'Wadi Al Maawil' },
+    { ar: 'بركاء', en: 'Barka' },
+    { ar: 'المصنعة', en: 'Al Musannah' },
+  ],
+  north_sharqiyah: [
+    { ar: 'إبراء', en: 'Ibra' },
+    { ar: 'المضيبي', en: 'Al Mudhaibi' },
+    { ar: 'بدية', en: 'Bidiyah' },
+    { ar: 'القابل', en: 'Al Qabil' },
+    { ar: 'وادي بني خالد', en: 'Wadi Bani Khalid' },
+    { ar: 'دماء والطائيين', en: 'Dama Wa At Taiyyin' },
+  ],
+  south_sharqiyah: [
+    { ar: 'صور', en: 'Sur' },
+    { ar: 'جعلان بني بو علي', en: 'Jaalan Bani Bu Ali' },
+    { ar: 'جعلان بني بو حسن', en: 'Jaalan Bani Bu Hassan' },
+    { ar: 'الكامل والوافي', en: 'Al Kamil Wal Wafi' },
+    { ar: 'مصيرة', en: 'Masirah' },
+  ],
+  dhahirah: [
+    { ar: 'عبري', en: 'Ibri' },
+    { ar: 'ينقل', en: 'Yanqul' },
+    { ar: 'ضنك', en: 'Dhank' },
+  ],
+  buraimi: [
+    { ar: 'البريمي', en: 'Al Buraimi' },
+    { ar: 'محضة', en: 'Mahdah' },
+    { ar: 'السنينة', en: 'As Sunaynah' },
+  ],
+  musandam: [
+    { ar: 'خصب', en: 'Khasab' },
+    { ar: 'بخا', en: 'Bukha' },
+    { ar: 'دبا', en: 'Dibba' },
+    { ar: 'مدحاء', en: 'Madha' },
+  ],
+  wusta: [
+    { ar: 'هيماء', en: 'Haima' },
+    { ar: 'محوت', en: 'Mahout' },
+    { ar: 'الدقم', en: 'Ad Duqm' },
+    { ar: 'الجازر', en: 'Al Jazir' },
+  ],
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +168,7 @@ const INTEREST_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, getAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators } = useDaamStore();
+  const { user, posts, lang, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators } = useDaamStore();
   
   // Helper functions for staff detection
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -102,6 +212,14 @@ export default function Profile() {
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
+  const [isEditingPrivate, setIsEditingPrivate] = useState(false);
+  const [privateEditForm, setPrivateEditForm] = useState({
+    phone: '',
+    governorate: '',
+    wilayat: ''
+  });
+  const [privateEditErrors, setPrivateEditErrors] = useState<Record<string, string>>({});
+  const [isSavingPrivate, setIsSavingPrivate] = useState(false);
 
   useEffect(() => {
     if (profileEmail) {
@@ -274,7 +392,75 @@ export default function Profile() {
     reasonHate: lang === 'ar' ? 'خطاب كراهية' : 'Hate Speech',
     reasonImpersonation: lang === 'ar' ? 'انتحال شخصية' : 'Impersonation',
     reasonInappropriate: lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate Content',
-    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other'
+    reasonOther: lang === 'ar' ? 'سبب آخر' : 'Other',
+    editPrivate: lang === 'ar' ? 'تعديل' : 'Edit',
+    savePrivate: lang === 'ar' ? 'حفظ' : 'Save',
+    cancelPrivate: lang === 'ar' ? 'إلغاء' : 'Cancel',
+    phoneLabel: lang === 'ar' ? 'رقم الهاتف' : 'Phone Number',
+    governorateLabel: lang === 'ar' ? 'المحافظة' : 'Governorate',
+    wilayatLabel: lang === 'ar' ? 'الولاية' : 'Wilayat',
+    selectGovernorate: lang === 'ar' ? 'اختر المحافظة' : 'Select Governorate',
+    selectWilayat: lang === 'ar' ? 'اختر الولاية' : 'Select Wilayat',
+    requiredField: lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required',
+    savedSuccessfully: lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully',
+    saving: lang === 'ar' ? 'جاري الحفظ...' : 'Saving...'
+  };
+
+  const governorates = GOVERNORATES[lang];
+  const wilayatOptions = privateEditForm.governorate ? WILAYAT[privateEditForm.governorate] || [] : [];
+
+  const handleStartEditPrivate = () => {
+    const account = user?.email ? getAccount(user.email) : undefined;
+    setPrivateEditForm({
+      phone: account?.phone || '',
+      governorate: account?.region?.governorate || '',
+      wilayat: account?.region?.wilayat || ''
+    });
+    setPrivateEditErrors({});
+    setIsEditingPrivate(true);
+  };
+
+  const handleCancelEditPrivate = () => {
+    setIsEditingPrivate(false);
+    setPrivateEditErrors({});
+  };
+
+  const handleSavePrivate = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!privateEditForm.phone.trim()) {
+      errors.phone = tr.requiredField;
+    }
+    if (!privateEditForm.governorate) {
+      errors.governorate = tr.requiredField;
+    }
+    if (!privateEditForm.wilayat) {
+      errors.wilayat = tr.requiredField;
+    }
+    
+    setPrivateEditErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+    
+    setIsSavingPrivate(true);
+    
+    if (user?.email) {
+      updateAccount(user.email, {
+        phone: privateEditForm.phone,
+        region: {
+          governorate: privateEditForm.governorate,
+          wilayat: privateEditForm.wilayat
+        }
+      });
+    }
+    
+    setIsSavingPrivate(false);
+    setIsEditingPrivate(false);
+    toast({
+      title: tr.savedSuccessfully,
+    });
   };
 
   const handleSubmitUserReport = () => {
@@ -879,11 +1065,25 @@ export default function Profile() {
               <TabsContent value="private" className="mt-0">
                 <Card className="border-white/10 bg-card/30">
                   <CardContent className="p-4 space-y-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Lock className="w-5 h-5 text-amber-500" />
-                      <h3 className="font-semibold">
-                        {lang === 'ar' ? 'معلوماتك الخاصة' : 'Your Private Information'}
-                      </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-5 h-5 text-amber-500" />
+                        <h3 className="font-semibold">
+                          {lang === 'ar' ? 'معلوماتك الخاصة' : 'Your Private Information'}
+                        </h3>
+                      </div>
+                      {!isEditingPrivate && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleStartEditPrivate}
+                          className="gap-1"
+                          data-testid="button-edit-private"
+                        >
+                          <Edit className="w-3 h-3" />
+                          {tr.editPrivate}
+                        </Button>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {lang === 'ar' 
@@ -893,6 +1093,95 @@ export default function Profile() {
                     
                     {(() => {
                       const account = user?.email ? getAccount(user.email) : undefined;
+                      
+                      if (isEditingPrivate) {
+                        return (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                              <Mail className="w-5 h-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                                </p>
+                                <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-phone">{tr.phoneLabel} <span className="text-destructive">*</span></Label>
+                              <Input
+                                id="edit-phone"
+                                type="tel"
+                                value={privateEditForm.phone}
+                                onChange={(e) => { setPrivateEditForm(prev => ({ ...prev, phone: e.target.value })); setPrivateEditErrors(prev => ({ ...prev, phone: '' })); }}
+                                className={`bg-black/20 border-white/10 ${privateEditErrors.phone ? 'border-destructive' : ''}`}
+                                dir="ltr"
+                                data-testid="input-edit-phone"
+                              />
+                              {privateEditErrors.phone && <p className="text-sm text-destructive" data-testid="error-edit-phone">{privateEditErrors.phone}</p>}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label>{tr.governorateLabel} <span className="text-destructive">*</span></Label>
+                                <Select 
+                                  value={privateEditForm.governorate} 
+                                  onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, governorate: val, wilayat: '' })); setPrivateEditErrors(prev => ({ ...prev, governorate: '' })); }}
+                                >
+                                  <SelectTrigger className={`bg-black/20 border-white/10 ${privateEditErrors.governorate ? 'border-destructive' : ''}`} data-testid="select-edit-governorate">
+                                    <SelectValue placeholder={tr.selectGovernorate} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {governorates.map((gov) => (
+                                      <SelectItem key={gov.value} value={gov.value}>{gov.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {privateEditErrors.governorate && <p className="text-sm text-destructive" data-testid="error-edit-governorate">{privateEditErrors.governorate}</p>}
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label>{tr.wilayatLabel} <span className="text-destructive">*</span></Label>
+                                <Select 
+                                  value={privateEditForm.wilayat} 
+                                  onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, wilayat: val })); setPrivateEditErrors(prev => ({ ...prev, wilayat: '' })); }}
+                                  disabled={!privateEditForm.governorate}
+                                >
+                                  <SelectTrigger className={`bg-black/20 border-white/10 ${privateEditErrors.wilayat ? 'border-destructive' : ''}`} data-testid="select-edit-wilayat">
+                                    <SelectValue placeholder={tr.selectWilayat} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {wilayatOptions.map((wil, idx) => (
+                                      <SelectItem key={idx} value={wil.en}>{lang === 'ar' ? wil.ar : wil.en}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {privateEditErrors.wilayat && <p className="text-sm text-destructive" data-testid="error-edit-wilayat">{privateEditErrors.wilayat}</p>}
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 pt-4">
+                              <Button
+                                onClick={handleSavePrivate}
+                                disabled={isSavingPrivate}
+                                className="flex-1"
+                                data-testid="button-save-private"
+                              >
+                                {isSavingPrivate ? tr.saving : tr.savePrivate}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={handleCancelEditPrivate}
+                                disabled={isSavingPrivate}
+                                data-testid="button-cancel-private"
+                              >
+                                {tr.cancelPrivate}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
                       return (
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">

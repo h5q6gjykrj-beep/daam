@@ -272,6 +272,7 @@ interface DaamStoreContextType {
   updateProfile: (email: string, profile: Partial<UserProfile>) => void;
   getProfile: (email: string) => UserProfile | undefined;
   getAccount: (email: string) => UserAccount | undefined;
+  updateAccount: (email: string, data: { phone?: string; region?: { governorate: string; wilayat: string } }) => void;
   toggleFollow: (targetEmail: string) => void;
   isFollowing: (targetEmail: string) => boolean;
   banUser: (email: string, reason: string) => void;
@@ -879,6 +880,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const getAccount = useCallback((email: string): UserAccount | undefined => {
     // Only return account data if the requester is the account owner (checked by caller)
     return accounts[email];
+  }, [accounts]);
+
+  const updateAccount = useCallback((email: string, data: { phone?: string; region?: { governorate: string; wilayat: string } }) => {
+    const emailLower = email.toLowerCase();
+    const existingAccount = accounts[emailLower];
+    if (!existingAccount) return;
+    
+    const updatedAccount: UserAccount = {
+      ...existingAccount,
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.region !== undefined && { region: data.region })
+    };
+    
+    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   }, [accounts]);
 
   const toggleSave = (postId: string) => {
@@ -1623,6 +1640,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     updateProfile,
     getProfile,
     getAccount,
+    updateAccount,
     toggleFollow,
     isFollowing,
     banUser,
