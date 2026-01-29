@@ -1371,7 +1371,7 @@ export default function Profile() {
                     key={followerEmail}
                     href={`/profile/${encodeURIComponent(followerEmail)}`}
                     onClick={() => setShowFollowersDialog(false)}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors"
                     data-testid={`follower-${followerEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1417,7 +1417,7 @@ export default function Profile() {
                     key={followingEmail}
                     href={`/profile/${encodeURIComponent(followingEmail)}`}
                     onClick={() => setShowFollowingDialog(false)}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors"
                     data-testid={`following-${followingEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
