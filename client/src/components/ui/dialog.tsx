@@ -69,13 +69,14 @@ const MotionContent = React.forwardRef<
       exit="hidden"
       variants={contentVariants}
       transition={{ duration, ease: ANIMATION_EASE }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
       <div
         className={cn(
-          "relative z-50 pointer-events-auto w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg transform-gpu",
+          "relative z-50 w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg transform-gpu",
           className
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
