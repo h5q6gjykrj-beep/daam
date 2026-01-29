@@ -39,6 +39,7 @@ export default function Messages() {
   const [isSending, setIsSending] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMarkedConvId = useRef<string | null>(null);
   
   const tr = {
     title: lang === 'ar' ? 'الرسائل' : 'Messages',
@@ -77,28 +78,34 @@ export default function Messages() {
   const userConversations = user?.email ? getConversationsForUser(user.email) : [];
   
   // Keep selectedConversation in sync with updated conversations state
+  // Use selectedConversationId ref to avoid infinite loops
+  const selectedConvId = selectedConversation?.id;
   useEffect(() => {
-    if (selectedConversation) {
-      const updatedConv = conversations.find(c => c.id === selectedConversation.id);
-      if (updatedConv && (
-        updatedConv.lastMessageAt !== selectedConversation.lastMessageAt ||
-        updatedConv.lastMessagePreview !== selectedConversation.lastMessagePreview ||
-        JSON.stringify(updatedConv.unreadCount) !== JSON.stringify(selectedConversation.unreadCount)
-      )) {
-        setSelectedConversation(updatedConv);
+    if (selectedConvId) {
+      const updatedConv = conversations.find(c => c.id === selectedConvId);
+      if (updatedConv) {
+        setSelectedConversation(prev => {
+          if (!prev) return updatedConv;
+          if (prev.lastMessageAt !== updatedConv.lastMessageAt ||
+              prev.lastMessagePreview !== updatedConv.lastMessagePreview) {
+            return updatedConv;
+          }
+          return prev;
+        });
       }
     }
-  }, [conversations, selectedConversation]);
+  }, [conversations, selectedConvId]);
   
   // Get messages for selected conversation
   const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
   
-  // Mark as read when opening conversation
+  // Mark as read when opening conversation (only once per conversation)
   useEffect(() => {
-    if (selectedConversation && user?.email) {
+    if (selectedConversation && user?.email && lastMarkedConvId.current !== selectedConversation.id) {
+      lastMarkedConvId.current = selectedConversation.id;
       markConversationRead(selectedConversation.id, user.email);
     }
-  }, [selectedConversation, user, markConversationRead]);
+  }, [selectedConversation?.id, user?.email, markConversationRead]);
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -351,8 +358,8 @@ export default function Messages() {
         </div>
       </div>
       
-      {/* Mobile layout: switchable views */}
-      <div className="md:hidden w-full h-full">
+      {/* Mobile layout: switchable views - subtract bottom nav height */}
+      <div className="md:hidden w-full h-[calc(100%-4rem)]">
         {mobileView === 'list' ? (
           <ConversationList />
         ) : (
