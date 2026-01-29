@@ -40,6 +40,7 @@ export default function Messages() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMarkedConvId = useRef<string | null>(null);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   const tr = {
     title: lang === 'ar' ? 'الرسائل' : 'Messages',
@@ -112,6 +113,13 @@ export default function Messages() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
+  // Restore focus to input when conversation is open
+  useEffect(() => {
+    if (selectedConversation && mobileView === 'chat') {
+      requestAnimationFrame(() => messageInputRef.current?.focus());
+    }
+  }, [selectedConversation?.id, mobileView]);
+  
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
     const otherEmail = conv.participants.find(p => p !== user?.email?.toLowerCase());
@@ -145,6 +153,7 @@ export default function Messages() {
     
     if (result.success) {
       setMessageInput("");
+      requestAnimationFrame(() => messageInputRef.current?.focus());
     } else {
       if (result.error === 'dm_closed') {
         toast({ title: tr.error, description: tr.dmClosed, variant: 'destructive' });
@@ -317,6 +326,8 @@ export default function Messages() {
           ) : (
             <div className="flex gap-2">
               <Input
+                ref={messageInputRef}
+                autoFocus
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={tr.typeMessage}
