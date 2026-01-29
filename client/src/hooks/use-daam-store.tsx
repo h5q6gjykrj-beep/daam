@@ -349,6 +349,7 @@ interface DaamStoreContextType {
   getMessages: (conversationId: string) => DirectMessage[];
   sendDirectMessage: (conversationId: string, senderEmail: string, content: string) => { success: boolean; error?: string };
   markConversationRead: (conversationId: string, userEmail: string) => void;
+  getUnreadConversationCount: (userEmail: string) => number;
   canSendDM: (targetEmail: string) => { allowed: boolean; reason?: string };
 }
 
@@ -1840,6 +1841,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LS_MESSAGES, JSON.stringify(updatedMessages));
   }, [conversations, directMessages]);
 
+  // Get count of unread conversations for a user
+  const getUnreadConversationCount = useCallback((userEmail: string): number => {
+    const email = userEmail.toLowerCase();
+    return conversations.filter(c => 
+      c.participants.includes(email) && (c.unreadCount?.[email] ?? 0) > 0
+    ).length;
+  }, [conversations]);
+
   const value: DaamStoreContextType = {
     user,
     lang,
@@ -1915,6 +1924,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     getMessages,
     sendDirectMessage,
     markConversationRead,
+    getUnreadConversationCount,
     canSendDM
   };
 

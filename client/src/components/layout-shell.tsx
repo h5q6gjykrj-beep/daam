@@ -13,7 +13,7 @@ interface LayoutShellProps {
 }
 
 export function LayoutShell({ children }: LayoutShellProps) {
-  const { user, logout, t, lang, toggleLang, theme, toggleTheme } = useDaamStore();
+  const { user, logout, t, lang, toggleLang, theme, toggleTheme, getUnreadConversationCount } = useDaamStore();
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -58,6 +58,9 @@ export function LayoutShell({ children }: LayoutShellProps) {
   };
 
   const isAdmin = isAdminEmail(user?.email);
+  
+  // Get unread conversations count for badge
+  const unreadConversations = user?.email ? getUnreadConversationCount(user.email) : 0;
   
   const navItems = useMemo(() => {
     const items = [
@@ -312,7 +315,17 @@ export function LayoutShell({ children }: LayoutShellProps) {
                   }`}
                   data-testid={`nav-bottom-${item.path.replace('/', '')}`}
                 >
-                  <item.icon className={`w-5 h-5 ${active ? 'text-primary' : ''}`} />
+                  <div className="relative">
+                    <item.icon className={`w-5 h-5 ${active ? 'text-primary' : ''}`} />
+                    {item.path === '/messages' && unreadConversations > 0 && (
+                      <span 
+                        className={`absolute -top-1.5 ${lang === 'ar' ? '-left-1.5' : '-right-1.5'} min-w-[18px] h-[18px] flex items-center justify-center bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1`}
+                        data-testid="badge-unread-messages"
+                      >
+                        {unreadConversations > 99 ? '99+' : unreadConversations}
+                      </span>
+                    )}
+                  </div>
                   <span className={`text-[10px] font-medium ${active ? 'text-primary' : ''}`}>
                     {item.label.split(' ')[0]}
                   </span>

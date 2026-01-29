@@ -1,0 +1,56 @@
+مهمة: إضافة إشعار (Badge) على أيقونة الرسائل يعرض عدد "المحادثات غير المقروءة" للمستخدم الحالي.
+العدد = عدد المحادثات التي فيها unreadCount[userEmail] > 0
+(ليس عدد الرسائل، يعني كل شخص = 1 مهما كثرت رسائله).
+
+قيود صارمة:
+- لا تغيّر UI الرسائل الحالي إلا للـBadge.
+- لا تسبب مشاكل focus في messages.tsx.
+- عدّل أقل عدد ممكن من الملفات.
+- مسموح تعديل ملفين فقط:
+  1) client/src/hooks/use-daam-store.tsx
+  2) client/src/components/layout-shell.tsx
+(وإذا احتجت App.tsx أو ملف ثالث لأيقونة الرسائل على الديسكتوب فقط اذكر السبب قبل التعديل)
+
+الخطوة A) Store (use-daam-store.tsx)
+1) أضف selector/function جديدة:
+   getUnreadConversationCount(userEmail: string): number
+   - ترجع عدد المحادثات conversations التي:
+     (convo.unreadCount?.[userEmail] ?? 0) > 0
+
+2) تأكد أن sendDirectMessage يزيد unreadCount للطرف الآخر فقط:
+   - عند إرسال رسالة:
+     - receiverEmail = participant الآخر
+     - conversations[convId].unreadCount[receiverEmail] += 1
+   (إذا هذا موجود لا تغيره، فقط تأكد أنه يعمل)
+
+3) تأكد أن markConversationRead يجعل unreadCount[userEmail]=0 (الموجود عندكم غالبًا).
+
+الخطوة B) UI Badge في Bottom Nav (layout-shell.tsx)
+المعلومة: Bottom nav موجود داخل LayoutShell وارتفاعه h-16 و md:hidden.
+1) في nav item الخاص بالرسائل (MessageSquare + رابط /messages):
+   - استخرج userEmail من store (user?.email)
+   - احسب:
+     const unreadConversations = userEmail ? getUnreadConversationCount(userEmail) : 0
+
+2) إذا unreadConversations > 0:
+   - اعرض badge صغير فوق الأيقونة (position absolute) مثل:
+     - دائرة صغيرة
+     - رقم داخلها
+   - الرقم = unreadConversations
+   - لو الرقم أكبر من 99 اعرض "99+"
+
+3) لا تجعل badge يكسر layout أو يسبب overlap.
+   - استخدم container relative حول الأيقونة
+   - badge: absolute -top-1 -right-1 (أو مناسب RTL/LTR)
+   - في RTL اجعلها -left-1 بدل -right-1
+
+معايير النجاح:
+- إذا شخص واحد يرسل عدة رسائل ولم تُفتح المحادثة: badge = 1
+- إذا 3 أشخاص يرسلون: badge = 3
+- عند فتح محادثة وقراءة الرسائل (markConversationRead): ينقص العدد (قد يصل 0)
+- لا أي تغيير في messages.tsx ولا تتأثر مشكلة التركيز
+
+في النهاية:
+- اذكر الملفات المعدلة
+- واذكر أين وضعت badge داخل layout-shell.tsx (حول أيقونة الرسائل)
+- واذكر اسم الدالة التي أضفتها في store
