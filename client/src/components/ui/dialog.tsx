@@ -3,6 +3,7 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,73 @@ const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
 
+// Animation configuration
+const ANIMATION_DURATION = 0.18
+const ANIMATION_EASE = "easeOut"
+
+// Animation variants
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+}
+
+const contentVariants = {
+  hidden: { opacity: 0, y: 8, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+}
+
+// Motion-enabled Overlay component
+const MotionOverlay = React.forwardRef<
+  HTMLDivElement,
+  { className?: string; prefersReducedMotion: boolean | null }
+>(({ className, prefersReducedMotion }, ref) => {
+  const duration = prefersReducedMotion ? 0 : ANIMATION_DURATION
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      variants={overlayVariants}
+      transition={{ duration, ease: ANIMATION_EASE }}
+      className={cn(
+        "fixed inset-0 z-50 bg-black/80 will-change-[opacity]",
+        className
+      )}
+    />
+  )
+})
+MotionOverlay.displayName = "MotionOverlay"
+
+// Motion-enabled Content component
+const MotionContent = React.forwardRef<
+  HTMLDivElement,
+  { className?: string; children?: React.ReactNode; prefersReducedMotion: boolean | null }
+>(({ className, children, prefersReducedMotion }, ref) => {
+  const duration = prefersReducedMotion ? 0 : ANIMATION_DURATION
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      variants={contentVariants}
+      transition={{ duration, ease: ANIMATION_EASE }}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
+        "will-change-transform transform-gpu",
+        className
+      )}
+    >
+      {children}
+    </motion.div>
+  )
+})
+MotionContent.displayName = "MotionContent"
+
+// Legacy DialogOverlay for backwards compatibility
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -22,9 +90,6 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed inset-0 z-50 bg-black/80",
-      "data-[state=open]:animate-in data-[state=closed]:animate-out",
-      "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-      "duration-200 ease-out",
       className
     )}
     {...props}
@@ -32,33 +97,52 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+// Main DialogContent with AnimatePresence support
+interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  container?: HTMLElement | null
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-        "data-[state=open]:zoom-in-[0.98] data-[state=closed]:zoom-out-[0.98]",
-        "data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:slide-out-to-bottom-2",
-        "duration-200 ease-out",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+  DialogContentProps
+>(({ className, children, container, ...props }, ref) => {
+  const prefersReducedMotion = useReducedMotion()
+  const [isPresent, setIsPresent] = React.useState(false)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+
+  // Sync with Radix's internal state
+  React.useEffect(() => {
+    setIsPresent(true)
+    return () => setIsPresent(false)
+  }, [])
+
+  return (
+    <DialogPrimitive.Portal container={container}>
+      <AnimatePresence mode="wait">
+        {isPresent && (
+          <React.Fragment key="dialog-content">
+            <DialogPrimitive.Overlay asChild forceMount>
+              <MotionOverlay prefersReducedMotion={prefersReducedMotion} />
+            </DialogPrimitive.Overlay>
+            <DialogPrimitive.Content ref={ref} asChild forceMount {...props}>
+              <MotionContent 
+                ref={contentRef} 
+                className={className}
+                prefersReducedMotion={prefersReducedMotion}
+              >
+                {children}
+                <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+              </MotionContent>
+            </DialogPrimitive.Content>
+          </React.Fragment>
+        )}
+      </AnimatePresence>
+    </DialogPrimitive.Portal>
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
