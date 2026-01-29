@@ -221,6 +221,8 @@ export default function Profile() {
   });
   const [privateEditErrors, setPrivateEditErrors] = useState<Record<string, string>>({});
   const [isSavingPrivate, setIsSavingPrivate] = useState(false);
+  const [draftAllowDM, setDraftAllowDM] = useState<'everyone' | 'none'>('everyone');
+  const [isSavingDMSettings, setIsSavingDMSettings] = useState(false);
 
   useEffect(() => {
     if (profileEmail) {
@@ -246,6 +248,15 @@ export default function Profile() {
       setTempAvatar(null);
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (user?.email) {
+      const acc = getAccount(user.email);
+      if (acc) {
+        setDraftAllowDM(acc.allowDM ?? 'everyone');
+      }
+    }
+  }, [user, getAccount]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1268,8 +1279,8 @@ export default function Profile() {
                               <div className="flex gap-1">
                                 <Button
                                   size="sm"
-                                  variant={(account?.allowDM ?? 'everyone') === 'everyone' ? 'default' : 'outline'}
-                                  onClick={() => updateAccount(user?.email || '', { allowDM: 'everyone' })}
+                                  variant={draftAllowDM === 'everyone' ? 'default' : 'outline'}
+                                  onClick={() => setDraftAllowDM('everyone')}
                                   className="text-xs px-3"
                                   data-testid="button-dm-on"
                                 >
@@ -1277,8 +1288,8 @@ export default function Profile() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  variant={(account?.allowDM ?? 'everyone') === 'none' ? 'default' : 'outline'}
-                                  onClick={() => updateAccount(user?.email || '', { allowDM: 'none' })}
+                                  variant={draftAllowDM === 'none' ? 'default' : 'outline'}
+                                  onClick={() => setDraftAllowDM('none')}
                                   className="text-xs px-3"
                                   data-testid="button-dm-off"
                                 >
@@ -1286,6 +1297,38 @@ export default function Profile() {
                                 </Button>
                               </div>
                             </div>
+                            
+                            {draftAllowDM !== (account?.allowDM ?? 'everyone') && (
+                              <div className="flex gap-2 mt-4 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setDraftAllowDM(account?.allowDM ?? 'everyone')}
+                                  disabled={isSavingDMSettings}
+                                  data-testid="button-cancel-dm-settings"
+                                >
+                                  {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setIsSavingDMSettings(true);
+                                    updateAccount(user?.email || '', { allowDM: draftAllowDM });
+                                    toast({
+                                      title: lang === 'ar' ? 'تم الحفظ' : 'Saved',
+                                      description: lang === 'ar' ? 'تم حفظ إعدادات الرسائل الخاصة' : 'DM settings saved successfully'
+                                    });
+                                    setIsSavingDMSettings(false);
+                                  }}
+                                  disabled={isSavingDMSettings}
+                                  data-testid="button-save-dm-settings"
+                                >
+                                  {isSavingDMSettings 
+                                    ? (lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') 
+                                    : (lang === 'ar' ? 'حفظ الإعدادات' : 'Save settings')}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           
                           <div className="pt-4 border-t border-white/10">
