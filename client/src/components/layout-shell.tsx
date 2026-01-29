@@ -129,7 +129,17 @@ export function LayoutShell({ children }: LayoutShellProps) {
                   }`}
                   data-testid={`nav-desktop-${item.path.replace('/', '')}`}
                 >
-                  <item.icon className={`w-4 h-4 ${active ? 'text-primary' : ''}`} />
+                  <div className="relative">
+                    <item.icon className={`w-4 h-4 ${active ? 'text-primary' : ''}`} />
+                    {item.path === '/messages' && unreadConversations > 0 && (
+                      <span 
+                        className={`absolute -top-1 ${lang === 'ar' ? '-left-1' : '-right-1'} min-w-[16px] h-[16px] flex items-center justify-center bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-0.5`}
+                        data-testid="badge-unread-messages-desktop"
+                      >
+                        {unreadConversations > 99 ? '99+' : unreadConversations}
+                      </span>
+                    )}
+                  </div>
                   <span>{item.label}</span>
                 </button>
               );
