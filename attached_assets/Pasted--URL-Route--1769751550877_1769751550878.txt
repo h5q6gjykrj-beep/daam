@@ -1,0 +1,68 @@
+مهمة واحدة: تشخيص “مسار النقر → تغيير URL → تحديث Route → تحميل بروفايل جديد” ثم إصلاحه بالكامل حتى يعمل:
+- Hover/Click داخل Followers/Following Dialog
+- عند الضغط: يتغير URL
+- يتغير param (:email) في Route
+- تتبدّل صفحة Profile وتعرض المستخدم الجديد فعليًا
+
+قيود صارمة:
+1) لا تلمس منطق البيانات (followers/following/getProfile/store) إلا إذا كان هو السبب القطعي في “عدم تبدّل المستخدم المعروض” (يعني: الصفحة دائمًا تعرض user.email حتى لو تغيّر route param).
+2) لا تعمل refactor واسع. إصلاحات جراحية فقط.
+3) لا تترك أي console logs بعد الانتهاء.
+4) يجب أن تُرفق في النهاية: “Root cause واحد” + “Patch” + “Checklist تحقق”.
+
+الخطوات الإلزامية (نفّذها حرفيًا بالترتيب):
+
+A) إثبات وصول النقر (Click Reachability)
+1) افتح client/src/pages/profile.tsx وحدد Followers/Following Dialog rows.
+2) تأكد أن rows هي عناصر تفاعلية (button) وأنه لا توجد طبقة تمنع pointer-events.
+3) إن وجدت أي wrapper في dialog.tsx يغطي الشاشة ويبتلع النقرات (fixed inset-0) بدون pointer-events-none → أصلحه كما يلي فقط:
+   - wrapper full-screen: pointer-events-none
+   - inner content box: pointer-events-auto
+(لا تغيّر شيء آخر)
+
+B) إثبات تغيّر الـ URL فعليًا
+1) في onClick للـ follower/following: طبّق التنقل بهذه الأولوية:
+   - استخدم wouter setLocation أولًا
+   - إذا لم يغيّر URL (تحقق فورًا عبر window.location.pathname بعد setLocation)، نفّذ fallback:
+     window.history.pushState(null, "", target);
+     window.dispatchEvent(new PopStateEvent("popstate"));
+2) يجب أن تضمن أن إغلاق الديالوج لا يسبق التنقل:
+   - نفّذ navigation أولًا
+   - ثم أغلق الديالوج بـ queueMicrotask أو setTimeout(0)
+
+C) إثبات أن Route param يتغير داخل Profile
+1) داخل Profile component في profile.tsx:
+   - يجب أن تعتمد على route param رسميًا:
+     import { useRoute } from "wouter";
+     const [, params] = useRoute("/profile/:email?");
+     const routeEmail = params?.email ? decodeURIComponent(params.email) : undefined;
+2) اجعل “البريد المعروض” Source of Truth:
+   const viewingEmail = routeEmail ?? user?.email;
+3) أي اختيار/تحميل للـ profile المعروض يجب أن يعتمد على viewingEmail وليس دائمًا user.email.
+   - إذا يوجد useEffect يحمل profile: اجعل dependency = [viewingEmail]
+   - إذا يوجد state مثل profileEmail/selectedEmail: حدّثه عند تغيّر viewingEmail
+
+D) السبب الأكثر شيوعًا ويجب التحقق منه (إلزامي)
+إذا بعد تغيّر URL لا تتغير الصفحة، فغالبًا Profile يعرض دائمًا بروفايل user الحالي.
+- ابحث في profile.tsx عن أي منطق يستخدم user.email مباشرة لعرض profile
+- استبدله لاستخدام viewingEmail
+(هذا مسموح لأنه إصلاح لسبب قطعي يمنع التنقل “فعليًا”)
+
+E) ملفات مسموح تعديلها
+- ابدأ بملف واحد فقط: client/src/pages/profile.tsx
+- إذا ثبت بالدليل أن click يُبتلع بسبب Dialog layering، يسمح تعديل ملف ثانٍ فقط: client/src/components/ui/dialog.tsx
+- ممنوع تعديل App.tsx أو routing العام
+
+F) تسليم نهائي (لا تتجاوز)
+1) Root cause واحد محدد (جملة واحدة).
+2) قائمة الملفات المعدلة (1 أو 2 فقط).
+3) Patch النهائي جاهز.
+4) Checklist تحقق:
+   - افتح Profile
+   - افتح Followers
+   - اضغط اسم
+   - URL يتغير إلى /profile/<email>
+   - عنوان/بيانات Profile تتغير للمستخدم الجديد
+   - الرجوع Back يعمل
+
+نفّذ الآن، ولا تكتب “نظريًا” أو “قد يكون”. أثبت كل مرحلة ثم أصلحها.

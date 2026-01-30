@@ -185,7 +185,6 @@ export default function Profile() {
   
   const isRTL = lang === 'ar';
   const profileEmail = params?.email ? decodeURIComponent(params.email) : user?.email;
-  console.log("PROFILE_PARAM_EMAIL", profileEmail);
   const isOwnProfile = user?.email === profileEmail;
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -226,7 +225,6 @@ export default function Profile() {
   const [isSavingDMSettings, setIsSavingDMSettings] = useState(false);
 
   useEffect(() => {
-    console.log("EFFECT_PROFILE_EMAIL", profileEmail);
     if (profileEmail) {
       const p = getProfile(profileEmail);
       setProfile(p || null);
@@ -1373,13 +1371,13 @@ export default function Profile() {
                     type="button"
                     key={followerEmail}
                     onClick={() => {
-                      console.log("ROW_CLICK", followerEmail);
-                      console.log("BEFORE_LOC", window.location.pathname, window.location.href);
-                      setLocation(`/profile/${encodeURIComponent(followerEmail)}`);
-                      setTimeout(() => {
-                        console.log("AFTER_LOC", window.location.pathname, window.location.href);
-                      }, 50);
-                      setShowFollowersDialog(false);
+                      const target = `/profile/${encodeURIComponent(followerEmail)}`;
+                      setLocation(target);
+                      if (window.location.pathname !== target) {
+                        window.history.pushState(null, "", target);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                      }
+                      queueMicrotask(() => setShowFollowersDialog(false));
                     }}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
@@ -1427,13 +1425,13 @@ export default function Profile() {
                     type="button"
                     key={followingEmail}
                     onClick={() => {
-                      console.log("ROW_CLICK", followingEmail);
-                      console.log("BEFORE_LOC", window.location.pathname, window.location.href);
-                      setLocation(`/profile/${encodeURIComponent(followingEmail)}`);
-                      setTimeout(() => {
-                        console.log("AFTER_LOC", window.location.pathname, window.location.href);
-                      }, 50);
-                      setShowFollowingDialog(false);
+                      const target = `/profile/${encodeURIComponent(followingEmail)}`;
+                      setLocation(target);
+                      if (window.location.pathname !== target) {
+                        window.history.pushState(null, "", target);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                      }
+                      queueMicrotask(() => setShowFollowingDialog(false));
                     }}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
