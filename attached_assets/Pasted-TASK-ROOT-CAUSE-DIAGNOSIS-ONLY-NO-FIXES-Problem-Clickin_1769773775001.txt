@@ -1,0 +1,58 @@
+TASK: ROOT-CAUSE DIAGNOSIS ONLY (NO FIXES).
+Problem: Clicking follower/following rows logs row click, but navigation never happens (not even <a href>, not setLocation, not window.location.assign).
+Goal: identify the exact blocker: (A) global preventDefault / click interception, or (B) environment/iframe navigation restrictions, or (C) router state not updating.
+
+STRICT RULES:
+- DO NOT change UI behavior.
+- DO NOT refactor logic.
+- DO NOT remove/add features.
+- Only add TEMPORARY diagnostic code. Keep changes minimal.
+- You may modify up to 2 files MAX for diagnostics: client/src/pages/profile.tsx and client/src/components/ui/dialog.tsx.
+- Print clear, labeled logs. No other output.
+
+DIAGNOSTIC PLAN:
+
+1) Add a CONTROL NAV TEST that is outside any Dialog:
+   In profile.tsx, add a tiny temporary button near the top of the page (visible):
+   Label: "NAV_TEST"
+   onClick:
+     console.log("[NAV_TEST] before", window.location.pathname, window.location.href);
+     try {
+       history.pushState({}, "", "/profile/nav_test@example.com");
+       window.dispatchEvent(new PopStateEvent("popstate"));
+     } catch (e) { console.log("[NAV_TEST] pushState error", e); }
+     console.log("[NAV_TEST] after", window.location.pathname, window.location.href);
+
+   Also add:
+     const [loc] = useLocation();
+     console.log("[ROUTER] useLocation loc =", loc);
+
+2) Add CAPTURE-LEVEL CLICK SNIFFER (to detect preventDefault upstream):
+   In profile.tsx (top-level root div for the page), add:
+     onClickCapture={(e) => {
+       const t = e.target as HTMLElement | null;
+       console.log("[CAPTURE] clickCapture defaultPrevented=", e.defaultPrevented, "target=", t?.tagName, "class=", t?.className);
+     }}
+
+3) Add ROW CLICK LOGS (no prevention, no navigation):
+   In follower row onClick:
+     console.log("[ROW] click", followerEmail, "defaultPrevented=", e.defaultPrevented, "path=", window.location.pathname);
+
+   DO NOT call preventDefault/stopPropagation/close dialog/navigation inside diagnostics step.
+
+4) Run and collect results:
+   - Click NAV_TEST once. Record:
+     [NAV_TEST] before/after
+     [ROUTER] useLocation loc
+   - Open Followers dialog and click a row once. Record:
+     [CAPTURE] ...
+     [ROW] ...
+
+INTERPRETATION RULES (agent must conclude explicitly):
+- If NAV_TEST changes URL in logs but UI route doesn't update => router popstate handling broken or blocked; identify why.
+- If NAV_TEST does NOT change URL at all => environment blocks pushState; identify hosting/iframe constraint.
+- If row click shows defaultPrevented=true at CAPTURE stage => some parent/global handler is preventing default; locate it by searching codebase for addEventListener('click', ... , true) or onClickCapture with preventDefault, and report exact file+line.
+- Provide final output as:
+  (a) root cause classification A/B/C
+  (b) exact file+line of blocker (if A/C)
+  (c) recommended minimal fix (describe only, DO NOT implement).

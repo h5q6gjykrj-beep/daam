@@ -623,8 +623,35 @@ export default function Profile() {
     );
   }
 
+  // DIAGNOSTIC: Log router state
+  const [routerLoc] = useLocation();
+  console.log("[ROUTER] useLocation loc =", routerLoc);
+
   return (
-    <div className="space-y-0" data-testid="profile-page" key={profileEmail ?? "me"}>
+    <div 
+      className="space-y-0" 
+      data-testid="profile-page" 
+      key={profileEmail ?? "me"}
+      onClickCapture={(e) => {
+        const t = e.target as HTMLElement | null;
+        console.log("[CAPTURE] clickCapture defaultPrevented=", e.defaultPrevented, "target=", t?.tagName, "class=", t?.className?.substring?.(0,50));
+      }}
+    >
+      {/* DIAGNOSTIC: NAV_TEST button */}
+      <button
+        style={{ position: 'fixed', top: 10, left: 10, zIndex: 9999, background: 'red', color: 'white', padding: '8px 16px', borderRadius: 4 }}
+        onClick={() => {
+          console.log("[NAV_TEST] before", window.location.pathname, window.location.href);
+          try {
+            history.pushState({}, "", "/profile/nav_test@example.com");
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          } catch (err) { console.log("[NAV_TEST] pushState error", err); }
+          console.log("[NAV_TEST] after", window.location.pathname, window.location.href);
+        }}
+        data-testid="nav-test-button"
+      >
+        NAV_TEST
+      </button>
       <div ref={headerRef}>
         <div className="relative h-48 md:h-64 -mx-4 md:-mx-6 -mt-6 overflow-hidden">
           {profile?.coverUrl || tempCover ? (
@@ -1372,14 +1399,20 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
                     onClick={(e) => {
+                      // DIAGNOSTIC: Log row click state (no navigation logic)
+                      console.log("[ROW] click", followerEmail, "defaultPrevented=", e.defaultPrevented, "path=", window.location.pathname);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followerEmail)}`;
                       setShowFollowersDialog(false);
+                      console.log("[ROW] attempting navigation to", target);
                       setTimeout(() => {
+                        console.log("[ROW] setTimeout fired, calling window.location.assign");
                         try {
                           window.location.assign(target);
-                        } catch {
+                          console.log("[ROW] window.location.assign completed");
+                        } catch (err) {
+                          console.log("[ROW] window.location.assign error", err);
                           (window.top || window).location.href = target;
                         }
                       }, 0);
@@ -1430,14 +1463,20 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
                     onClick={(e) => {
+                      // DIAGNOSTIC: Log row click state
+                      console.log("[ROW] click", followingEmail, "defaultPrevented=", e.defaultPrevented, "path=", window.location.pathname);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followingEmail)}`;
                       setShowFollowingDialog(false);
+                      console.log("[ROW] attempting navigation to", target);
                       setTimeout(() => {
+                        console.log("[ROW] setTimeout fired, calling window.location.assign");
                         try {
                           window.location.assign(target);
-                        } catch {
+                          console.log("[ROW] window.location.assign completed");
+                        } catch (err) {
+                          console.log("[ROW] window.location.assign error", err);
                           (window.top || window).location.href = target;
                         }
                       }, 0);
