@@ -1371,10 +1371,12 @@ export default function Profile() {
                     type="button"
                     key={followerEmail}
                     onClick={(e) => {
+                      console.log("FOLLOWER_CLICK:", followerEmail);
                       e.preventDefault();
                       e.stopPropagation();
                       setShowFollowersDialog(false);
                       setTimeout(() => {
+                        console.log("NAVIGATING TO:", `/profile/${encodeURIComponent(followerEmail)}`);
                         window.location.href = `/profile/${encodeURIComponent(followerEmail)}`;
                       }, 100);
                     }}
