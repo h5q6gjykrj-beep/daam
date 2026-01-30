@@ -179,7 +179,6 @@ export default function Profile() {
     return moderators.some(m => m.email.toLowerCase() === emailLower && m.isActive);
   };
   const isStaff = (email: string) => isAdmin(email) || isModerator(email);
-  const [_, setLocation] = useLocation();
   const [match, params] = useRoute("/profile/:email");
   const { toast } = useToast();
   
@@ -506,7 +505,7 @@ export default function Profile() {
     <Card 
       key={post.id} 
       className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => setLocation('/feed')}
+      onClick={() => navigate('/feed')}
       data-testid={`post-card-${post.id}`}
     >
       <CardContent className="p-4">
@@ -557,7 +556,7 @@ export default function Profile() {
     <Card 
       key={item.reply.id} 
       className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => setLocation('/feed')}
+      onClick={() => navigate('/feed')}
       data-testid={`reply-card-${item.reply.id}`}
     >
       <CardContent className="p-4">
@@ -623,35 +622,12 @@ export default function Profile() {
     );
   }
 
-  // DIAGNOSTIC: Log router state
-  const [routerLoc] = useLocation();
-  console.log("[ROUTER] useLocation loc =", routerLoc);
-
   return (
     <div 
       className="space-y-0" 
       data-testid="profile-page" 
       key={profileEmail ?? "me"}
-      onClickCapture={(e) => {
-        const t = e.target as HTMLElement | null;
-        console.log("[CAPTURE] clickCapture defaultPrevented=", e.defaultPrevented, "target=", t?.tagName, "class=", t?.className?.substring?.(0,50));
-      }}
     >
-      {/* DIAGNOSTIC: NAV_TEST button */}
-      <button
-        style={{ position: 'fixed', top: 10, left: 10, zIndex: 9999, background: 'red', color: 'white', padding: '8px 16px', borderRadius: 4 }}
-        onClick={() => {
-          console.log("[NAV_TEST] before", window.location.pathname, window.location.href);
-          try {
-            history.pushState({}, "", "/profile/nav_test@example.com");
-            window.dispatchEvent(new PopStateEvent("popstate"));
-          } catch (err) { console.log("[NAV_TEST] pushState error", err); }
-          console.log("[NAV_TEST] after", window.location.pathname, window.location.href);
-        }}
-        data-testid="nav-test-button"
-      >
-        NAV_TEST
-      </button>
       <div ref={headerRef}>
         <div className="relative h-48 md:h-64 -mx-4 md:-mx-6 -mt-6 overflow-hidden">
           {profile?.coverUrl || tempCover ? (
@@ -1378,7 +1354,7 @@ export default function Profile() {
 
       {/* Followers Dialog */}
       <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
-        <DialogContent className="max-w-md" onClickCapture={(e) => console.log("[DIALOG_CONTENT_CAPTURE]", (e.target as HTMLElement)?.tagName, (e.target as HTMLElement)?.className)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'المتابعون' : 'Followers'}
@@ -1393,22 +1369,15 @@ export default function Profile() {
               profile?.followers?.map((followerEmail) => {
                 const followerProfile = getProfile(followerEmail);
                 return (
-                  <a 
+                  <button
+                    type="button"
                     key={followerEmail}
-                    href={`/profile/${encodeURIComponent(followerEmail)}`}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
-                    onClickCapture={(e) => console.log("[ROW_CAPTURE]", {
-                      email: followerEmail,
-                      target: (e.target as HTMLElement)?.tagName,
-                      targetClass: (e.target as HTMLElement)?.className,
-                      current: (e.currentTarget as HTMLElement)?.tagName,
-                      currentClass: (e.currentTarget as HTMLElement)?.className,
-                      href: (e.currentTarget as HTMLAnchorElement)?.getAttribute("href"),
-                      closestA: (e.target as HTMLElement)?.closest("a")?.getAttribute("href"),
-                      defaultPrevented: e.defaultPrevented
-                    })}
-                    onClick={() => console.log("[ROW_CLICK]", followerEmail)}
+                    onClick={() => {
+                      setShowFollowersDialog(false);
+                      requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followerEmail)}`));
+                    }}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
                       <AvatarImage src={followerProfile?.avatarUrl} />
@@ -1424,7 +1393,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followerProfile.major}</p>
                       )}
                     </div>
-                  </a>
+                  </button>
                 );
               })
             )}
@@ -1434,7 +1403,7 @@ export default function Profile() {
 
       {/* Following Dialog */}
       <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
-        <DialogContent className="max-w-md" onClickCapture={(e) => console.log("[DIALOG_CONTENT_CAPTURE]", (e.target as HTMLElement)?.tagName, (e.target as HTMLElement)?.className)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'يتابع' : 'Following'}
@@ -1449,22 +1418,15 @@ export default function Profile() {
               profile?.following?.map((followingEmail) => {
                 const followingProfile = getProfile(followingEmail);
                 return (
-                  <a 
+                  <button
+                    type="button"
                     key={followingEmail}
-                    href={`/profile/${encodeURIComponent(followingEmail)}`}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
-                    onClickCapture={(e) => console.log("[ROW_CAPTURE]", {
-                      email: followingEmail,
-                      target: (e.target as HTMLElement)?.tagName,
-                      targetClass: (e.target as HTMLElement)?.className,
-                      current: (e.currentTarget as HTMLElement)?.tagName,
-                      currentClass: (e.currentTarget as HTMLElement)?.className,
-                      href: (e.currentTarget as HTMLAnchorElement)?.getAttribute("href"),
-                      closestA: (e.target as HTMLElement)?.closest("a")?.getAttribute("href"),
-                      defaultPrevented: e.defaultPrevented
-                    })}
-                    onClick={() => console.log("[ROW_CLICK]", followingEmail)}
+                    onClick={() => {
+                      setShowFollowingDialog(false);
+                      requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followingEmail)}`));
+                    }}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
                       <AvatarImage src={followingProfile?.avatarUrl} />
@@ -1480,7 +1442,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followingProfile.major}</p>
                       )}
                     </div>
-                  </a>
+                  </button>
                 );
               })
             )}
