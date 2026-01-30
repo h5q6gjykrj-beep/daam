@@ -1367,11 +1367,14 @@ export default function Profile() {
               profile?.followers?.map((followerEmail) => {
                 const followerProfile = getProfile(followerEmail);
                 return (
-                  <Link 
+                  <button 
+                    type="button"
                     key={followerEmail}
-                    href={`/profile/${encodeURIComponent(followerEmail)}`}
-                    onClick={() => setShowFollowersDialog(false)}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors"
+                    onClick={() => {
+                      setLocation(`/profile/${encodeURIComponent(followerEmail)}`);
+                      setShowFollowersDialog(false);
+                    }}
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1388,7 +1391,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followerProfile.major}</p>
                       )}
                     </div>
-                  </Link>
+                  </button>
                 );
               })
             )}
@@ -1413,11 +1416,14 @@ export default function Profile() {
               profile?.following?.map((followingEmail) => {
                 const followingProfile = getProfile(followingEmail);
                 return (
-                  <Link 
+                  <button 
+                    type="button"
                     key={followingEmail}
-                    href={`/profile/${encodeURIComponent(followingEmail)}`}
-                    onClick={() => setShowFollowingDialog(false)}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors"
+                    onClick={() => {
+                      setLocation(`/profile/${encodeURIComponent(followingEmail)}`);
+                      setShowFollowingDialog(false);
+                    }}
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1434,7 +1440,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followingProfile.major}</p>
                       )}
                     </div>
-                  </Link>
+                  </button>
                 );
               })
             )}
