@@ -1378,7 +1378,7 @@ export default function Profile() {
 
       {/* Followers Dialog */}
       <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" onClickCapture={(e) => console.log("[DIALOG_CONTENT_CAPTURE]", (e.target as HTMLElement)?.tagName, (e.target as HTMLElement)?.className)}>
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'المتابعون' : 'Followers'}
@@ -1398,25 +1398,17 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followerEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
-                    onClick={(e) => {
-                      // DIAGNOSTIC: Log row click state (no navigation logic)
-                      console.log("[ROW] click", followerEmail, "defaultPrevented=", e.defaultPrevented, "path=", window.location.pathname);
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const target = `/profile/${encodeURIComponent(followerEmail)}`;
-                      setShowFollowersDialog(false);
-                      console.log("[ROW] attempting navigation to", target);
-                      setTimeout(() => {
-                        console.log("[ROW] setTimeout fired, calling window.location.assign");
-                        try {
-                          window.location.assign(target);
-                          console.log("[ROW] window.location.assign completed");
-                        } catch (err) {
-                          console.log("[ROW] window.location.assign error", err);
-                          (window.top || window).location.href = target;
-                        }
-                      }, 0);
-                    }}
+                    onClickCapture={(e) => console.log("[ROW_CAPTURE]", {
+                      email: followerEmail,
+                      target: (e.target as HTMLElement)?.tagName,
+                      targetClass: (e.target as HTMLElement)?.className,
+                      current: (e.currentTarget as HTMLElement)?.tagName,
+                      currentClass: (e.currentTarget as HTMLElement)?.className,
+                      href: (e.currentTarget as HTMLAnchorElement)?.getAttribute("href"),
+                      closestA: (e.target as HTMLElement)?.closest("a")?.getAttribute("href"),
+                      defaultPrevented: e.defaultPrevented
+                    })}
+                    onClick={() => console.log("[ROW_CLICK]", followerEmail)}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
                       <AvatarImage src={followerProfile?.avatarUrl} />
@@ -1442,7 +1434,7 @@ export default function Profile() {
 
       {/* Following Dialog */}
       <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" onClickCapture={(e) => console.log("[DIALOG_CONTENT_CAPTURE]", (e.target as HTMLElement)?.tagName, (e.target as HTMLElement)?.className)}>
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'يتابع' : 'Following'}
@@ -1462,25 +1454,17 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followingEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
-                    onClick={(e) => {
-                      // DIAGNOSTIC: Log row click state
-                      console.log("[ROW] click", followingEmail, "defaultPrevented=", e.defaultPrevented, "path=", window.location.pathname);
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const target = `/profile/${encodeURIComponent(followingEmail)}`;
-                      setShowFollowingDialog(false);
-                      console.log("[ROW] attempting navigation to", target);
-                      setTimeout(() => {
-                        console.log("[ROW] setTimeout fired, calling window.location.assign");
-                        try {
-                          window.location.assign(target);
-                          console.log("[ROW] window.location.assign completed");
-                        } catch (err) {
-                          console.log("[ROW] window.location.assign error", err);
-                          (window.top || window).location.href = target;
-                        }
-                      }, 0);
-                    }}
+                    onClickCapture={(e) => console.log("[ROW_CAPTURE]", {
+                      email: followingEmail,
+                      target: (e.target as HTMLElement)?.tagName,
+                      targetClass: (e.target as HTMLElement)?.className,
+                      current: (e.currentTarget as HTMLElement)?.tagName,
+                      currentClass: (e.currentTarget as HTMLElement)?.className,
+                      href: (e.currentTarget as HTMLAnchorElement)?.getAttribute("href"),
+                      closestA: (e.target as HTMLElement)?.closest("a")?.getAttribute("href"),
+                      defaultPrevented: e.defaultPrevented
+                    })}
+                    onClick={() => console.log("[ROW_CLICK]", followingEmail)}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
                       <AvatarImage src={followingProfile?.avatarUrl} />
