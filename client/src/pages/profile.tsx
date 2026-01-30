@@ -1373,17 +1373,12 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
                     onClick={(e) => {
+                      alert("CLICK FIRED");
+                      console.log("CLICK_RAN");
                       e.preventDefault();
                       e.stopPropagation();
-                      const target = `/profile/${encodeURIComponent(followerEmail)}`;
                       setShowFollowersDialog(false);
-                      setTimeout(() => {
-                        try {
-                          window.location.assign(target);
-                        } catch {
-                          (window.top || window).location.href = target;
-                        }
-                      }, 0);
+                      setTimeout(() => window.location.assign("https://example.com"), 0);
                     }}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1431,17 +1426,12 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
                     onClick={(e) => {
+                      alert("CLICK FIRED");
+                      console.log("CLICK_RAN");
                       e.preventDefault();
                       e.stopPropagation();
-                      const target = `/profile/${encodeURIComponent(followingEmail)}`;
                       setShowFollowingDialog(false);
-                      setTimeout(() => {
-                        try {
-                          window.location.assign(target);
-                        } catch {
-                          (window.top || window).location.href = target;
-                        }
-                      }, 0);
+                      setTimeout(() => window.location.assign("https://example.com"), 0);
                     }}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
