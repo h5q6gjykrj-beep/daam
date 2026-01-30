@@ -223,8 +223,6 @@ export default function Profile() {
   const [isSavingPrivate, setIsSavingPrivate] = useState(false);
   const [draftAllowDM, setDraftAllowDM] = useState<'everyone' | 'none'>('everyone');
   const [isSavingDMSettings, setIsSavingDMSettings] = useState(false);
-  const [lastClick, setLastClick] = useState<string>("");
-
   useEffect(() => {
     if (profileEmail) {
       const p = getProfile(profileEmail);
@@ -1359,13 +1357,7 @@ export default function Profile() {
               {lang === 'ar' ? 'المتابعون' : 'Followers'}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground" data-testid="debug-last-click">
-            DEBUG: {lastClick || "none"}
-          </p>
-          <div 
-            className="max-h-[60vh] overflow-y-auto space-y-2"
-            onPointerDownCapture={() => setLastClick("POINTER_CAPTURE: followers list")}
-          >
+          <div className="max-h-[60vh] overflow-y-auto space-y-2">
             {(profile?.followers?.length || 0) === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 {lang === 'ar' ? 'لا يوجد متابعون بعد' : 'No followers yet'}
@@ -1379,9 +1371,7 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followerEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
-                    onPointerDownCapture={() => console.log("[PROFILE] row capture", followerEmail)}
                     onClick={(e) => {
-                      console.log("[PROFILE] row click", followerEmail);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followerEmail)}`;
@@ -1425,13 +1415,7 @@ export default function Profile() {
               {lang === 'ar' ? 'يتابع' : 'Following'}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground" data-testid="debug-last-click-following">
-            DEBUG: {lastClick || "none"}
-          </p>
-          <div 
-            className="max-h-[60vh] overflow-y-auto space-y-2"
-            onPointerDownCapture={() => setLastClick("POINTER_CAPTURE: following list")}
-          >
+          <div className="max-h-[60vh] overflow-y-auto space-y-2">
             {(profile?.following?.length || 0) === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 {lang === 'ar' ? 'لا يتابع أحداً بعد' : 'Not following anyone yet'}
@@ -1445,9 +1429,7 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followingEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
-                    onPointerDownCapture={() => console.log("[PROFILE] row capture", followingEmail)}
                     onClick={(e) => {
-                      console.log("[PROFILE] row click", followingEmail);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followingEmail)}`;
