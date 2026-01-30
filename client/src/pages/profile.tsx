@@ -1367,20 +1367,10 @@ export default function Profile() {
               profile?.followers?.map((followerEmail) => {
                 const followerProfile = getProfile(followerEmail);
                 return (
-                  <button 
-                    type="button"
+                  <a 
                     key={followerEmail}
-                    onClick={(e) => {
-                      console.log("FOLLOWER_CLICK:", followerEmail);
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowFollowersDialog(false);
-                      setTimeout(() => {
-                        console.log("NAVIGATING TO:", `/profile/${encodeURIComponent(followerEmail)}`);
-                        window.location.href = `/profile/${encodeURIComponent(followerEmail)}`;
-                      }, 100);
-                    }}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
+                    href={`/profile/${encodeURIComponent(followerEmail)}`}
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1397,7 +1387,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followerProfile.major}</p>
                       )}
                     </div>
-                  </button>
+                  </a>
                 );
               })
             )}
@@ -1422,18 +1412,10 @@ export default function Profile() {
               profile?.following?.map((followingEmail) => {
                 const followingProfile = getProfile(followingEmail);
                 return (
-                  <button 
-                    type="button"
+                  <a 
                     key={followingEmail}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowFollowingDialog(false);
-                      setTimeout(() => {
-                        window.location.href = `/profile/${encodeURIComponent(followingEmail)}`;
-                      }, 100);
-                    }}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
+                    href={`/profile/${encodeURIComponent(followingEmail)}`}
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
@@ -1450,7 +1432,7 @@ export default function Profile() {
                         <p className="text-xs text-muted-foreground truncate">{followingProfile.major}</p>
                       )}
                     </div>
-                  </button>
+                  </a>
                 );
               })
             )}
