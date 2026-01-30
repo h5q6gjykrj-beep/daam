@@ -1370,14 +1370,13 @@ export default function Profile() {
                   <button 
                     type="button"
                     key={followerEmail}
-                    onClick={() => {
-                      const target = `/profile/${encodeURIComponent(followerEmail)}`;
-                      setLocation(target);
-                      if (window.location.pathname !== target) {
-                        window.history.pushState(null, "", target);
-                        window.dispatchEvent(new PopStateEvent("popstate"));
-                      }
-                      queueMicrotask(() => setShowFollowersDialog(false));
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowFollowersDialog(false);
+                      setTimeout(() => {
+                        window.location.href = `/profile/${encodeURIComponent(followerEmail)}`;
+                      }, 100);
                     }}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
@@ -1424,14 +1423,13 @@ export default function Profile() {
                   <button 
                     type="button"
                     key={followingEmail}
-                    onClick={() => {
-                      const target = `/profile/${encodeURIComponent(followingEmail)}`;
-                      setLocation(target);
-                      if (window.location.pathname !== target) {
-                        window.history.pushState(null, "", target);
-                        window.dispatchEvent(new PopStateEvent("popstate"));
-                      }
-                      queueMicrotask(() => setShowFollowingDialog(false));
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowFollowingDialog(false);
+                      setTimeout(() => {
+                        window.location.href = `/profile/${encodeURIComponent(followingEmail)}`;
+                      }, 100);
                     }}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
