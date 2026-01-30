@@ -625,7 +625,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-0" data-testid="profile-page">
+    <div className="space-y-0" data-testid="profile-page" key={profileEmail ?? "me"}>
       <div ref={headerRef}>
         <div className="relative h-48 md:h-64 -mx-4 md:-mx-6 -mt-6 overflow-hidden">
           {profile?.coverUrl || tempCover ? (
