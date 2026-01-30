@@ -49,6 +49,7 @@ const MotionOverlay = React.forwardRef<
         "fixed inset-0 z-40 bg-black/80 will-change-[opacity]",
         className
       )}
+      onPointerDownCapture={(e) => console.log("[DIALOG] overlay capture", e.defaultPrevented)}
     />
   )
 })
@@ -70,6 +71,7 @@ const MotionContent = React.forwardRef<
       variants={contentVariants}
       transition={{ duration, ease: ANIMATION_EASE }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+      onPointerDownCapture={(e) => console.log("[DIALOG] wrapper capture", e.defaultPrevented)}
     >
       <div
         className={cn(
@@ -77,6 +79,7 @@ const MotionContent = React.forwardRef<
           className
         )}
         onClick={(e) => e.stopPropagation()}
+        onPointerDownCapture={(e) => console.log("[DIALOG] box capture", e.defaultPrevented)}
       >
         {children}
       </div>

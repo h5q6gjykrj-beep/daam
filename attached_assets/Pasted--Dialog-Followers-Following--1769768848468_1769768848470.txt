@@ -1,0 +1,55 @@
+مهمة تشخيص مؤكِّد: هل تعديل “انبثاق الـ Dialog” هو الذي يقتل النقر/التنقّل داخل Followers/Following؟
+
+الهدف:
+إثبات (بنعم/لا) أين تُقتل الأحداث:
+- هل داخل dialog.tsx (overlay/wrapper/handlers)؟
+- أم داخل profile.tsx / routing؟
+ثم إرجاع تقرير قصير جدًا + دليل واحد قاطع (سطر/حدث).
+
+قيود:
+- لا تعمل أي إصلاح نهائي الآن.
+- لا تغيّر منطق البيانات.
+- التغييرات التشخيصية يجب أن تكون مؤقتة وسهلة الرجوع.
+- مسموح تعديل ملفين فقط للتشخيص: 
+  1) client/src/components/ui/dialog.tsx
+  2) client/src/pages/profile.tsx
+
+الخطوات (إلزامية):
+
+A) تشخيص في dialog.tsx (مصدر الاشتباه)
+1) ابحث في dialog.tsx عن أي من التالي:
+   - onPointerDown / onPointerDownCapture
+   - onMouseDown / onMouseDownCapture
+   - preventDefault
+   - stopImmediatePropagation
+   - pointer-events-none
+   - inert / aria-hidden
+2) أضف تسجيلًا واحدًا فقط (مؤقت) على MotionOverlay وعلى MotionContent wrapper وعلى inner content box:
+   onPointerDownCapture={(e)=>console.log("[DIALOG] overlay capture", e.defaultPrevented)}
+   onPointerDownCapture={(e)=>console.log("[DIALOG] wrapper capture", e.defaultPrevented)}
+   onPointerDownCapture={(e)=>console.log("[DIALOG] box capture", e.defaultPrevented)}
+(ضعه على كل عنصر في مكانه الصحيح: overlay / wrapper / box)
+3) ممنوع إضافة preventDefault أو stopPropagation في التشخيص.
+
+B) تشخيص في profile.tsx (هدف النقر)
+1) في صف follower داخل Followers Dialog:
+   أضف:
+   onPointerDownCapture={()=>console.log("[PROFILE] row capture", followerEmail)}
+   onClick={()=>console.log("[PROFILE] row click", followerEmail)}
+2) كرر نفس الشيء لFollowing row.
+
+C) إجراء اختبار واحد وتقرير النتيجة
+1) شغّل التطبيق
+2) افتح Profile → افتح Followers Dialog
+3) اضغط على اسم follower مرة واحدة
+
+النتيجة المطلوبة في ردّك:
+- اطبع ترتيب الـ logs الذي ظهر (سطرين إلى 8 أسطر كحد أقصى)
+- قرّر “Root cause” بنعم/لا:
+  هل dialog.tsx يلتقط الحدث قبل وصوله للصف؟
+  (يعني يظهر [DIALOG] overlay/wrapper capture لكن لا يظهر [PROFILE] row capture/click)
+- حدّد السطر/العنصر المسؤول إذا كان هناك preventDefault أو pointer-events-none (اسم الملف + اسم المكوّن + السطر التقريبي)
+
+بعد التقرير:
+- لا تطبّق إصلاحات نهائية.
+- لا تترك تشخيص أكثر من اللازم.

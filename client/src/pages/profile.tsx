@@ -1379,9 +1379,9 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followerEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
-                    onPointerDownCapture={() => setLastClick(`ROW_CAPTURE: ${followerEmail}`)}
+                    onPointerDownCapture={() => console.log("[PROFILE] row capture", followerEmail)}
                     onClick={(e) => {
-                      setLastClick(`ROW_CLICK: ${followerEmail}`);
+                      console.log("[PROFILE] row click", followerEmail);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followerEmail)}`;
@@ -1445,9 +1445,9 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followingEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`following-${followingEmail}`}
-                    onPointerDownCapture={() => setLastClick(`ROW_CAPTURE: ${followingEmail}`)}
+                    onPointerDownCapture={() => console.log("[PROFILE] row capture", followingEmail)}
                     onClick={(e) => {
-                      setLastClick(`ROW_CLICK: ${followingEmail}`);
+                      console.log("[PROFILE] row click", followingEmail);
                       e.preventDefault();
                       e.stopPropagation();
                       const target = `/profile/${encodeURIComponent(followingEmail)}`;
