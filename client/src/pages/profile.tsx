@@ -1372,6 +1372,12 @@ export default function Profile() {
                     href={`/profile/${encodeURIComponent(followerEmail)}`}
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left no-underline text-inherit"
                     data-testid={`follower-${followerEmail}`}
+                    onClickCapture={(e) => {
+                      console.log("ANCHOR_CLICK_CAPTURE:", followerEmail, e.defaultPrevented);
+                    }}
+                    onClick={(e) => {
+                      console.log("ANCHOR_CLICK:", followerEmail, "default prevented:", e.defaultPrevented);
+                    }}
                   >
                     <Avatar className="w-10 h-10 border border-white/10">
                       <AvatarImage src={followerProfile?.avatarUrl} />
