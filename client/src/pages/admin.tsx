@@ -119,6 +119,7 @@ function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
 }
 
 import { getNavbarConfig, saveNavbarConfig, resetNavbarConfig, type NavbarConfig } from "@/lib/navbar-config";
+import { getLandingNavbarConfig, saveLandingNavbarConfig, resetLandingNavbarConfig, getActionLabel, type LandingNavbarConfig } from "@/lib/landing-navbar-config";
 
 interface AdminNote {
   id: string;
@@ -402,6 +403,9 @@ export default function Admin() {
 
   // Navbar config state
   const [navbarConfig, setNavbarConfig] = useState<NavbarConfig>(getNavbarConfig());
+
+  // Landing Navbar config state
+  const [landingNavbarConfig, setLandingNavbarConfig] = useState<LandingNavbarConfig>(getLandingNavbarConfig());
 
   const [campaignForm, setCampaignForm] = useState({
     titleAr: '',
@@ -794,6 +798,10 @@ export default function Admin() {
     navbarAdminOnly: lang === 'ar' ? 'للأدمن فقط' : 'Admin Only',
     navbarMoveUp: lang === 'ar' ? 'تحريك لأعلى' : 'Move Up',
     navbarMoveDown: lang === 'ar' ? 'تحريك لأسفل' : 'Move Down',
+    // Landing Navbar Settings
+    landingNavbarSettings: lang === 'ar' ? 'شريط صفحة الهبوط' : 'Landing Top Bar',
+    landingNavbarSettingsDesc: lang === 'ar' ? 'تحكم في عناصر الشريط العلوي لصفحة الهبوط - الترتيب والنصوص والإظهار/الإخفاء' : 'Control landing page top bar items - order, labels, and visibility',
+    landingNavbarAction: lang === 'ar' ? 'الإجراء' : 'Action',
   };
 
   const allNavItems = [
@@ -3746,6 +3754,53 @@ export default function Admin() {
     setNavbarConfig(reset);
   };
 
+  // Landing Navbar config handlers
+  const handleLandingNavbarItemToggle = (key: string) => {
+    const updated = {
+      ...landingNavbarConfig,
+      items: landingNavbarConfig.items.map(item => 
+        item.key === key ? { ...item, enabled: !item.enabled } : item
+      )
+    };
+    setLandingNavbarConfig(updated);
+    saveLandingNavbarConfig(updated);
+  };
+
+  const handleLandingNavbarLabelChange = (key: string, field: 'ar' | 'en', value: string) => {
+    const updated = {
+      ...landingNavbarConfig,
+      items: landingNavbarConfig.items.map(item => 
+        item.key === key 
+          ? { ...item, label: { ...item.label, [field]: value } } 
+          : item
+      )
+    };
+    setLandingNavbarConfig(updated);
+    saveLandingNavbarConfig(updated);
+  };
+
+  const handleLandingNavbarItemMove = (key: string, direction: 'up' | 'down') => {
+    const sortedItems = [...landingNavbarConfig.items].sort((a, b) => a.order - b.order);
+    const idx = sortedItems.findIndex(i => i.key === key);
+    if (direction === 'up' && idx > 0) {
+      const temp = sortedItems[idx].order;
+      sortedItems[idx].order = sortedItems[idx - 1].order;
+      sortedItems[idx - 1].order = temp;
+    } else if (direction === 'down' && idx < sortedItems.length - 1) {
+      const temp = sortedItems[idx].order;
+      sortedItems[idx].order = sortedItems[idx + 1].order;
+      sortedItems[idx + 1].order = temp;
+    }
+    const updated = { ...landingNavbarConfig, items: sortedItems };
+    setLandingNavbarConfig(updated);
+    saveLandingNavbarConfig(updated);
+  };
+
+  const handleLandingNavbarReset = () => {
+    const reset = resetLandingNavbarConfig();
+    setLandingNavbarConfig(reset);
+  };
+
   const renderLandingPage = () => {
     // Explicit admin-only guard
     if (!isAdmin) {
@@ -3898,6 +3953,103 @@ export default function Admin() {
                         />
                       </div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Landing Navbar Settings Section */}
+          <div className="border-t border-white/10 pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">{tr.landingNavbarSettings}</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLandingNavbarReset}
+                className="text-xs"
+                data-testid="button-landing-navbar-reset"
+              >
+                <RotateCcw className="w-3 h-3 me-1" />
+                {tr.navbarResetDefault}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{tr.landingNavbarSettingsDesc}</p>
+            
+            <div className="space-y-3">
+              {[...landingNavbarConfig.items].sort((a, b) => a.order - b.order).map((item, idx, arr) => {
+                const isFirst = idx === 0;
+                const isLast = idx === arr.length - 1;
+                return (
+                  <div 
+                    key={item.key} 
+                    className={`p-4 rounded-lg border ${item.enabled ? 'border-white/10 bg-card/30' : 'border-white/5 bg-muted/20 opacity-70'}`}
+                    data-testid={`landing-navbar-item-${item.key}`}
+                  >
+                    <div className="flex items-center justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Badge variant="outline" className="text-xs font-mono">{item.key}</Badge>
+                        <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+                          {getActionLabel(item.action, lang)}
+                        </Badge>
+                        <Badge variant="outline" className={`text-xs ${item.enabled ? 'text-green-400 border-green-500/30' : 'text-gray-400 border-gray-500/30'}`}>
+                          {item.enabled ? tr.navbarVisible : tr.navbarHidden}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isFirst}
+                          onClick={() => handleLandingNavbarItemMove(item.key, 'up')}
+                          className="w-7 h-7"
+                          title={tr.navbarMoveUp}
+                          data-testid={`button-landing-navbar-up-${item.key}`}
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isLast}
+                          onClick={() => handleLandingNavbarItemMove(item.key, 'down')}
+                          className="w-7 h-7"
+                          title={tr.navbarMoveDown}
+                          data-testid={`button-landing-navbar-down-${item.key}`}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                        <Switch
+                          checked={item.enabled}
+                          onCheckedChange={() => handleLandingNavbarItemToggle(item.key)}
+                          data-testid={`switch-landing-navbar-${item.key}`}
+                        />
+                      </div>
+                    </div>
+                    {!item.isIcon && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">{tr.navbarLabelAr}</label>
+                          <Input
+                            value={item.label.ar}
+                            onChange={(e) => handleLandingNavbarLabelChange(item.key, 'ar', e.target.value)}
+                            className="text-sm"
+                            dir="rtl"
+                            data-testid={`input-landing-navbar-ar-${item.key}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">{tr.navbarLabelEn}</label>
+                          <Input
+                            value={item.label.en}
+                            onChange={(e) => handleLandingNavbarLabelChange(item.key, 'en', e.target.value)}
+                            className="text-sm"
+                            dir="ltr"
+                            data-testid={`input-landing-navbar-en-${item.key}`}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
