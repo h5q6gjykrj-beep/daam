@@ -1,0 +1,71 @@
+[Task] تحكم كامل في عناصر الشريط العلوي (Navbar) من لوحة الأدمن — نصوص + إظهار/إخفاء + ترتيب
+
+Goal:
+أريد التحكم من لوحة الأدمن في عناصر الـ Navbar العلوي (مثل: الرئيسية، ساحة النقاش، المساعد الذكي، الملف الشخصي...).
+التحكم يجب أن يكون من نفس قسم/تبويب إعدادات الهبوط الذي يتحكم ببطاقات "لماذا دام؟" (Landing settings).
+
+Requirements (Admin-controlled):
+1) لكل عنصر في الـ Navbar:
+   - enabled: boolean (إظهار/إخفاء)
+   - label.ar: نص عربي قابل للتحرير (Input text)
+   - label.en: نص إنجليزي قابل للتحرير (Input text)
+   - routeKey: قيمة ثابتة غير قابلة للتحرير (لحماية المسارات) مثل:
+     "home" | "feed" | "ai" | "profile" | "admin" | "login" ...
+   - order: رقم ترتيب (أو أزرار up/down)
+2) في لوحة الأدمن:
+   - جدول/قائمة عناصر Navbar
+   - لكل صف:
+     - Toggle إظهار/إخفاء
+     - حقل نص عربي (editable)
+     - حقل نص إنجليزي (editable)
+     - أزرار ترتيب (↑ ↓) أو drag handle إن متاح
+   - زر "استعادة الافتراضي" Reset to defaults
+3) في واجهة الموقع (Navbar):
+   - يجب أن يتم بناء القائمة من config القادم من localStorage
+   - إذا enabled=false لا يظهر العنصر
+   - النص المعروض يعتمد على لغة الموقع الحالية (AR/EN)
+   - اتجاه RTL/LTR محفوظ
+4) Defaults:
+   أنشئ إعدادات افتراضية مطابقة للوضع الحالي عندكم (لا تغيّر المعنى الآن):
+   مثال:
+   home: { ar: "الرئيسية", en: "Home", enabled: true, order: 1 }
+   feed: { ar: "ساحة النقاش", en: "Feed", enabled: true, order: 2 }
+   ai:   { ar: "المساعد الذكي", en: "AI Assistant", enabled: false (افتراضيًا قبل الإطلاق), order: 3 }
+   profile:{ ar:"الملف الشخصي", en:"Profile", enabled:true, order:4 }
+   (أضف فقط العناصر الموجودة فعليًا في Navbar الحالي)
+
+Storage:
+- localStorage key: daam_navbar_config_v1
+- structure:
+  {
+    items: [
+      { routeKey:"home", enabled:true, order:1, label:{ar:"...", en:"..."} },
+      ...
+    ]
+  }
+
+Where to implement:
+1) Locate Navbar component file (search):
+   - client/src/components/**/Navbar*.tsx
+   - or layout/header component
+   - Find where menu items are hardcoded and replace them with config-driven render.
+2) Admin UI:
+   - client/src/pages/admin.tsx
+   - Add section under the same settings area as Landing controls:
+     AR: "الشريط العلوي"
+     EN: "Top Navigation"
+   - Inside it add "Navbar Items" editor UI.
+
+Constraints:
+- لا تسمح بتعديل الروابط/المسارات من الأدمن (routeKey فقط ثابت).
+- لا تغيّر نظام الترجمة العام؛ فقط تستخدم label.ar/label.en لهذا الجزء.
+- لا تلمس tokens العامة أو tailwind config.
+- يجب أن تكون التغييرات مباشرة بدون إعادة تشغيل (state + localStorage sync).
+
+Deliverables:
+- List exact files modified
+- Confirm:
+  - Admin can rename labels (AR/EN)
+  - Admin can hide/show items (enabled)
+  - Admin can reorder items
+  - AI item can be hidden until launch
