@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Bug, Sparkles, ImageOff } from 'lucide-react';
+import { X, Bug, ImageOff, Heart, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDaamStore } from '@/hooks/use-daam-store';
+import { useToast } from '@/hooks/use-toast';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
 import { getCampaigns, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
 import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
@@ -12,6 +13,25 @@ import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
 import { isCampaignActive } from '@/lib/campaign-helpers';
 import { ADMIN_EMAILS } from '@/config/admin';
 import { CampaignModal } from './CampaignModal';
+
+const LIKES_STORAGE_KEY = 'daam_campaign_likes_v1';
+
+function getCampaignLikes(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(LIKES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function toggleCampaignLike(campaignId: string): boolean {
+  const likes = getCampaignLikes();
+  const newState = !likes[campaignId];
+  likes[campaignId] = newState;
+  localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify(likes));
+  return newState;
+}
 
 const thumbCache = new Map<string, string>();
 
@@ -41,28 +61,39 @@ interface DebugInfo {
 
 const translations = {
   ar: {
-    sponsored: 'مُموّل',
-    explore: 'اكتشف',
+    ad: 'إعلان',
     hide: 'إخفاء',
     imageError: 'تعذر عرض الصورة',
+    like: 'إعجاب',
+    liked: 'أعجبني',
+    share: 'مشاركة',
+    copied: 'تم نسخ الرابط',
+    shareError: 'تعذرت المشاركة',
   },
   en: {
-    sponsored: 'Sponsored',
-    explore: 'Explore',
+    ad: 'Ad',
     hide: 'Hide',
     imageError: 'Could not load image',
+    like: 'Like',
+    liked: 'Liked',
+    share: 'Share',
+    copied: 'Link copied',
+    shareError: 'Could not share',
   }
 };
 
 export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   const { lang, user } = useDaamStore();
+  const { toast } = useToast();
   const t = translations[lang];
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
   const impressionTracked = useRef(false);
   const isRTL = lang === 'ar';
+  const isFeedPlacement = placement === 'feed';
 
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [thumbLoading, setThumbLoading] = useState(false);
@@ -212,6 +243,14 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     };
   }, [campaign?.id, campaign?.updatedAt]);
 
+  // Initialize like state from localStorage
+  useEffect(() => {
+    if (campaign) {
+      const likes = getCampaignLikes();
+      setIsLiked(!!likes[campaign.id]);
+    }
+  }, [campaign?.id]);
+
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (campaign) {
@@ -223,6 +262,47 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
 
   const handleCardClick = () => {
     setModalOpen(true);
+  };
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (campaign) {
+      const newState = toggleCampaignLike(campaign.id);
+      setIsLiked(newState);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!campaign) return;
+
+    const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
+    // Include link if available from campaign survey or other URL fields
+    const campaignLink = campaign.survey?.url || '';
+    const shareText = campaignLink ? `${title}\n${campaignLink}` : title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ 
+          title, 
+          text: shareText,
+          ...(campaignLink ? { url: campaignLink } : {})
+        });
+      } catch (err) {
+        // User cancelled or error
+        if ((err as Error).name !== 'AbortError') {
+          toast({ description: t.shareError, variant: 'destructive' });
+        }
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        toast({ description: t.copied });
+      } catch {
+        toast({ description: t.shareError, variant: 'destructive' });
+      }
+    }
   };
 
   const debugPanel = isDebugMode && debugInfo && (
@@ -272,79 +352,116 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     <>
       {debugPanel}
       <Card 
-        className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card cursor-pointer hover:border-primary/40 transition-all mb-6"
+        className="overflow-hidden border-primary/20 ring-1 ring-primary/10 bg-gradient-to-br from-primary/5 via-card to-card cursor-pointer hover:border-primary/30 hover:ring-primary/20 transition-all mb-6"
         onClick={handleCardClick}
         dir={isRTL ? 'rtl' : 'ltr'}
         data-testid="campaign-card"
       >
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <Badge 
-              variant="outline" 
-              className="text-xs border-primary/30 text-primary bg-primary/10"
-            >
-              <Sparkles className="w-3 h-3 me-1" />
-              {t.sponsored}
-            </Badge>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleDismiss}
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              data-testid="button-dismiss-campaign"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+        {/* Image area - aspect ratio container */}
+        {hasImageAttachment && (
+          <div className="relative w-full overflow-hidden bg-muted aspect-square md:aspect-[4/3]">
+            {thumbLoading && (
+              <Skeleton className="absolute inset-0 w-full h-full" />
+            )}
+            {thumbUrl && !thumbLoading && (
+              <img
+                src={thumbUrl}
+                alt=""
+                className="w-full h-full object-cover object-center"
+                onError={() => setThumbError(true)}
+                data-testid="campaign-card-image"
+              />
+            )}
+            {thumbError && !thumbLoading && (
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center gap-2 text-muted-foreground bg-muted/50">
+                <ImageOff className="w-5 h-5 opacity-50" />
+                <span className="text-sm">{t.imageError}</span>
+              </div>
+            )}
+            {/* Ad badge overlay on image */}
+            <div className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'}`}>
+              <Badge 
+                variant="secondary" 
+                className={`text-[10px] font-semibold bg-background/90 backdrop-blur-sm border border-border/50 text-muted-foreground ${!isRTL ? 'tracking-widest uppercase' : ''}`}
+              >
+                {t.ad}
+              </Badge>
+            </div>
+            {/* Dismiss button - only show for non-feed placements */}
+            {!isFeedPlacement && (
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={handleDismiss}
+                className={`absolute top-3 ${isRTL ? 'left-3' : 'right-3'} h-7 w-7 bg-background/90 backdrop-blur-sm border border-border/50`}
+                data-testid="button-dismiss-campaign"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
           </div>
+        )}
 
-          {hasImageAttachment && (
-            <div className="mb-3">
-              {thumbLoading && (
-                <Skeleton className="w-full h-40 rounded-lg" />
-              )}
-              {thumbUrl && !thumbLoading && (
-                <img
-                  src={thumbUrl}
-                  alt=""
-                  className="w-full max-h-40 object-cover rounded-lg border"
-                  onError={() => setThumbError(true)}
-                  data-testid="campaign-card-image"
-                />
-              )}
-              {thumbError && !thumbLoading && (
-                <div className="w-full h-24 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 flex items-center justify-center gap-2 text-muted-foreground">
-                  <ImageOff className="w-4 h-4 opacity-50" />
-                  <span className="text-xs">{t.imageError}</span>
-                </div>
+        {/* Content area */}
+        <CardContent className="p-4">
+          {/* Ad badge - only when no image */}
+          {!hasImageAttachment && (
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <Badge 
+                variant="secondary" 
+                className={`text-[10px] font-semibold border border-border/50 text-muted-foreground ${!isRTL ? 'tracking-widest uppercase' : ''}`}
+              >
+                {t.ad}
+              </Badge>
+              {/* Dismiss button for non-feed placements when no image */}
+              {!isFeedPlacement && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleDismiss}
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  data-testid="button-dismiss-campaign"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               )}
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             {title && (
-              <h3 className="font-semibold text-base" data-testid="campaign-card-title">
+              <h3 className="font-semibold text-base line-clamp-2" data-testid="campaign-card-title">
                 {title}
               </h3>
             )}
             {content && (
-              <p className="text-sm text-muted-foreground line-clamp-3" data-testid="campaign-card-content">
+              <p className="text-sm text-muted-foreground line-clamp-1" data-testid="campaign-card-content">
                 {content}
               </p>
             )}
           </div>
 
-          <div className="mt-4">
+          {/* Action buttons - Like & Share */}
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border/30">
             <Button
               size="sm"
-              className="w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                setModalOpen(true);
-              }}
-              data-testid="button-explore-campaign"
+              variant="ghost"
+              onClick={handleLike}
+              className={`h-8 px-3 gap-2 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+              data-testid="button-like-campaign"
             >
-              <Sparkles className="w-4 h-4 me-2" />
-              {t.explore}
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+              <span className="text-xs">{isLiked ? t.liked : t.like}</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleShare}
+              className="h-8 px-3 gap-2 text-muted-foreground"
+              data-testid="button-share-campaign"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="text-xs">{t.share}</span>
             </Button>
           </div>
         </CardContent>

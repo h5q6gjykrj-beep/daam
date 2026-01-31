@@ -1,0 +1,55 @@
+[Task 2] تحسين بطاقة الإعلان داخل الساحة بأسلوب Twitter Ad — تعديل موضعي عالي الدقة
+
+Target files (STRICT):
+1) client/src/components/campaigns/CampaignBanner.tsx  (JSX lines ~271-361)
+Optional (only if needed for i18n key):
+2) client/src/lib/campaign-helpers.ts  (only for label translation helper)
+DO NOT touch tokens (client/src/index.css) or tailwind config.
+
+Goal (exact UI):
+A) بطاقة إعلان شبه مربعة/قريبة من المربع.
+B) الصورة تملأ الجزء العلوي بالكامل بدون ضغط/تمديد:
+   - Use aspect ratio container (Mobile: 1/1, Desktop: 4/3 or keep 1/1 if layout breaks)
+   - image: w-full h-full object-cover object-center
+   - remove max-h-40 limitation
+C) أسفل الصورة مباشرة:
+   - Title (1-2 lines max)
+   - Subtitle/Description (1 line max)
+D) شارة "Ad / إعلان" بدل "Sponsored/ممول"
+   - Arabic: "إعلان"
+   - English: "Ad"
+   - use a refined style different from post text (tracking-wide, uppercase for EN, smallcaps feel)
+E) الإعلان يجب يبدو "إعلان" وليس "تغريدة":
+   - subtle ring/border + spacing + no post-like menu
+F) إلغاء (Hide) زر الإغلاق X داخل بطاقة الساحة (dismiss) لأنه يعطي شعور المستخدم يقدر يحذف الإعلان.
+   - Keep the dismissed state logic موجودة لكن لا تعرض زر X في UI للـ feed placement.
+   - If placement is not feed (e.g. home/global), leave as is.
+G) أضف أزرار Like + Share فقط أسفل النص (داخل البطاقة) بشكل خفيف:
+   - Like: toggles local state per-campaign id (localStorage key: daam_campaign_likes_v1) storing { [id]: true/false }
+   - Share: uses navigator.share if available; fallback copies a share text to clipboard.
+   - Share text should include campaign title + (optional) a link if available from campaign data; if none, share title only.
+   - Do NOT add comments.
+H) When clicking on image area or main card body: open CampaignModal (existing behavior) — keep.
+I) Placeholder/error handling stays, but must match new aspect container (same size).
+
+Constraints:
+- Do not change data selection logic, tracking, IndexedDB loading, eligibility, or storage modules.
+- UI changes only (classes/markup) inside CampaignBanner.tsx.
+- Keep RTL/LTR correct automatically; do not hardcode alignment breaking RTL.
+
+Implementation details:
+1) Replace current image block:
+   - current: img class "w-full max-h-40 object-cover rounded-lg border"
+   - new: wrap image in <div className="relative w-full overflow-hidden rounded-xl border bg-muted aspect-[1/1] md:aspect-[4/3]"> ... </div>
+   - Put skeleton/placeholder/error inside same aspect container.
+2) Badge:
+   - Replace "Sponsored" badge and its translations with Ad/إعلان.
+   - Ensure typography is distinct: text-[10px] tracking-widest uppercase (EN), normal for AR.
+3) Remove Explore button from this in-feed card (it makes it not Twitter-like). Modal click is enough.
+4) Add actions row (Like/Share) aligned to the bottom, minimal icons + counts optional.
+   - If you don’t have icons locally, use lucide-react icons already used in project.
+5) Ensure card stays clickable but Like/Share buttons do not trigger opening the modal (stopPropagation).
+6) Deliverable:
+   - List exact changes and confirm tested on mobile/desktop + dark/light.
+
+Start now and implement.
