@@ -67,8 +67,9 @@ const translations = {
     like: 'إعجاب',
     liked: 'أعجبني',
     share: 'مشاركة',
-    copied: 'تم نسخ الرابط',
+    copied: 'تم نسخ رابط الإعلان من دام',
     shareError: 'تعذرت المشاركة',
+    sharePrefix: 'إعلان على دام:',
   },
   en: {
     ad: 'Ad',
@@ -77,8 +78,9 @@ const translations = {
     like: 'Like',
     liked: 'Liked',
     share: 'Share',
-    copied: 'Link copied',
+    copied: 'DAAM ad link copied',
     shareError: 'Could not share',
+    sharePrefix: 'Ad on DAAM:',
   }
 };
 
@@ -277,25 +279,23 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
     if (!campaign) return;
 
     const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
-    // Include link if available from campaign survey or other URL fields
-    const campaignLink = campaign.survey?.url || '';
-    const shareText = campaignLink ? `${title}\n${campaignLink}` : title;
+    const origin = window.location.origin;
+    const shareUrl = `${origin}/c/${campaign.id}`;
+    const shareText = `${t.sharePrefix} ${title}\n${shareUrl}`;
 
     if (navigator.share) {
       try {
         await navigator.share({ 
-          title, 
+          title: `${t.sharePrefix} ${title}`,
           text: shareText,
-          ...(campaignLink ? { url: campaignLink } : {})
+          url: shareUrl
         });
       } catch (err) {
-        // User cancelled or error
         if ((err as Error).name !== 'AbortError') {
           toast({ description: t.shareError, variant: 'destructive' });
         }
       }
     } else {
-      // Fallback: copy to clipboard
       try {
         await navigator.clipboard.writeText(shareText);
         toast({ description: t.copied });

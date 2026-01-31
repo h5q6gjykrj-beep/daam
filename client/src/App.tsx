@@ -22,6 +22,7 @@ import Profile from "@/pages/profile";
 import Admin from "@/pages/admin";
 import Terms from "@/pages/terms";
 import Messages from "@/pages/messages";
+import CampaignPage from "@/pages/campaign";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -81,6 +82,7 @@ function Router() {
             <Route path="/messages" component={Messages} />
             <Route path="/admin" component={AdminRoute} />
             <Route path="/terms" component={Terms} />
+            <Route path="/c/:id" component={CampaignPage} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>
@@ -97,6 +99,7 @@ function Router() {
           <Route path="/register" component={Register} />
           <Route path="/verify" component={Verify} />
           <Route path="/terms" component={Terms} />
+          <Route path="/c/:id" component={CampaignPage} />
           <Route>
             <Redirect to="/login" />
           </Route>

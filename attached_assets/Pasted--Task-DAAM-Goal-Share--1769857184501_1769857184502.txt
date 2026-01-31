@@ -1,0 +1,69 @@
+[Task] إضافة رابط دائم للإعلان عند المشاركة + صفحة فتح الإعلان داخل DAAM
+
+Goal:
+عند الضغط على Share في بطاقة الإعلان (CampaignBanner.tsx)، لازم:
+- يتم مشاركة رابط مباشر داخل موقع DAAM لفتح الإعلان نفسه.
+- يظهر في نص المشاركة أن الإعلان موجود في DAAM (دام).
+
+Constraints:
+- لا تغيّر منطق التخزين/الرفع/IndexedDB.
+- لا تغيّر نظام الحملات (CRUD) في الأدمن إلا إذا احتجنا عرض نفس البيانات فقط.
+- أضف Route/صفحة عرض للإعلان بشكل بسيط واحترافي.
+
+Part A) إنشاء رابط دائم داخل DAAM
+1) اعتمد مسار ثابت للرابط:
+   /c/:id
+   مثال: https://<origin>/c/abc123
+2) في مشاركة الإعلان استخدم:
+   const origin = window.location.origin;
+   const shareUrl = `${origin}/c/${campaign.id}`;
+
+Part B) تحديث زر Share في CampaignBanner.tsx
+File:
+client/src/components/campaigns/CampaignBanner.tsx
+
+1) عدّل نص المشاركة ليكون:
+- عربي:
+  "إعلان على دام: <عنوان عربي>\n<shareUrl>"
+- إنجليزي:
+  "Ad on DAAM: <English title>\n<shareUrl>"
+2) share behavior:
+- إذا navigator.share متاح:
+  navigator.share({ title: ..., text: ..., url: shareUrl })
+- إذا غير متاح:
+  انسخ النص الكامل للـ clipboard + Toast: "تم نسخ رابط الإعلان من دام" / "DAAM ad link copied"
+
+Important:
+- لا تستخدم رابط الاستبيان كمصدر رئيسي للمشاركة.
+- خلي رابط DAAM هو الأساسي دائمًا.
+- زر Share لا يفتح المودال (stopPropagation).
+
+Part C) إضافة Route لفتح الإعلان عبر الرابط
+We use wouter (already in project).
+
+1) أضف صفحة جديدة:
+client/src/pages/campaign.tsx
+وظيفتها:
+- تقرأ id من URL (/c/:id)
+- تجلب campaign من storage (getCampaigns) وتبحث عن id
+- إذا لم يجدها: اعرض Empty state محترم "الإعلان غير موجود" / "Ad not found"
+- إذا وجدها: اعرض محتوى الإعلان بطريقة بسيطة:
+  - نفس Card preview (الصورة + Ad/إعلان + عنوان + وصف)
+  - زر "فتح التفاصيل" يفتح CampaignModal (Reuse existing CampaignModal.tsx)
+  - أو افتح CampaignModal مباشرة عند تحميل الصفحة
+
+2) اربط الراوت في Router الرئيسي (حسب مكان تعريف Routes):
+- ابحث عن ملف routes/app entry (غالبًا client/src/App.tsx أو client/src/main.tsx)
+- أضف:
+  <Route path="/c/:id" component={CampaignPage} />
+
+Part D) تحسين ظهور أن المحتوى من DAAM عند المشاركة (اختياري قوي)
+إذا يوجد index.html أو Head manager:
+- أضف OpenGraph defaults (site_name: DAAM / دام)
+- وإذا تقدر بدون تعقيد: عند صفحة /c/:id ضع title ديناميكي للمتصفح:
+  "DAAM | إعلان: <title>"
+
+Deliverables:
+- اذكر الملفات المعدلة/المضافة
+- تأكيد: مشاركة الإعلان الآن تنسخ/تشارك رابط DAAM دائمًا
+- تأكيد: فتح الرابط /c/:id يعرض الإعلان بنجاح (مع fallback إذا غير موجود)
