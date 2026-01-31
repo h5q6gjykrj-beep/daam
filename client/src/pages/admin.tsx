@@ -3907,7 +3907,6 @@ export default function Admin() {
                           size="icon"
                           disabled={isFirst}
                           onClick={() => handleNavbarItemMove(item.routeKey, 'up')}
-                          className="w-7 h-7"
                           title={tr.navbarMoveUp}
                           data-testid={`button-navbar-up-${item.routeKey}`}
                         >
@@ -3918,7 +3917,6 @@ export default function Admin() {
                           size="icon"
                           disabled={isLast}
                           onClick={() => handleNavbarItemMove(item.routeKey, 'down')}
-                          className="w-7 h-7"
                           title={tr.navbarMoveDown}
                           data-testid={`button-navbar-down-${item.routeKey}`}
                         >
@@ -4002,7 +4000,6 @@ export default function Admin() {
                           size="icon"
                           disabled={isFirst}
                           onClick={() => handleLandingNavbarItemMove(item.key, 'up')}
-                          className="w-7 h-7"
                           title={tr.navbarMoveUp}
                           data-testid={`button-landing-navbar-up-${item.key}`}
                         >
@@ -4013,7 +4010,6 @@ export default function Admin() {
                           size="icon"
                           disabled={isLast}
                           onClick={() => handleLandingNavbarItemMove(item.key, 'down')}
-                          className="w-7 h-7"
                           title={tr.navbarMoveDown}
                           data-testid={`button-landing-navbar-down-${item.key}`}
                         >

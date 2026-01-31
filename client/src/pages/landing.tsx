@@ -15,6 +15,12 @@ import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
 import { getWhyDaamCardsSettings, WHY_DAAM_CARDS_KEY, type WhyDaamCardsSettings } from "@/pages/admin";
+import { 
+  getLandingNavbarConfig, 
+  LANDING_NAVBAR_CONFIG_KEY, 
+  type LandingNavbarConfig, 
+  type LandingNavbarItem 
+} from "@/lib/landing-navbar-config";
 
 interface OfficialPage {
   id: 'privacy' | 'contact' | 'terms';
@@ -55,6 +61,9 @@ export default function Landing() {
   // Why DAAM cards visibility - reactive to admin changes
   const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
 
+  // Landing Navbar config - reactive to admin changes
+  const [landingNavbarConfig, setLandingNavbarConfig] = useState<LandingNavbarConfig>(getLandingNavbarConfig());
+
   const refreshOfficialPages = useCallback(() => {
     setPrivacyPage(getPublishedOfficialPage('privacy'));
     setContactPage(getPublishedOfficialPage('contact'));
@@ -64,10 +73,15 @@ export default function Landing() {
     setWhyDaamCards(getWhyDaamCardsSettings());
   }, []);
 
+  const refreshLandingNavbarConfig = useCallback(() => {
+    setLandingNavbarConfig(getLandingNavbarConfig());
+  }, []);
+
   useEffect(() => {
     // Initial load
     refreshOfficialPages();
     refreshWhyDaamCards();
+    refreshLandingNavbarConfig();
 
     // Listen for storage events (when admin updates content in another tab/window)
     const handleStorageChange = (e: StorageEvent) => {
@@ -76,6 +90,9 @@ export default function Landing() {
       }
       if (e.key === WHY_DAAM_CARDS_KEY) {
         refreshWhyDaamCards();
+      }
+      if (e.key === LANDING_NAVBAR_CONFIG_KEY) {
+        refreshLandingNavbarConfig();
       }
     };
 
@@ -88,15 +105,21 @@ export default function Landing() {
       refreshWhyDaamCards();
     };
 
+    const handleLandingNavbarConfigUpdated = () => {
+      refreshLandingNavbarConfig();
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
     window.addEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
+    window.addEventListener('landingNavbarConfigUpdated', handleLandingNavbarConfigUpdated);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
       window.removeEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
+      window.removeEventListener('landingNavbarConfigUpdated', handleLandingNavbarConfigUpdated);
     };
-  }, [refreshOfficialPages, refreshWhyDaamCards]);
+  }, [refreshOfficialPages, refreshWhyDaamCards, refreshLandingNavbarConfig]);
 
   const trendingPosts = [...posts]
     .sort((a, b) => {
@@ -172,6 +195,41 @@ export default function Landing() {
   const topSubject = hotTopics[0];
   const topSubjectLabel = getCollegeLabel(topSubject, lang) || topSubject;
 
+  // Helper to handle navbar item actions
+  const handleNavItemAction = (item: LandingNavbarItem) => {
+    if (item.action === 'toggle:lang') {
+      toggleLang();
+    } else if (item.action === 'toggle:theme') {
+      toggleTheme();
+    } else if (item.action.startsWith('route:')) {
+      const route = item.action.replace('route:', '');
+      setLocation(route);
+    } else if (item.action.startsWith('scroll:')) {
+      const target = item.action.replace('scroll:', '');
+      if (target === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        const element = document.querySelector(target);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  };
+
+  // Get sorted and enabled navbar items
+  const enabledNavItems = landingNavbarConfig.items
+    .filter(item => item.enabled)
+    .sort((a, b) => a.order - b.order);
+
+  // Separate nav links (scroll/route items that aren't buttons) from action items (buttons, toggles)
+  const navLinkItems = enabledNavItems.filter(item => 
+    !item.isButton && !item.isIcon && item.action !== 'toggle:lang' && item.action !== 'toggle:theme'
+  );
+  const actionItems = enabledNavItems.filter(item => 
+    item.isButton || item.isIcon || item.action === 'toggle:lang' || item.action === 'toggle:theme'
+  );
+
   return (
     <div className={`min-h-screen bg-background ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Top Navigation Bar */}
@@ -183,54 +241,67 @@ export default function Landing() {
           </div>
           
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-home">
-              {tr.home}
-            </a>
-            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-arena">
-              {tr.arena}
-            </a>
-            <a href="#" className="text-sm font-medium hover:text-primary transition-colors" data-testid="link-ai">
-              {tr.aiAssistant}
-            </a>
+            {navLinkItems.map(item => (
+              <button
+                key={item.key}
+                onClick={() => handleNavItemAction(item)}
+                className="text-sm font-medium transition-colors bg-transparent border-none cursor-pointer hover-elevate"
+                data-testid={`link-landing-${item.key}`}
+              >
+                {item.label[lang]}
+              </button>
+            ))}
           </nav>
           
           <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={toggleTheme}
-              className="w-8 h-8"
-              data-testid="button-toggle-theme"
-              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={toggleLang}
-              className="gap-1.5"
-              data-testid="button-toggle-lang"
-            >
-              <Globe className="w-4 h-4" />
-              <span className="hidden sm:inline">{lang === 'en' ? 'العربية' : 'English'}</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setLocation('/login')}
-              data-testid="button-login"
-            >
-              {tr.login}
-            </Button>
-            <Button 
-              size="sm"
-              onClick={() => setLocation('/login')}
-              className="bg-primary hover:bg-primary/90"
-              data-testid="button-create-account"
-            >
-              {tr.createAccount}
-            </Button>
+            {actionItems.map(item => {
+              // Theme toggle
+              if (item.action === 'toggle:theme') {
+                return (
+                  <Button 
+                    key={item.key}
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleNavItemAction(item)}
+                    data-testid="button-toggle-theme"
+                    title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  >
+                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                  </Button>
+                );
+              }
+              // Language toggle
+              if (item.action === 'toggle:lang') {
+                return (
+                  <Button 
+                    key={item.key}
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleNavItemAction(item)}
+                    className="gap-1.5"
+                    data-testid="button-toggle-lang"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span className="hidden sm:inline">{item.label[lang]}</span>
+                  </Button>
+                );
+              }
+              // Button items (login, register, or any generic button)
+              if (item.isButton) {
+                return (
+                  <Button 
+                    key={item.key}
+                    variant={item.buttonVariant || 'default'}
+                    size="sm"
+                    onClick={() => handleNavItemAction(item)}
+                    data-testid={item.key === 'login' ? 'button-login' : item.key === 'register' ? 'button-create-account' : `button-landing-${item.key}`}
+                  >
+                    {item.label[lang]}
+                  </Button>
+                );
+              }
+              return null;
+            })}
           </div>
         </div>
       </header>
