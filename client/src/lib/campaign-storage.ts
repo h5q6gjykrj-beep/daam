@@ -1,3 +1,18 @@
+/**
+ * TODO: Replace localStorage with server-backed storage before production launch.
+ * 
+ * Current implementation uses localStorage for campaign data which means:
+ * - Campaigns are browser-specific and won't sync across devices
+ * - Data is limited by localStorage size (~5MB)
+ * - Data can be cleared by user browser actions
+ * 
+ * Migration path:
+ * 1. Create server API endpoints for CRUD operations
+ * 2. Replace getCampaigns() with API fetch
+ * 3. Replace saveCampaigns() with API POST/PUT
+ * 4. Handle authentication and authorization
+ */
+
 import type { 
   Campaign, 
   CampaignImpression, 

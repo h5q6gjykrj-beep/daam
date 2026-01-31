@@ -2094,6 +2094,16 @@ export default function Admin() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Prototype warning banner */}
+        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            {lang === 'ar' 
+              ? 'تنبيه: نظام الإعلانات الحالي تجريبي ويُخزَّن محليًا في هذا المتصفح. لن تظهر الإعلانات على أجهزة أخرى إلا بعد ربطها بقاعدة بيانات.'
+              : 'Note: Current campaigns system is a prototype stored locally in this browser. Campaigns won\'t appear on other devices until backed by a database.'}
+          </p>
+        </div>
+        
         <div className="flex gap-2 mb-4 flex-wrap">
           <Select value={campaignStatusFilter} onValueChange={setCampaignStatusFilter}>
             <SelectTrigger className="w-40" data-testid="select-campaign-status-filter">

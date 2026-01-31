@@ -1,3 +1,19 @@
+/**
+ * TODO: Replace IndexedDB with server-backed storage before production launch.
+ * 
+ * Current implementation uses IndexedDB for media files which means:
+ * - Media is browser-specific and won't sync across devices
+ * - Data is limited by browser IndexedDB quotas
+ * - Data can be cleared by user browser actions
+ * 
+ * Migration path:
+ * 1. Set up object storage (S3, Cloudflare R2, or similar)
+ * 2. Create server API endpoints for upload/download
+ * 3. Replace saveCampaignAttachment() with upload API
+ * 4. Replace getCampaignAttachmentBlob() with download/URL API
+ * 5. Handle authentication and signed URLs
+ */
+
 import type { CampaignAttachment, CampaignAttachmentKind } from '@/types/campaign';
 
 const DB_NAME = 'daam_media_db_v1';
