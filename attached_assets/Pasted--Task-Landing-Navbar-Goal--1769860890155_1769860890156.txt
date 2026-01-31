@@ -1,0 +1,71 @@
+[Task] إضافة تحكم من الأدمن لشريط صفحة الهبوط (Landing Navbar) — نصوص + إظهار/إخفاء + ترتيب
+
+Goal:
+أريد أن أتحكم من لوحة الأدمن في الشريط العلوي الخاص بصفحة الهبوط (Landing page navbar) مثلما تحكمنا في الشريط العلوي داخل الموقع بعد الدخول.
+التحكم يكون في: إظهار/إخفاء العناصر + تعديل نصوصها (AR/EN) + ترتيبها.
+هذا التغيير يجب أن يطبق على صفحة الهبوط فقط، وليس على Navbar الداخلي.
+
+Step 1) تحديد مكان Navbar الخاص بالهبوط
+- ابحث عن صفحة الهبوط:
+  client/src/pages/landing.tsx أو home/marketing page
+- ابحث داخلها عن Navbar/Header خاص (قد يكون component منفصل مثل LandingHeader/LandingNav).
+- إذا الهبوط يعيد استخدام Navbar العام: افصل Navbar خاص للهبوط أو اجعل Navbar العام يدعم mode="landing".
+
+Step 2) إنشاء إعدادات Landing Navbar في localStorage
+- key: daam_landing_navbar_config_v1
+- structure:
+  {
+    items: [
+      { key:"home", enabled:true, order:1, label:{ar:"الرئيسية", en:"Home"}, action:"scroll:top" },
+      { key:"why", enabled:true, order:2, label:{ar:"لماذا دام؟", en:"Why DAAM"}, action:"scroll:#why" },
+      { key:"features", enabled:true, order:3, label:{ar:"المميزات", en:"Features"}, action:"scroll:#features" },
+      { key:"login", enabled:true, order:4, label:{ar:"تسجيل الدخول", en:"Login"}, action:"route:/login" },
+      { key:"register", enabled:true, order:5, label:{ar:"إنشاء حساب", en:"Sign up"}, action:"route:/register" },
+      { key:"language", enabled:true, order:90, label:{ar:"English", en:"العربية"}, action:"toggle:lang" },
+      { key:"theme", enabled:true, order:91, label:{ar:"", en:""}, action:"toggle:theme" }
+    ]
+  }
+
+Important constraints:
+- لا تسمح للأدمن بكتابة route حر (لحماية الموقع).
+- action يكون واحد من:
+  - scroll:#id (للأقسام داخل الهبوط)
+  - route:/login, route:/register
+  - toggle:lang
+  - toggle:theme
+- key ثابت، label قابل للتحرير.
+
+Step 3) تحديث UI في Landing Navbar
+- اجعل عناصر الشريط تُبنى من config:
+  - filter by enabled
+  - sort by order
+  - show label based on current language
+- support RTL/LTR:
+  - في العربية عناصر النص تكون RTL والمحاذاة صحيحة
+  - في الإنجليزية LTR
+- لا تكسر الأزرار الخاصة (Login/Register) — فقط غيّر النص من config.
+- عناصر theme/lang تبقى كأيقونات/أزرار كما هي، لكن enabled يقرر ظهورها.
+
+Step 4) إضافة قسم جديد في لوحة الأدمن
+File: client/src/pages/admin.tsx
+
+- تحت نفس تبويب الإعدادات/الهبوط أضف Section:
+  AR: "شريط صفحة الهبوط"
+  EN: "Landing Top Bar"
+- اعرض قائمة items في جدول:
+  - Toggle enabled
+  - Input label.ar
+  - Input label.en
+  - Order controls (↑ ↓)
+  - (اختياري) عرض action كـ read-only text
+
+- زر Reset to defaults يعيد القيم الافتراضية أعلاه.
+
+Deliverables:
+- List modified files (Landing page + Admin page + any helper/store)
+- Confirm:
+  - Admin can hide/show landing navbar items
+  - Admin can edit labels AR/EN
+  - Admin can reorder items
+  - Changes reflect immediately on landing page
+- Ensure: internal app navbar config remains separate and unchanged.
