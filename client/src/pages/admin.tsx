@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { 
   useDaamStore, 
   type Report as StoreReport, 
@@ -21,7 +22,7 @@ import {
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
   Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip,
-  UserCheck, Home, VolumeX, Volume2, Pencil
+  UserCheck, Home, VolumeX, Volume2, Pencil, Sparkles, GraduationCap
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
@@ -83,6 +84,38 @@ function saveOfficialPages(pages: OfficialPage[]) {
   localStorage.setItem(OFFICIAL_PAGES_KEY, JSON.stringify(pages));
   // Dispatch custom event for same-tab reactivity (storage event only fires cross-tab)
   window.dispatchEvent(new CustomEvent('officialPagesUpdated'));
+}
+
+// Why DAAM Cards Visibility Settings
+export const WHY_DAAM_CARDS_KEY = 'daam_landing_why_cards_v1';
+
+export interface WhyDaamCardsSettings {
+  why_discussion: boolean;
+  why_ai: boolean;
+  why_files: boolean;
+  why_community: boolean;
+}
+
+const DEFAULT_WHY_DAAM_CARDS: WhyDaamCardsSettings = {
+  why_discussion: true,
+  why_ai: false, // AI Assistant disabled by default
+  why_files: true,
+  why_community: true
+};
+
+export function getWhyDaamCardsSettings(): WhyDaamCardsSettings {
+  try {
+    const stored = localStorage.getItem(WHY_DAAM_CARDS_KEY);
+    if (stored) {
+      return { ...DEFAULT_WHY_DAAM_CARDS, ...JSON.parse(stored) };
+    }
+  } catch {}
+  return DEFAULT_WHY_DAAM_CARDS;
+}
+
+function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
+  localStorage.setItem(WHY_DAAM_CARDS_KEY, JSON.stringify(settings));
+  window.dispatchEvent(new CustomEvent('whyDaamCardsUpdated'));
 }
 
 interface AdminNote {
@@ -361,6 +394,9 @@ export default function Admin() {
     content_ar: '',
     content_en: ''
   });
+
+  // Why DAAM Cards state
+  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
 
   const [campaignForm, setCampaignForm] = useState({
     titleAr: '',
@@ -731,6 +767,16 @@ export default function Admin() {
     saveAndPublish: lang === 'ar' ? 'حفظ ونشر' : 'Save & Publish',
     pageUnderConstruction: lang === 'ar' ? 'هذه الصفحة قيد الإعداد' : 'This page is under construction',
     noChangesYet: lang === 'ar' ? 'لم يتم التعديل بعد' : 'Not yet modified',
+    // Landing Page Settings
+    landingPage: lang === 'ar' ? 'الصفحة الرئيسية (الهبوط)' : 'Landing Page',
+    whyDaamCards: lang === 'ar' ? 'بطاقات لماذا دام؟' : 'Why DAAM Cards',
+    whyDaamCardsDesc: lang === 'ar' ? 'تحكم في إظهار/إخفاء البطاقات في صفحة الهبوط' : 'Control card visibility on landing page',
+    cardDiscussion: lang === 'ar' ? 'ساحة نقاش طلابية' : 'Student Discussion Arena',
+    cardAiAssistant: lang === 'ar' ? 'مساعد ذكي يشرح لك' : 'AI Assistant Explains',
+    cardFiles: lang === 'ar' ? 'ملخصات وملفات' : 'Summaries & Files',
+    cardCommunity: lang === 'ar' ? 'مجتمع جامعي حقيقي' : 'Real University Community',
+    cardEnabled: lang === 'ar' ? 'مفعّل' : 'Enabled',
+    cardDisabled: lang === 'ar' ? 'معطّل' : 'Disabled',
   };
 
   const allNavItems = [
@@ -742,6 +788,7 @@ export default function Admin() {
     { id: 'moderators', label: tr.moderators, icon: UserCheck },
     { id: 'universities', label: tr.universities, icon: Building },
     { id: 'officialContent', label: tr.officialContent, icon: Globe, adminOnly: true },
+    { id: 'landingPage', label: tr.landingPage, icon: Home, adminOnly: true },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
 
@@ -3628,6 +3675,78 @@ export default function Admin() {
     );
   };
 
+  // Toggle a Why DAAM card visibility
+  const handleWhyDaamCardToggle = (cardId: keyof WhyDaamCardsSettings) => {
+    const updated = { ...whyDaamCards, [cardId]: !whyDaamCards[cardId] };
+    setWhyDaamCards(updated);
+    saveWhyDaamCardsSettings(updated);
+  };
+
+  const renderLandingPage = () => {
+    // Explicit admin-only guard
+    if (!isAdmin) {
+      return (
+        <Card className="border-white/10 bg-card/50">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">{lang === 'ar' ? 'ليس لديك صلاحية للوصول إلى هذا القسم' : 'You do not have permission to access this section'}</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const cards = [
+      { id: 'why_discussion' as const, label: tr.cardDiscussion, icon: MessageSquare, color: 'violet' },
+      { id: 'why_ai' as const, label: tr.cardAiAssistant, icon: Sparkles, color: 'blue' },
+      { id: 'why_files' as const, label: tr.cardFiles, icon: FileText, color: 'green' },
+      { id: 'why_community' as const, label: tr.cardCommunity, icon: GraduationCap, color: 'orange' },
+    ];
+
+    return (
+      <Card className="border-white/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Home className="w-5 h-5" />
+            {tr.landingPage}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Why DAAM Cards Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">{tr.whyDaamCards}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{tr.whyDaamCardsDesc}</p>
+            
+            <div className="space-y-3">
+              {cards.map(card => {
+                const isEnabled = whyDaamCards[card.id];
+                const Icon = card.icon;
+                return (
+                  <div 
+                    key={card.id} 
+                    className={`flex items-center justify-between p-4 rounded-lg border ${isEnabled ? 'border-white/10 bg-card/30' : 'border-white/5 bg-muted/20 opacity-60'}`}
+                    data-testid={`landing-card-toggle-${card.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-5 h-5 text-${card.color}-400`} />
+                      <span className="font-medium">{card.label}</span>
+                      <Badge variant="outline" className={`text-xs ${isEnabled ? 'text-green-400 border-green-500/30' : 'text-gray-400 border-gray-500/30'}`}>
+                        {isEnabled ? tr.cardEnabled : tr.cardDisabled}
+                      </Badge>
+                    </div>
+                    <Switch
+                      checked={isEnabled}
+                      onCheckedChange={() => handleWhyDaamCardToggle(card.id)}
+                      data-testid={`switch-${card.id}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderAuditLog = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -4444,6 +4563,7 @@ export default function Admin() {
                 {activeTab === 'moderators' && renderModerators()}
                 {activeTab === 'universities' && renderUniversities()}
                 {activeTab === 'officialContent' && renderOfficialContent()}
+                {activeTab === 'landingPage' && renderLandingPage()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>
             </AnimatePresence>
