@@ -148,6 +148,21 @@ Preferred communication style: Simple, everyday language.
 - **Bilingual**: Full Arabic/English support for admin editor and public display
 - **No Code Required**: Admins can manage all official content without touching code
 
+### Landing Page Card Visibility
+- **Storage**: localStorage (`daam_landing_why_cards_v1`) with WhyDaamCardsSettings object
+- **Settings Structure**: { why_discussion: boolean, why_ai: boolean, why_files: boolean, why_community: boolean }
+- **Default Settings**: AI Assistant card disabled by default, others enabled
+- **Admin Access**: "Landing Page" tab in Admin Dashboard (admin-only)
+- **Cards Controlled**:
+  - `why_discussion` - Student Discussion Arena (ساحة نقاش طلابية)
+  - `why_ai` - AI Assistant Explains (مساعد ذكي يشرح لك)
+  - `why_files` - Summaries & Files (ملخصات وملفات)
+  - `why_community` - Real University Community (مجتمع جامعي حقيقي)
+- **Reactivity**: Changes reflect immediately on landing page (same-tab and cross-tab)
+- **Grid Adaptation**: Grid columns adjust based on visible cards count (3 or 4 columns)
+- **Section Hiding**: If all cards disabled, entire "Why DAAM?" section is hidden
+- **Purpose**: Hide incomplete features before launch without code changes
+
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab
 - **Public Profile**: Name, bio, university, and social stats (followers/following) are public
