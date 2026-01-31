@@ -14,6 +14,7 @@ import {
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
+import { getWhyDaamCardsSettings, WHY_DAAM_CARDS_KEY, type WhyDaamCardsSettings } from "@/pages/admin";
 
 interface OfficialPage {
   id: 'privacy' | 'contact' | 'terms';
@@ -50,20 +51,31 @@ export default function Landing() {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [privacyPage, setPrivacyPage] = useState<OfficialPage | null>(null);
   const [contactPage, setContactPage] = useState<OfficialPage | null>(null);
+  
+  // Why DAAM cards visibility - reactive to admin changes
+  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
 
   const refreshOfficialPages = useCallback(() => {
     setPrivacyPage(getPublishedOfficialPage('privacy'));
     setContactPage(getPublishedOfficialPage('contact'));
   }, []);
+  
+  const refreshWhyDaamCards = useCallback(() => {
+    setWhyDaamCards(getWhyDaamCardsSettings());
+  }, []);
 
   useEffect(() => {
     // Initial load
     refreshOfficialPages();
+    refreshWhyDaamCards();
 
     // Listen for storage events (when admin updates content in another tab/window)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === OFFICIAL_PAGES_KEY) {
         refreshOfficialPages();
+      }
+      if (e.key === WHY_DAAM_CARDS_KEY) {
+        refreshWhyDaamCards();
       }
     };
 
@@ -71,14 +83,20 @@ export default function Landing() {
     const handleOfficialPagesUpdated = () => {
       refreshOfficialPages();
     };
+    
+    const handleWhyDaamCardsUpdated = () => {
+      refreshWhyDaamCards();
+    };
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
+    window.addEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
+      window.removeEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
     };
-  }, [refreshOfficialPages]);
+  }, [refreshOfficialPages, refreshWhyDaamCards]);
 
   const trendingPosts = [...posts]
     .sort((a, b) => {
@@ -395,33 +413,43 @@ export default function Landing() {
         </section>
       )}
 
-      {/* Why DAAM Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold mb-12 text-center">{tr.whyDaam}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {[
-              { icon: MessageSquare, title: tr.feature1Title, desc: tr.feature1Desc, color: 'violet' },
-              { icon: Sparkles, title: tr.feature2Title, desc: tr.feature2Desc, color: 'blue' },
-              { icon: FileText, title: tr.feature3Title, desc: tr.feature3Desc, color: 'green' },
-              { icon: GraduationCap, title: tr.feature4Title, desc: tr.feature4Desc, color: 'orange' },
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="p-6 text-center h-full hover:border-primary/30 transition-all">
-                  <feature.icon className={`w-10 h-10 mx-auto mb-4 text-${feature.color}-400`} />
-                  <h3 className="font-bold mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Why DAAM Section - only show if at least one card is enabled */}
+      {(() => {
+        const allCards = [
+          { id: 'why_discussion' as const, icon: MessageSquare, title: tr.feature1Title, desc: tr.feature1Desc, color: 'violet' },
+          { id: 'why_ai' as const, icon: Sparkles, title: tr.feature2Title, desc: tr.feature2Desc, color: 'blue' },
+          { id: 'why_files' as const, icon: FileText, title: tr.feature3Title, desc: tr.feature3Desc, color: 'green' },
+          { id: 'why_community' as const, icon: GraduationCap, title: tr.feature4Title, desc: tr.feature4Desc, color: 'orange' },
+        ];
+        const visibleCards = allCards.filter(card => whyDaamCards[card.id]);
+        
+        if (visibleCards.length === 0) return null;
+        
+        return (
+          <section className="py-20">
+            <div className="container mx-auto px-4">
+              <h2 className="text-2xl font-bold mb-12 text-center">{tr.whyDaam}</h2>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${visibleCards.length <= 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-6 max-w-5xl mx-auto`}>
+                {visibleCards.map((feature, index) => (
+                  <motion.div
+                    key={feature.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    data-testid={`why-card-${feature.id}`}
+                  >
+                    <Card className="p-6 text-center h-full hover:border-primary/30 transition-all">
+                      <feature.icon className={`w-10 h-10 mx-auto mb-4 text-${feature.color}-400`} />
+                      <h3 className="font-bold mb-2">{feature.title}</h3>
+                      <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 bg-card/30">
