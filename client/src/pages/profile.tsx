@@ -143,7 +143,10 @@ import {
   Mail,
   Phone,
   MapPin,
-  Flag
+  Flag,
+  Library,
+  FolderOpen,
+  BookOpen
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -188,6 +191,7 @@ export default function Profile() {
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
+  const [libraryFilter, setLibraryFilter] = useState<'saved' | 'files' | 'summaries'>('saved');
   const [isEditing, setIsEditing] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | ''>('');
@@ -415,7 +419,13 @@ export default function Profile() {
     selectWilayat: lang === 'ar' ? 'اختر الولاية' : 'Select Wilayat',
     requiredField: lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required',
     savedSuccessfully: lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully',
-    saving: lang === 'ar' ? 'جاري الحفظ...' : 'Saving...'
+    saving: lang === 'ar' ? 'جاري الحفظ...' : 'Saving...',
+    library: lang === 'ar' ? 'المكتبة' : 'Library',
+    librarySaved: lang === 'ar' ? 'المحفوظات' : 'Saved',
+    libraryFiles: lang === 'ar' ? 'الملفات' : 'Files',
+    librarySummaries: lang === 'ar' ? 'الملخصات' : 'Summaries',
+    noSavedPosts: lang === 'ar' ? 'لم تحفظ أي منشور بعد' : 'No saved posts yet',
+    noSummaries: lang === 'ar' ? 'لا توجد ملخصات بعد' : 'No summaries yet'
   };
 
   const governorates = GOVERNORATES[lang];
@@ -952,12 +962,12 @@ export default function Profile() {
               )}
             </TabsTrigger>
             <TabsTrigger 
-              value="files" 
+              value="library" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-files"
+              data-testid="tab-library"
             >
-              <FileText className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.files} ({userFiles.length})
+              <Library className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+              {tr.library}
             </TabsTrigger>
             <TabsTrigger 
               value="interests" 
@@ -1035,15 +1045,73 @@ export default function Profile() {
               )}
             </TabsContent>
 
-            <TabsContent value="files" className="mt-0 space-y-3">
-              {userFiles.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.noFiles}</p>
-                </div>
-              ) : (
-                userFiles.map(item => renderFileCard(item))
-              )}
+            <TabsContent value="library" className="mt-0 space-y-4">
+              {/* Library Filter Chips */}
+              <div className="flex flex-wrap gap-2">
+                <Badge
+                  variant={libraryFilter === 'saved' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('saved')}
+                  data-testid="chip-library-saved"
+                >
+                  <Bookmark className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
+                  {tr.librarySaved}
+                </Badge>
+                <Badge
+                  variant={libraryFilter === 'files' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('files')}
+                  data-testid="chip-library-files"
+                >
+                  <FolderOpen className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
+                  {tr.libraryFiles}
+                </Badge>
+                <Badge
+                  variant={libraryFilter === 'summaries' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('summaries')}
+                  data-testid="chip-library-summaries"
+                >
+                  <BookOpen className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
+                  {tr.librarySummaries}
+                </Badge>
+              </div>
+
+              {/* Library Content based on filter */}
+              <div className="space-y-3">
+                {libraryFilter === 'saved' && (
+                  <>
+                    {savedPosts.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-saved">
+                        <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p data-testid="text-no-saved">{tr.noSavedPosts}</p>
+                      </div>
+                    ) : (
+                      savedPosts.map(post => renderPostCard(post, true))
+                    )}
+                  </>
+                )}
+                
+                {libraryFilter === 'files' && (
+                  <>
+                    {userFiles.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-files">
+                        <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p data-testid="text-no-files">{tr.noFiles}</p>
+                      </div>
+                    ) : (
+                      userFiles.map(item => renderFileCard(item))
+                    )}
+                  </>
+                )}
+                
+                {libraryFilter === 'summaries' && (
+                  <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-summaries">
+                    <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p data-testid="text-no-summaries">{tr.noSummaries}</p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="interests" className="mt-0">

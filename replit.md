@@ -46,6 +46,10 @@ Preferred communication style: Simple, everyday language.
   - **Landing Page Customization**: Admins can toggle visibility of "Why DAAM?" cards and configure the landing page navigation.
   - **Navbar Configuration**: Admins can enable/disable, reorder, and relabel navigation items for both internal and landing pages.
 - **User Profiles**: Public profiles with private data protections.
+  - **Library Tab**: Consolidated tab containing Saved posts, Files, and Summaries with internal chip filters.
+    - Saved: Shows posts the user has bookmarked (uses post `savedBy` array)
+    - Files: Shows files uploaded by the user
+    - Summaries: Placeholder for future summary content
 
 ### Project Structure
 - `client/`: React frontend (components, hooks, pages, lib).
