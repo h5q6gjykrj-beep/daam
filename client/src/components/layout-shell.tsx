@@ -3,10 +3,29 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings, Mail } from "lucide-react";
+import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Settings, Mail, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { isAdminEmail } from "@/config/admin";
+import { getNavbarConfig, NAVBAR_CONFIG_STORAGE_KEY, type NavbarItem } from "@/lib/navbar-config";
+
+const ROUTE_PATHS: Record<string, string> = {
+  home: '/dashboard',
+  feed: '/feed',
+  messages: '/messages',
+  ai: '/tutor',
+  profile: '/profile',
+  admin: '/admin',
+};
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Home,
+  MessageSquare,
+  Mail,
+  Bot,
+  User,
+  Settings,
+};
 
 interface LayoutShellProps {
   children: ReactNode;
@@ -17,6 +36,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [navbarConfig, setNavbarConfig] = useState(getNavbarConfig());
 
   useEffect(() => {
     const checkMobile = () => {
@@ -44,17 +64,24 @@ export function LayoutShell({ children }: LayoutShellProps) {
     return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen, isMobile]);
 
+  // Listen for navbar config changes
+  useEffect(() => {
+    const handleNavbarUpdate = () => setNavbarConfig(getNavbarConfig());
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === NAVBAR_CONFIG_STORAGE_KEY) handleNavbarUpdate();
+    };
+    window.addEventListener('navbarConfigUpdated', handleNavbarUpdate);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('navbarConfigUpdated', handleNavbarUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   if (!user) return <>{children}</>;
 
   const tr = {
-    home: lang === 'ar' ? 'الرئيسية' : 'Home',
-    feed: lang === 'ar' ? 'ساحة النقاش' : 'Discussion Arena',
-    tutor: lang === 'ar' ? 'المساعد الذكي' : 'AI Tutor',
-    profile: lang === 'ar' ? 'الملف الشخصي' : 'Profile',
-    messages: lang === 'ar' ? 'الرسائل' : 'Messages',
-    admin: lang === 'ar' ? 'الإدارة' : 'Admin',
     moderator: lang === 'ar' ? 'مشرف' : 'Moderator',
-    login: lang === 'ar' ? 'تسجيل الدخول' : 'Login',
   };
 
   const isAdmin = isAdminEmail(user?.email);
@@ -63,18 +90,18 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const unreadConversations = user?.email ? getUnreadConversationCount(user.email) : 0;
   
   const navItems = useMemo(() => {
-    const items = [
-      { path: '/dashboard', label: tr.home, icon: Home },
-      { path: '/feed', label: tr.feed, icon: MessageSquare },
-      { path: '/messages', label: tr.messages, icon: Mail },
-      { path: '/tutor', label: tr.tutor, icon: Bot },
-      { path: '/profile', label: tr.profile, icon: User },
-    ];
-    if (isAdmin) {
-      items.push({ path: '/admin', label: tr.admin, icon: Settings });
-    }
-    return items;
-  }, [tr.home, tr.feed, tr.messages, tr.tutor, tr.profile, tr.admin, isAdmin]);
+    const configItems = navbarConfig.items
+      .filter(item => item.enabled)
+      .filter(item => !item.adminOnly || isAdmin)
+      .sort((a, b) => a.order - b.order)
+      .map(item => ({
+        path: ROUTE_PATHS[item.routeKey] || `/${item.routeKey}`,
+        label: lang === 'ar' ? item.label.ar : item.label.en,
+        icon: ICON_MAP[item.icon] || Home,
+        routeKey: item.routeKey,
+      }));
+    return configItems;
+  }, [navbarConfig, lang, isAdmin]);
 
   const isActive = (path: string) => {
     if (path === '/profile') return location.startsWith('/profile');
