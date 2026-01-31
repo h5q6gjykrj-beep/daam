@@ -163,6 +163,27 @@ Preferred communication style: Simple, everyday language.
 - **Section Hiding**: If all cards disabled, entire "Why DAAM?" section is hidden
 - **Purpose**: Hide incomplete features before launch without code changes
 
+### Navbar Config System
+- **Storage**: localStorage (`daam_navbar_config_v1`) with NavbarConfig object
+- **Module**: `client/src/lib/navbar-config.ts` (shared helpers)
+- **NavbarItem Structure**: { routeKey, enabled, order, label: { ar, en }, icon, adminOnly? }
+- **Default Items**:
+  - `home` - الرئيسية / Home (enabled, order 1)
+  - `feed` - ساحة النقاش / Discussion Arena (enabled, order 2)
+  - `messages` - الرسائل / Messages (enabled, order 3)
+  - `ai` - المساعد الذكي / AI Tutor (**disabled by default**, order 4)
+  - `profile` - الملف الشخصي / Profile (enabled, order 5)
+  - `admin` - الإدارة / Admin (enabled, order 6, adminOnly)
+- **Admin Controls**:
+  - Toggle visibility (enabled/disabled)
+  - Edit Arabic and English labels
+  - Reorder items (up/down buttons)
+  - Reset to defaults button
+- **Admin Access**: "Landing Page" tab → "Top Navigation" section (admin-only)
+- **Reactivity**: Changes reflect immediately in navbar (same-tab and cross-tab)
+- **Route Mapping**: Fixed route paths per routeKey (e.g., home→/dashboard, ai→/tutor)
+- **Purpose**: Customize navbar labels and hide incomplete features without code changes
+
 ### Privacy
 - **Private Data**: Email, phone, and region are only visible to account owner via Private Info tab
 - **Public Profile**: Name, bio, university, and social stats (followers/following) are public
