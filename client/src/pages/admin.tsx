@@ -118,6 +118,65 @@ function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
   window.dispatchEvent(new CustomEvent('whyDaamCardsUpdated'));
 }
 
+// Navbar Config Storage
+const NAVBAR_CONFIG_KEY = 'daam_navbar_config_v1';
+
+export interface NavbarItem {
+  routeKey: string;
+  enabled: boolean;
+  order: number;
+  label: {
+    ar: string;
+    en: string;
+  };
+  icon: string;
+  adminOnly?: boolean;
+}
+
+export interface NavbarConfig {
+  items: NavbarItem[];
+}
+
+const DEFAULT_NAVBAR_CONFIG: NavbarConfig = {
+  items: [
+    { routeKey: 'home', enabled: true, order: 1, label: { ar: 'الرئيسية', en: 'Home' }, icon: 'Home' },
+    { routeKey: 'feed', enabled: true, order: 2, label: { ar: 'ساحة النقاش', en: 'Discussion Arena' }, icon: 'MessageSquare' },
+    { routeKey: 'messages', enabled: true, order: 3, label: { ar: 'الرسائل', en: 'Messages' }, icon: 'Mail' },
+    { routeKey: 'ai', enabled: false, order: 4, label: { ar: 'المساعد الذكي', en: 'AI Tutor' }, icon: 'Bot' },
+    { routeKey: 'profile', enabled: true, order: 5, label: { ar: 'الملف الشخصي', en: 'Profile' }, icon: 'User' },
+    { routeKey: 'admin', enabled: true, order: 6, label: { ar: 'الإدارة', en: 'Admin' }, icon: 'Settings', adminOnly: true },
+  ]
+};
+
+export function getNavbarConfig(): NavbarConfig {
+  try {
+    const stored = localStorage.getItem(NAVBAR_CONFIG_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as NavbarConfig;
+      const defaultKeys = DEFAULT_NAVBAR_CONFIG.items.map(i => i.routeKey);
+      const storedKeys = parsed.items.map(i => i.routeKey);
+      const missingKeys = defaultKeys.filter(k => !storedKeys.includes(k));
+      if (missingKeys.length > 0) {
+        const missingItems = DEFAULT_NAVBAR_CONFIG.items.filter(i => missingKeys.includes(i.routeKey));
+        parsed.items = [...parsed.items, ...missingItems];
+      }
+      return parsed;
+    }
+  } catch {}
+  return { ...DEFAULT_NAVBAR_CONFIG, items: [...DEFAULT_NAVBAR_CONFIG.items] };
+}
+
+function saveNavbarConfig(config: NavbarConfig) {
+  localStorage.setItem(NAVBAR_CONFIG_KEY, JSON.stringify(config));
+  window.dispatchEvent(new CustomEvent('navbarConfigUpdated'));
+}
+
+function resetNavbarConfig() {
+  localStorage.setItem(NAVBAR_CONFIG_KEY, JSON.stringify(DEFAULT_NAVBAR_CONFIG));
+  window.dispatchEvent(new CustomEvent('navbarConfigUpdated'));
+  return { ...DEFAULT_NAVBAR_CONFIG, items: [...DEFAULT_NAVBAR_CONFIG.items] };
+}
+
 interface AdminNote {
   id: string;
   userEmail: string;
@@ -397,6 +456,9 @@ export default function Admin() {
 
   // Why DAAM Cards state
   const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
+
+  // Navbar config state
+  const [navbarConfig, setNavbarConfig] = useState<NavbarConfig>(getNavbarConfig());
 
   const [campaignForm, setCampaignForm] = useState({
     titleAr: '',
@@ -777,6 +839,18 @@ export default function Admin() {
     cardCommunity: lang === 'ar' ? 'مجتمع جامعي حقيقي' : 'Real University Community',
     cardEnabled: lang === 'ar' ? 'مفعّل' : 'Enabled',
     cardDisabled: lang === 'ar' ? 'معطّل' : 'Disabled',
+    // Navbar Settings
+    navbarSettings: lang === 'ar' ? 'الشريط العلوي' : 'Top Navigation',
+    navbarSettingsDesc: lang === 'ar' ? 'تحكم في عناصر الشريط العلوي - الترتيب والنصوص والإظهار/الإخفاء' : 'Control navbar items - order, labels, and visibility',
+    navbarLabelAr: lang === 'ar' ? 'النص العربي' : 'Arabic Label',
+    navbarLabelEn: lang === 'ar' ? 'النص الإنجليزي' : 'English Label',
+    navbarVisible: lang === 'ar' ? 'مرئي' : 'Visible',
+    navbarHidden: lang === 'ar' ? 'مخفي' : 'Hidden',
+    navbarResetDefault: lang === 'ar' ? 'استعادة الافتراضي' : 'Reset to Default',
+    navbarRouteKey: lang === 'ar' ? 'المسار' : 'Route',
+    navbarAdminOnly: lang === 'ar' ? 'للأدمن فقط' : 'Admin Only',
+    navbarMoveUp: lang === 'ar' ? 'تحريك لأعلى' : 'Move Up',
+    navbarMoveDown: lang === 'ar' ? 'تحريك لأسفل' : 'Move Down',
   };
 
   const allNavItems = [
@@ -3682,6 +3756,53 @@ export default function Admin() {
     saveWhyDaamCardsSettings(updated);
   };
 
+  // Navbar config handlers
+  const handleNavbarItemToggle = (routeKey: string) => {
+    const updated = {
+      ...navbarConfig,
+      items: navbarConfig.items.map(item => 
+        item.routeKey === routeKey ? { ...item, enabled: !item.enabled } : item
+      )
+    };
+    setNavbarConfig(updated);
+    saveNavbarConfig(updated);
+  };
+
+  const handleNavbarLabelChange = (routeKey: string, field: 'ar' | 'en', value: string) => {
+    const updated = {
+      ...navbarConfig,
+      items: navbarConfig.items.map(item => 
+        item.routeKey === routeKey 
+          ? { ...item, label: { ...item.label, [field]: value } } 
+          : item
+      )
+    };
+    setNavbarConfig(updated);
+    saveNavbarConfig(updated);
+  };
+
+  const handleNavbarItemMove = (routeKey: string, direction: 'up' | 'down') => {
+    const sortedItems = [...navbarConfig.items].sort((a, b) => a.order - b.order);
+    const idx = sortedItems.findIndex(i => i.routeKey === routeKey);
+    if (direction === 'up' && idx > 0) {
+      const temp = sortedItems[idx].order;
+      sortedItems[idx].order = sortedItems[idx - 1].order;
+      sortedItems[idx - 1].order = temp;
+    } else if (direction === 'down' && idx < sortedItems.length - 1) {
+      const temp = sortedItems[idx].order;
+      sortedItems[idx].order = sortedItems[idx + 1].order;
+      sortedItems[idx + 1].order = temp;
+    }
+    const updated = { ...navbarConfig, items: sortedItems };
+    setNavbarConfig(updated);
+    saveNavbarConfig(updated);
+  };
+
+  const handleNavbarReset = () => {
+    const reset = resetNavbarConfig();
+    setNavbarConfig(reset);
+  };
+
   const renderLandingPage = () => {
     // Explicit admin-only guard
     if (!isAdmin) {
@@ -3737,6 +3858,103 @@ export default function Admin() {
                       onCheckedChange={() => handleWhyDaamCardToggle(card.id)}
                       data-testid={`switch-${card.id}`}
                     />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Navbar Settings Section */}
+          <div className="border-t border-white/10 pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">{tr.navbarSettings}</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNavbarReset}
+                className="text-xs"
+                data-testid="button-navbar-reset"
+              >
+                <RotateCcw className="w-3 h-3 me-1" />
+                {tr.navbarResetDefault}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{tr.navbarSettingsDesc}</p>
+            
+            <div className="space-y-3">
+              {[...navbarConfig.items].sort((a, b) => a.order - b.order).map((item, idx, arr) => {
+                const isFirst = idx === 0;
+                const isLast = idx === arr.length - 1;
+                return (
+                  <div 
+                    key={item.routeKey} 
+                    className={`p-4 rounded-lg border ${item.enabled ? 'border-white/10 bg-card/30' : 'border-white/5 bg-muted/20 opacity-70'}`}
+                    data-testid={`navbar-item-${item.routeKey}`}
+                  >
+                    <div className="flex items-center justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="text-xs font-mono">{item.routeKey}</Badge>
+                        {item.adminOnly && (
+                          <Badge variant="secondary" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+                            {tr.navbarAdminOnly}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={`text-xs ${item.enabled ? 'text-green-400 border-green-500/30' : 'text-gray-400 border-gray-500/30'}`}>
+                          {item.enabled ? tr.navbarVisible : tr.navbarHidden}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isFirst}
+                          onClick={() => handleNavbarItemMove(item.routeKey, 'up')}
+                          className="w-7 h-7"
+                          title={tr.navbarMoveUp}
+                          data-testid={`button-navbar-up-${item.routeKey}`}
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isLast}
+                          onClick={() => handleNavbarItemMove(item.routeKey, 'down')}
+                          className="w-7 h-7"
+                          title={tr.navbarMoveDown}
+                          data-testid={`button-navbar-down-${item.routeKey}`}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                        <Switch
+                          checked={item.enabled}
+                          onCheckedChange={() => handleNavbarItemToggle(item.routeKey)}
+                          data-testid={`switch-navbar-${item.routeKey}`}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">{tr.navbarLabelAr}</label>
+                        <Input
+                          value={item.label.ar}
+                          onChange={(e) => handleNavbarLabelChange(item.routeKey, 'ar', e.target.value)}
+                          className="text-sm"
+                          dir="rtl"
+                          data-testid={`input-navbar-ar-${item.routeKey}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">{tr.navbarLabelEn}</label>
+                        <Input
+                          value={item.label.en}
+                          onChange={(e) => handleNavbarLabelChange(item.routeKey, 'en', e.target.value)}
+                          className="text-sm"
+                          dir="ltr"
+                          data-testid={`input-navbar-en-${item.routeKey}`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 );
               })}
