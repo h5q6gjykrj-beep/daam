@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,7 @@ function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
 import { getNavbarConfig, saveNavbarConfig, resetNavbarConfig, type NavbarConfig } from "@/lib/navbar-config";
 import { getLandingNavbarConfig, saveLandingNavbarConfig, resetLandingNavbarConfig, getActionLabel, type LandingNavbarConfig } from "@/lib/landing-navbar-config";
 import { aiSettingsRepo, validateAISettings, DEFAULT_AI_SETTINGS, type AISettings } from "@/lib/ai-settings-storage";
+import { aiAuditRepo, aiMetricsRepo, createSettingsSavedMeta, createSettingsResetMeta, createAccessDeniedMeta } from "@/lib/ai-audit-storage";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
@@ -825,7 +826,27 @@ export default function Admin() {
     aiTrainingSources: lang === 'ar' ? 'مصادر التدريب' : 'Training Sources',
     aiTrainingJobs: lang === 'ar' ? 'مهام التدريب' : 'Training Jobs',
     aiAnalytics: lang === 'ar' ? 'التحليلات' : 'Analytics',
+    aiAudit: lang === 'ar' ? 'سجل الذكاء الاصطناعي' : 'AI Audit',
     aiPlaceholder: lang === 'ar' ? 'سيتم إضافة المحتوى لاحقاً' : 'Content will be added later',
+    // AI Audit Log
+    aiAuditTitle: lang === 'ar' ? 'سجل النشاط' : 'Activity Log',
+    aiAuditDesc: lang === 'ar' ? 'آخر 50 حدث متعلق بالذكاء الاصطناعي' : 'Last 50 AI-related events',
+    aiAuditAction: lang === 'ar' ? 'الإجراء' : 'Action',
+    aiAuditUser: lang === 'ar' ? 'المستخدم' : 'User',
+    aiAuditTime: lang === 'ar' ? 'الوقت' : 'Time',
+    aiAuditDetails: lang === 'ar' ? 'التفاصيل' : 'Details',
+    aiAuditClear: lang === 'ar' ? 'مسح السجل' : 'Clear Log',
+    aiAuditCleared: lang === 'ar' ? 'تم مسح السجل' : 'Log cleared',
+    aiAuditEmpty: lang === 'ar' ? 'لا توجد أحداث مسجلة' : 'No events recorded',
+    aiAuditFilterByUser: lang === 'ar' ? 'تصفية حسب المستخدم' : 'Filter by user',
+    aiAuditAllUsers: lang === 'ar' ? 'جميع المستخدمين' : 'All users',
+    // AI Metrics
+    aiMetricsToday: lang === 'ar' ? 'اليوم' : 'Today',
+    aiMetricsWeek: lang === 'ar' ? 'هذا الأسبوع' : 'This Week',
+    aiMetricsSettingsSaves: lang === 'ar' ? 'مرات حفظ الإعدادات' : 'Settings Saves',
+    aiMetricsAccessDenied: lang === 'ar' ? 'محاولات وصول مرفوضة' : 'Access Denied Attempts',
+    aiMetricsTopUsers: lang === 'ar' ? 'أكثر المستخدمين نشاطاً' : 'Top Active Users',
+    aiMetricsActivity: lang === 'ar' ? 'النشاط' : 'Activity',
     // AI Settings Form
     aiEnableAssistant: lang === 'ar' ? 'تفعيل مساعد DAAM' : 'Enable DAAM AI',
     aiEnableAssistantDesc: lang === 'ar' ? 'تفعيل أو تعطيل مساعد الذكاء الاصطناعي' : 'Enable or disable the AI assistant',
@@ -4167,6 +4188,7 @@ export default function Admin() {
     const canViewSources = isAdmin || canCurrentUser('ai.sources.create') || canCurrentUser('ai.sources.review');
     const canViewJobs = isAdmin || canCurrentUser('ai.train.run') || canCurrentUser('ai.train.publish');
     const canViewAnalytics = isAdmin || canCurrentUser('ai.analytics.view');
+    const canViewAudit = isAdmin || canCurrentUser('ai.audit.view');
 
     // All sub-tabs with their required permissions
     const allAiSubTabs: { id: string; label: string; icon: any; canView: boolean }[] = [
@@ -4175,23 +4197,39 @@ export default function Admin() {
       { id: 'trainingSources', label: tr.aiTrainingSources, icon: Database, canView: canViewSources },
       { id: 'trainingJobs', label: tr.aiTrainingJobs, icon: Cpu, canView: canViewJobs },
       { id: 'analytics', label: tr.aiAnalytics, icon: BarChart3, canView: canViewAnalytics },
+      { id: 'audit', label: tr.aiAudit, icon: FileText, canView: canViewAudit },
     ];
 
     // Filter sub-tabs based on permissions
     const aiSubTabs = allAiSubTabs.filter(tab => tab.canView);
 
-    // Access denied message component
-    const AccessDenied = () => (
-      <div className="text-center py-12" data-testid="ai-access-denied">
-        <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-        <h3 className="text-xl font-semibold mb-2" data-testid="ai-access-denied-title">
-          {lang === 'ar' ? 'غير مصرّح لك' : 'Access Denied'}
-        </h3>
-        <p className="text-muted-foreground" data-testid="ai-access-denied-message">
-          {lang === 'ar' ? 'ليس لديك الصلاحيات الكافية للوصول إلى هذا القسم' : 'You do not have sufficient permissions to access this section'}
-        </p>
-      </div>
-    );
+    // Access denied message component with audit logging
+    const AccessDenied = ({ section, requiredPermission }: { section: string; requiredPermission: string }) => {
+      // Log access denied event on mount
+      useEffect(() => {
+        aiAuditRepo.append({
+          actorUserId: currentUser || 'unknown',
+          actorName: users.find(u => u.email === currentUser)?.name || null,
+          action: 'ai.access.denied',
+          entityType: 'access',
+          entityId: null,
+          meta: createAccessDeniedMeta(section, requiredPermission),
+        });
+        aiMetricsRepo.recomputeFromAudit();
+      }, [section, requiredPermission]);
+
+      return (
+        <div className="text-center py-12" data-testid="ai-access-denied">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="text-xl font-semibold mb-2" data-testid="ai-access-denied-title">
+            {lang === 'ar' ? 'غير مصرّح لك' : 'Access Denied'}
+          </h3>
+          <p className="text-muted-foreground" data-testid="ai-access-denied-message">
+            {lang === 'ar' ? 'ليس لديك الصلاحيات الكافية للوصول إلى هذا القسم' : 'You do not have sufficient permissions to access this section'}
+          </p>
+        </div>
+      );
+    };
 
     // Check permissions for specific sections to show access denied
     const getSubTabPermission = (tabId: string): boolean => {
@@ -4423,6 +4461,23 @@ export default function Admin() {
                             updatedBy: currentUser || null,
                           };
                           aiSettingsRepo.saveSettings(updatedSettings);
+                          // Log audit event for settings save
+                          aiAuditRepo.append({
+                            actorUserId: currentUser || 'unknown',
+                            actorName: users.find(u => u.email === currentUser)?.name || null,
+                            action: 'ai.settings.saved',
+                            entityType: 'settings',
+                            entityId: null,
+                            meta: createSettingsSavedMeta({
+                              enabled: updatedSettings.enabled,
+                              defaultLanguage: updatedSettings.defaultLanguage,
+                              temperature: updatedSettings.temperature,
+                              maxTokens: updatedSettings.maxResponseTokens,
+                              systemPromptArLength: updatedSettings.systemPrompt_ar.length,
+                              systemPromptEnLength: updatedSettings.systemPrompt_en.length,
+                            }),
+                          });
+                          aiMetricsRepo.recomputeFromAudit();
                           setAiSettings(updatedSettings);
                           setAiSettingsMessage({ type: 'success', text: tr.aiSettingsSaved });
                         } catch {
@@ -4440,6 +4495,16 @@ export default function Admin() {
                       variant="outline"
                       onClick={() => {
                         const defaults = aiSettingsRepo.resetToDefaults(currentUser || null);
+                        // Log audit event for settings reset
+                        aiAuditRepo.append({
+                          actorUserId: currentUser || 'unknown',
+                          actorName: users.find(u => u.email === currentUser)?.name || null,
+                          action: 'ai.settings.reset',
+                          entityType: 'settings',
+                          entityId: null,
+                          meta: createSettingsResetMeta(),
+                        });
+                        aiMetricsRepo.recomputeFromAudit();
                         setAiSettings(defaults);
                         setAiSettingsErrors({});
                         setAiSettingsMessage({ type: 'success', text: tr.aiSettingsReset });
@@ -4465,7 +4530,7 @@ export default function Admin() {
                     {tr.aiPlaceholder}
                   </p>
                 </div>
-              ) : <AccessDenied />
+              ) : <AccessDenied section="sources" requiredPermission="ai.sources.create|ai.sources.review" />
             )}
 
             {/* Training Jobs Sub-tab */}
@@ -4480,25 +4545,233 @@ export default function Admin() {
                     {tr.aiPlaceholder}
                   </p>
                 </div>
-              ) : <AccessDenied />
+              ) : <AccessDenied section="jobs" requiredPermission="ai.train.run|ai.train.publish" />
             )}
 
             {/* Analytics Sub-tab */}
             {aiSubTab === 'analytics' && (
               getSubTabPermission('analytics') ? (
-                <div className="text-center py-12" data-testid="ai-section-analytics">
-                  <BarChart3 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-analytics">
-                    {tr.aiAnalytics}
-                  </h3>
-                  <p className="text-muted-foreground" data-testid="ai-placeholder-analytics">
-                    {tr.aiPlaceholder}
-                  </p>
-                </div>
-              ) : <AccessDenied />
+                <AIAnalyticsSection tr={tr} users={users} />
+              ) : <AccessDenied section="analytics" requiredPermission="ai.analytics.view" />
+            )}
+
+            {/* AI Audit Sub-tab */}
+            {aiSubTab === 'audit' && (
+              getSubTabPermission('audit') ? (
+                <AIAuditSection tr={tr} users={users} isAdmin={isAdmin} currentUser={currentUser} />
+              ) : <AccessDenied section="audit" requiredPermission="ai.audit.view" />
             )}
           </CardContent>
         </Card>
+      </div>
+    );
+  };
+
+  // AI Analytics Section Component
+  const AIAnalyticsSection = ({ tr, users }: { tr: any; users: AdminUser[] }) => {
+    const [todayMetrics, setTodayMetrics] = useState(aiMetricsRepo.getTodayMetrics());
+    const [weekMetrics, setWeekMetrics] = useState(aiMetricsRepo.getWeekMetrics());
+    const [topUsers, setTopUsers] = useState(aiMetricsRepo.getTopUsers(3));
+
+    useEffect(() => {
+      const refresh = () => {
+        aiMetricsRepo.recomputeFromAudit();
+        setTodayMetrics(aiMetricsRepo.getTodayMetrics());
+        setWeekMetrics(aiMetricsRepo.getWeekMetrics());
+        setTopUsers(aiMetricsRepo.getTopUsers(3));
+      };
+      refresh();
+      window.addEventListener('aiAuditUpdated', refresh);
+      window.addEventListener('aiMetricsUpdated', refresh);
+      return () => {
+        window.removeEventListener('aiAuditUpdated', refresh);
+        window.removeEventListener('aiMetricsUpdated', refresh);
+      };
+    }, []);
+
+    const getUserName = (userId: string) => {
+      const user = users.find(u => u.email === userId);
+      return user?.name || userId;
+    };
+
+    return (
+      <div className="space-y-6" data-testid="ai-section-analytics">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Today's Metrics */}
+          <Card className="border-white/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{tr.aiMetricsToday}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">{tr.aiMetricsSettingsSaves}</span>
+                <Badge variant="secondary" data-testid="metrics-today-saves">{todayMetrics.totals.settingsSaves}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">{tr.aiMetricsAccessDenied}</span>
+                <Badge variant="secondary" data-testid="metrics-today-denied">{todayMetrics.totals.accessDenied}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* This Week's Metrics */}
+          <Card className="border-white/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{tr.aiMetricsWeek}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">{tr.aiMetricsSettingsSaves}</span>
+                <Badge variant="secondary" data-testid="metrics-week-saves">{weekMetrics.totals.settingsSaves}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">{tr.aiMetricsAccessDenied}</span>
+                <Badge variant="secondary" data-testid="metrics-week-denied">{weekMetrics.totals.accessDenied}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Top Users */}
+        <Card className="border-white/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{tr.aiMetricsTopUsers}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topUsers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">{tr.aiAuditEmpty}</p>
+            ) : (
+              <div className="space-y-2">
+                {topUsers.map((user, index) => (
+                  <div key={user.userId} className="flex justify-between items-center" data-testid={`top-user-${index}`}>
+                    <span>{getUserName(user.userId)}</span>
+                    <Badge variant="outline">{user.activity} {tr.aiMetricsActivity}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // AI Audit Section Component
+  const AIAuditSection = ({ tr, users, isAdmin, currentUser }: { tr: any; users: AdminUser[]; isAdmin: boolean; currentUser: string | null }) => {
+    const [events, setEvents] = useState<import('@/lib/ai-audit-storage').AIAuditEvent[]>([]);
+    const [filterUser, setFilterUser] = useState<string>('');
+
+    useEffect(() => {
+      const refresh = () => {
+        setEvents(aiAuditRepo.list(50, filterUser || undefined));
+      };
+      refresh();
+      window.addEventListener('aiAuditUpdated', refresh);
+      return () => window.removeEventListener('aiAuditUpdated', refresh);
+    }, [filterUser]);
+
+    const uniqueUsers = useMemo(() => {
+      const allEvents = aiAuditRepo.list(500);
+      const userIdSet = new Set(allEvents.map(e => e.actorUserId));
+      const userIds = Array.from(userIdSet);
+      return userIds.map(id => ({
+        id,
+        name: users.find(u => u.email === id)?.name || id,
+      }));
+    }, [users]);
+
+    const formatTime = (ts: number) => {
+      const date = new Date(ts);
+      return date.toLocaleString(lang === 'ar' ? 'ar-SA' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    const getActionLabel = (action: string) => {
+      const labels: Record<string, { ar: string; en: string }> = {
+        'ai.settings.saved': { ar: 'حفظ الإعدادات', en: 'Settings Saved' },
+        'ai.settings.reset': { ar: 'إعادة تعيين الإعدادات', en: 'Settings Reset' },
+        'ai.access.denied': { ar: 'وصول مرفوض', en: 'Access Denied' },
+      };
+      return labels[action]?.[lang] || action;
+    };
+
+    const handleClear = () => {
+      aiAuditRepo.clear();
+      aiMetricsRepo.recomputeFromAudit();
+      setEvents([]);
+    };
+
+    return (
+      <div className="space-y-4" data-testid="ai-section-audit">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <h3 className="text-lg font-semibold">{tr.aiAuditTitle}</h3>
+          <div className="flex gap-2 items-center">
+            <Select value={filterUser || '_all'} onValueChange={(v) => setFilterUser(v === '_all' ? '' : v)}>
+              <SelectTrigger className="w-48" data-testid="audit-filter-user">
+                <SelectValue placeholder={tr.aiAuditAllUsers} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">{tr.aiAuditAllUsers}</SelectItem>
+                {uniqueUsers.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isAdmin && (
+              <Button variant="outline" size="sm" onClick={handleClear} data-testid="audit-clear-button">
+                <Trash2 className="w-4 h-4 me-1" />
+                {tr.aiAuditClear}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground">{tr.aiAuditDesc}</p>
+
+        {events.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground" data-testid="audit-empty">
+            <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            {tr.aiAuditEmpty}
+          </div>
+        ) : (
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-start p-2">{tr.aiAuditTime}</th>
+                  <th className="text-start p-2">{tr.aiAuditUser}</th>
+                  <th className="text-start p-2">{tr.aiAuditAction}</th>
+                  <th className="text-start p-2">{tr.aiAuditDetails}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event, index) => (
+                  <tr key={event.id} className="border-t" data-testid={`audit-row-${index}`}>
+                    <td className="p-2 text-muted-foreground">{formatTime(event.ts)}</td>
+                    <td className="p-2">{event.actorName || event.actorUserId}</td>
+                    <td className="p-2">
+                      <Badge variant={event.action === 'ai.access.denied' ? 'destructive' : 'secondary'}>
+                        {getActionLabel(event.action)}
+                      </Badge>
+                    </td>
+                    <td className="p-2 text-muted-foreground text-xs">
+                      {event.meta && Object.keys(event.meta).length > 0 ? (
+                        <span title={JSON.stringify(event.meta, null, 2)}>
+                          {Object.entries(event.meta).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                          {Object.keys(event.meta).length > 2 && '...'}
+                        </span>
+                      ) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     );
   };

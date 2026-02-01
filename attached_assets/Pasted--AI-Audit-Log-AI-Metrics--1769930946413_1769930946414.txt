@@ -1,0 +1,83 @@
+المهمة: إضافة نظام AI Audit Log + AI Metrics (قابل للاستبدال) داخل الأدمن، بدون تدريب.
+
+الهدف:
+تمكين الأدمن من رؤية إنجازات المشرفين لاحقاً كمخططات، عبر:
+- تسجيل أحداث (Audit Events) لكل نشاط متعلق بالـ AI
+- تجميع مؤشرات (Metrics) بسيطة من هذه الأحداث
+مع تخزين محلي LocalStorage الآن وبنية قابلة للاستبدال لاحقاً.
+
+النطاق:
+- Admin → AI فقط + RBAC hooks/helpers + storage/repo utils
+- ممنوع تعديل صفحات أخرى خارج الأدمن
+
+1) نماذج البيانات:
+A) AIAuditEvent:
+- id: string
+- ts: number (Date.now)
+- actorUserId: string
+- actorName: string | null
+- action: string (مثال: "ai.settings.saved")
+- entityType: "settings" | "source" | "job" | "snapshot" | "access"
+- entityId: string | null
+- meta: object (تفاصيل إضافية مثل old/new)
+
+B) AIMetricDaily (مبدئي):
+- date: "YYYY-MM-DD"
+- byUser: Record<userId, { settingsSaves: number; accessDenied: number; }>
+- totals: { settingsSaves: number; accessDenied: number; }
+
+2) التخزين القابل للاستبدال:
+- IKeyValueStorage (موجود) استخدمه
+- أنشئ:
+  - AIAuditRepo (append/list/clear)
+  - AIMetricsRepo (get/recomputeFromAudit)
+- LocalStorage keys:
+  - daam_ai_audit_v1
+  - daam_ai_metrics_v1
+
+3) نقاط التسجيل (Instrumentation) المطلوبة الآن فقط:
+- عند Save في Admin → AI → Settings:
+  - سجل event: action="ai.settings.saved"
+  - entityType="settings"
+  - meta يحتوي أهم القيم (بدون إفشاء نص system prompt بالكامل؛ فقط lengths أو hash)
+- عند Reset في Settings:
+  - سجل event: action="ai.settings.reset"
+- عند ظهور AccessDenied (محاولة دخول بدون صلاحية):
+  - سجل event: action="ai.access.denied"
+  - entityType="access"
+  - meta: { section: "settings|sources|jobs|analytics", requiredPermission: "..." }
+
+4) صفحة جديدة داخل Admin → AI:
+- أضف Sub-tab جديد باسم:
+  - AR: سجل الذكاء الاصطناعي
+  - EN: AI Audit
+(أو إن كنت لا تريد تبويب جديد: ضعها داخل Analytics placeholder مؤقتاً)
+محتواها:
+- جدول بسيط آخر 50 حدث
+- فلتر حسب المستخدم (اختياري)
+- زر "Clear log" يظهر للأدمن فقط
+
+5) تجهيز Analytics (بدون مخططات الآن):
+- في Admin → AI → Analytics:
+  - اعرض أرقام بسيطة محسوبة من metrics:
+    - إجمالي مرات حفظ الإعدادات اليوم/الأسبوع
+    - عدد access denied اليوم/الأسبوع
+    - Top 3 مشرفين حسب النشاط
+- بدون Charts الآن (أرقام فقط + قائمة)
+
+6) اختبارات آلية (مطلوبة):
+- أضف tests تتحقق من:
+  - حفظ settings يسجل audit event
+  - reset يسجل audit event
+  - access denied يسجل audit event
+  - metrics recompute يعطي counts صحيحة
+
+ممنوع:
+- ممنوع إضافة Training Sources أو Jobs أو Snapshots
+- ممنوع API/DB
+- ممنوع تخزين systemPrompt نصاً داخل meta
+
+المخرجات:
+- قائمة الملفات المعدلة/المضافة
+- مفاتيح LocalStorage المستخدمة
+- شرح خطوات تجربة سريعة من UI

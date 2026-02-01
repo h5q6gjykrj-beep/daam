@@ -37,9 +37,11 @@ Preferred communication style: Simple, everyday language.
 - **Social Feed**: Discussion arena with post creation, replies, and reporting.
 - **AI Tutor**: Interface for an AI assistant.
 - **Admin Dashboard**: Comprehensive tools for managing users, content, and platform settings.
-  - **AI Tab**: Admin/moderator section for AI system management with sub-sections: Dashboard, Settings, Training Sources, Training Jobs, Analytics.
+  - **AI Tab**: Admin/moderator section for AI system management with sub-sections: Dashboard, Settings, Training Sources, Training Jobs, Analytics, AI Audit.
     - **AI Permissions (RBAC)**: 8 granular permissions control access: `ai.view`, `ai.settings.edit`, `ai.sources.create`, `ai.sources.review`, `ai.train.run`, `ai.train.publish`, `ai.analytics.view`, `ai.audit.view`. AI tab visible only to admins or users with `ai.view`. Sub-sections gated by specific permissions with access denied messages for unauthorized users.
     - **AI Settings**: Configurable settings for the AI assistant including enable/disable toggle, default language, system prompts (AR/EN), temperature, max tokens. Uses replaceable storage layer (localStorage via `daam_ai_settings_v1`). Read-only mode for users without `ai.settings.edit` permission.
+    - **AI Audit Log**: Tracks AI-related activities (settings save/reset, access denied attempts). Table of last 50 events with user filter and admin-only clear button. Uses replaceable storage layer (localStorage via `daam_ai_audit_v1`).
+    - **AI Metrics**: Displays computed metrics from audit events - today/week totals for settings saves and access denied, top 3 active users. Uses replaceable storage layer (localStorage via `daam_ai_metrics_v1`).
   - **Audit Log**: Tracks moderator and admin actions.
   - **Reporting System**: Manages user-generated reports for posts, comments, and users.
   - **User Roles & RBAC**: `admin`, `moderator`, `user` roles with granular permissions.
