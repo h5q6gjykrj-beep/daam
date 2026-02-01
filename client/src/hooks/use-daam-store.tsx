@@ -22,7 +22,15 @@ export type DaamPermission =
   | "mod.users.mute"
   | "mod.users.ban"
   | "admin.moderators.manage"
-  | "admin.settings.manage";
+  | "admin.settings.manage"
+  | "ai.view"
+  | "ai.settings.edit"
+  | "ai.sources.create"
+  | "ai.sources.review"
+  | "ai.train.run"
+  | "ai.train.publish"
+  | "ai.analytics.view"
+  | "ai.audit.view";
 
 export const ALL_PERMISSIONS: DaamPermission[] = [
   "mod.posts.delete",
@@ -31,7 +39,15 @@ export const ALL_PERMISSIONS: DaamPermission[] = [
   "mod.users.mute",
   "mod.users.ban",
   "admin.moderators.manage",
-  "admin.settings.manage"
+  "admin.settings.manage",
+  "ai.view",
+  "ai.settings.edit",
+  "ai.sources.create",
+  "ai.sources.review",
+  "ai.train.run",
+  "ai.train.publish",
+  "ai.analytics.view",
+  "ai.audit.view"
 ];
 
 export type ModeratorAccount = {

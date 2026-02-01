@@ -262,6 +262,10 @@ const PERMISSION_GROUPS: { id: string; permissions: DaamPermission[] }[] = [
     id: 'system',
     permissions: ['admin.moderators.manage', 'admin.settings.manage'],
   },
+  {
+    id: 'ai',
+    permissions: ['ai.view', 'ai.settings.edit', 'ai.sources.create', 'ai.sources.review', 'ai.train.run', 'ai.train.publish', 'ai.analytics.view', 'ai.audit.view'],
+  },
 ];
 
 // Permission Presets
@@ -748,6 +752,7 @@ export default function Admin() {
     permGroupContent: lang === 'ar' ? 'إدارة المحتوى' : 'Content Management',
     permGroupUsers: lang === 'ar' ? 'إدارة المستخدمين' : 'User Management',
     permGroupSystem: lang === 'ar' ? 'إدارة النظام' : 'System Management',
+    permGroupAI: lang === 'ar' ? 'صلاحيات الذكاء الاصطناعي' : 'AI Permissions',
     // RBAC Enhancements - Presets
     presets: lang === 'ar' ? 'قوالب سريعة' : 'Quick Presets',
     presetContentMod: lang === 'ar' ? 'مشرف محتوى' : 'Content Moderator',
@@ -845,7 +850,7 @@ export default function Admin() {
     aiDisabled: lang === 'ar' ? 'معطّل' : 'Disabled',
   };
 
-  const allNavItems = [
+  const allNavItems: { id: string; label: string; icon: any; adminOnly?: boolean; permission?: DaamPermission }[] = [
     { id: 'overview', label: tr.overview, icon: LayoutDashboard },
     { id: 'users', label: tr.users, icon: Users },
     { id: 'content', label: tr.content, icon: FileText },
@@ -855,12 +860,18 @@ export default function Admin() {
     { id: 'universities', label: tr.universities, icon: Building },
     { id: 'officialContent', label: tr.officialContent, icon: Globe, adminOnly: true },
     { id: 'landingPage', label: tr.landingPage, icon: Home, adminOnly: true },
-    { id: 'ai', label: tr.aiTab, icon: Brain, adminOnly: true },
+    { id: 'ai', label: tr.aiTab, icon: Brain, permission: 'ai.view' },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
 
-  // Filter navItems based on user role - only admins see officialContent
-  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin);
+  // Filter navItems based on user role and permissions
+  // - adminOnly items: only visible to admins
+  // - permission items: visible to admins OR users with that permission
+  const navItems = allNavItems.filter(item => {
+    if (item.adminOnly) return isAdmin;
+    if (item.permission) return isAdmin || canCurrentUser(item.permission);
+    return true;
+  });
 
   const stats = [
     { label: tr.totalUsers, value: users.length, icon: Users, color: 'from-violet-600 to-purple-500' },
@@ -2797,6 +2808,14 @@ export default function Admin() {
     'mod.users.ban': { ar: 'حظر المستخدمين', en: 'Ban Users' },
     'admin.moderators.manage': { ar: 'إدارة المشرفين', en: 'Manage Moderators' },
     'admin.settings.manage': { ar: 'إدارة الإعدادات', en: 'Manage Settings' },
+    'ai.view': { ar: 'مشاهدة تبويب الذكاء الاصطناعي', en: 'View AI Tab' },
+    'ai.settings.edit': { ar: 'تعديل إعدادات الذكاء الاصطناعي', en: 'Edit AI Settings' },
+    'ai.sources.create': { ar: 'إضافة مصادر التدريب', en: 'Create Training Sources' },
+    'ai.sources.review': { ar: 'مراجعة مصادر التدريب', en: 'Review Training Sources' },
+    'ai.train.run': { ar: 'تشغيل مهام التدريب', en: 'Run Training Jobs' },
+    'ai.train.publish': { ar: 'نشر Snapshot', en: 'Publish Snapshot' },
+    'ai.analytics.view': { ar: 'مشاهدة التحليلات', en: 'View Analytics' },
+    'ai.audit.view': { ar: 'مشاهدة سجل AI', en: 'View AI Audit Log' },
   };
 
   const handleCreateModerator = () => {
@@ -3156,6 +3175,27 @@ export default function Admin() {
                     ))}
                   </div>
                 </div>
+                {/* AI Permissions Group */}
+                <div className="border border-white/10 rounded-lg p-3">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupAI}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {PERMISSION_GROUPS[3].permissions.map((perm) => (
+                      <label 
+                        key={perm} 
+                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer text-sm"
+                        data-testid={`checkbox-perm-${perm}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={modFormPermissions.includes(perm)}
+                          onChange={() => togglePermission(perm, modFormPermissions, setModFormPermissions)}
+                          className="rounded border-white/20"
+                        />
+                        <span>{permissionLabels[perm][lang]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3387,6 +3427,27 @@ export default function Admin() {
               <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupSystem}</h4>
               <div className="space-y-2">
                 {PERMISSION_GROUPS[2].permissions.map((perm) => (
+                  <label 
+                    key={perm} 
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                    data-testid={`edit-checkbox-perm-${perm}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editingModPermissions.includes(perm)}
+                      onChange={() => togglePermission(perm, editingModPermissions, setEditingModPermissions)}
+                      className="rounded border-white/20"
+                    />
+                    <span className="text-sm">{permissionLabels[perm][lang]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {/* AI Permissions Group */}
+            <div className="border border-white/10 rounded-lg p-3">
+              <h4 className="text-sm font-medium mb-2 text-muted-foreground">{tr.permGroupAI}</h4>
+              <div className="space-y-2">
+                {PERMISSION_GROUPS[3].permissions.map((perm) => (
                   <label 
                     key={perm} 
                     className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
@@ -4100,13 +4161,43 @@ export default function Admin() {
 
   // AI Tab with sub-sections (UI only, no logic)
   const renderAI = () => {
-    const aiSubTabs = [
-      { id: 'dashboard', label: tr.aiDashboard, icon: LayoutDashboard },
-      { id: 'settings', label: tr.aiSettings, icon: Settings },
-      { id: 'trainingSources', label: tr.aiTrainingSources, icon: Database },
-      { id: 'trainingJobs', label: tr.aiTrainingJobs, icon: Cpu },
-      { id: 'analytics', label: tr.aiAnalytics, icon: BarChart3 },
+    // Permission checks for AI features
+    const canViewAI = isAdmin || canCurrentUser('ai.view');
+    const canEditSettings = isAdmin || canCurrentUser('ai.settings.edit');
+    const canViewSources = isAdmin || canCurrentUser('ai.sources.create') || canCurrentUser('ai.sources.review');
+    const canViewJobs = isAdmin || canCurrentUser('ai.train.run') || canCurrentUser('ai.train.publish');
+    const canViewAnalytics = isAdmin || canCurrentUser('ai.analytics.view');
+
+    // All sub-tabs with their required permissions
+    const allAiSubTabs: { id: string; label: string; icon: any; canView: boolean }[] = [
+      { id: 'dashboard', label: tr.aiDashboard, icon: LayoutDashboard, canView: canViewAI },
+      { id: 'settings', label: tr.aiSettings, icon: Settings, canView: canViewAI },
+      { id: 'trainingSources', label: tr.aiTrainingSources, icon: Database, canView: canViewSources },
+      { id: 'trainingJobs', label: tr.aiTrainingJobs, icon: Cpu, canView: canViewJobs },
+      { id: 'analytics', label: tr.aiAnalytics, icon: BarChart3, canView: canViewAnalytics },
     ];
+
+    // Filter sub-tabs based on permissions
+    const aiSubTabs = allAiSubTabs.filter(tab => tab.canView);
+
+    // Access denied message component
+    const AccessDenied = () => (
+      <div className="text-center py-12" data-testid="ai-access-denied">
+        <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+        <h3 className="text-xl font-semibold mb-2" data-testid="ai-access-denied-title">
+          {lang === 'ar' ? 'غير مصرّح لك' : 'Access Denied'}
+        </h3>
+        <p className="text-muted-foreground" data-testid="ai-access-denied-message">
+          {lang === 'ar' ? 'ليس لديك الصلاحيات الكافية للوصول إلى هذا القسم' : 'You do not have sufficient permissions to access this section'}
+        </p>
+      </div>
+    );
+
+    // Check permissions for specific sections to show access denied
+    const getSubTabPermission = (tabId: string): boolean => {
+      const tab = allAiSubTabs.find(t => t.id === tabId);
+      return tab?.canView ?? false;
+    };
 
     return (
       <div className="space-y-6">
@@ -4176,6 +4267,13 @@ export default function Admin() {
                   </div>
                 )}
 
+                {/* Read-only notice for non-editors */}
+                {!canEditSettings && (
+                  <div className="p-3 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30" data-testid="ai-settings-readonly-notice">
+                    {lang === 'ar' ? 'لديك صلاحية القراءة فقط. لا يمكنك تعديل الإعدادات.' : 'Read-only access. You cannot modify settings.'}
+                  </div>
+                )}
+
                 {/* Enable/Disable AI Toggle */}
                 <div className="flex items-center justify-between p-4 rounded-lg border border-white/10 bg-card/30">
                   <div>
@@ -4189,6 +4287,7 @@ export default function Admin() {
                     <Switch
                       checked={aiSettings.enabled}
                       onCheckedChange={(checked) => setAiSettings(prev => ({ ...prev, enabled: checked }))}
+                      disabled={!canEditSettings}
                       data-testid="ai-toggle-enabled"
                     />
                   </div>
@@ -4201,6 +4300,7 @@ export default function Admin() {
                   <Select
                     value={aiSettings.defaultLanguage}
                     onValueChange={(value: 'ar' | 'en') => setAiSettings(prev => ({ ...prev, defaultLanguage: value }))}
+                    disabled={!canEditSettings}
                   >
                     <SelectTrigger className="w-full max-w-xs" data-testid="ai-select-language">
                       <SelectValue />
@@ -4223,6 +4323,7 @@ export default function Admin() {
                     onChange={(e) => setAiSettings(prev => ({ ...prev, systemPrompt_ar: e.target.value }))}
                     className="mt-3 min-h-[120px]"
                     dir="rtl"
+                    disabled={!canEditSettings}
                     data-testid="ai-textarea-prompt-ar"
                   />
                 </div>
@@ -4238,6 +4339,7 @@ export default function Admin() {
                     onChange={(e) => setAiSettings(prev => ({ ...prev, systemPrompt_en: e.target.value }))}
                     className="mt-3 min-h-[120px]"
                     dir="ltr"
+                    disabled={!canEditSettings}
                     data-testid="ai-textarea-prompt-en"
                   />
                 </div>
@@ -4261,6 +4363,7 @@ export default function Admin() {
                     max={1}
                     step={0.01}
                     className="w-full"
+                    disabled={!canEditSettings}
                     data-testid="ai-slider-temperature"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -4283,6 +4386,7 @@ export default function Admin() {
                     min={1}
                     max={8192}
                     className="w-full max-w-xs"
+                    disabled={!canEditSettings}
                     data-testid="ai-input-max-tokens"
                   />
                 </div>
@@ -4295,95 +4399,103 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-3 pt-4">
-                  <Button
-                    onClick={() => {
-                      setAiSettingsLoading(true);
-                      setAiSettingsErrors({});
-                      setAiSettingsMessage(null);
-                      
-                      const validation = validateAISettings(aiSettings, lang);
-                      if (!validation.valid) {
-                        setAiSettingsErrors(validation.errors);
-                        setAiSettingsLoading(false);
-                        setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
-                        return;
-                      }
-                      
-                      try {
-                        const updatedSettings: AISettings = {
-                          ...aiSettings,
-                          updatedAt: Date.now(),
-                          updatedBy: currentUser || null,
-                        };
-                        aiSettingsRepo.saveSettings(updatedSettings);
-                        setAiSettings(updatedSettings);
-                        setAiSettingsMessage({ type: 'success', text: tr.aiSettingsSaved });
-                      } catch {
-                        setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
-                      } finally {
-                        setAiSettingsLoading(false);
-                      }
-                    }}
-                    disabled={aiSettingsLoading}
-                    data-testid="ai-button-save"
-                  >
-                    {tr.aiSaveSettings}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const defaults = aiSettingsRepo.resetToDefaults(currentUser || null);
-                      setAiSettings(defaults);
-                      setAiSettingsErrors({});
-                      setAiSettingsMessage({ type: 'success', text: tr.aiSettingsReset });
-                    }}
-                    data-testid="ai-button-reset"
-                  >
-                    {tr.aiResetDefaults}
-                  </Button>
-                </div>
+                {/* Action Buttons - only shown for users with edit permission */}
+                {canEditSettings && (
+                  <div className="flex flex-wrap gap-3 pt-4">
+                    <Button
+                      onClick={() => {
+                        setAiSettingsLoading(true);
+                        setAiSettingsErrors({});
+                        setAiSettingsMessage(null);
+                        
+                        const validation = validateAISettings(aiSettings, lang);
+                        if (!validation.valid) {
+                          setAiSettingsErrors(validation.errors);
+                          setAiSettingsLoading(false);
+                          setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
+                          return;
+                        }
+                        
+                        try {
+                          const updatedSettings: AISettings = {
+                            ...aiSettings,
+                            updatedAt: Date.now(),
+                            updatedBy: currentUser || null,
+                          };
+                          aiSettingsRepo.saveSettings(updatedSettings);
+                          setAiSettings(updatedSettings);
+                          setAiSettingsMessage({ type: 'success', text: tr.aiSettingsSaved });
+                        } catch {
+                          setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
+                        } finally {
+                          setAiSettingsLoading(false);
+                        }
+                      }}
+                      disabled={aiSettingsLoading}
+                      data-testid="ai-button-save"
+                    >
+                      {tr.aiSaveSettings}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const defaults = aiSettingsRepo.resetToDefaults(currentUser || null);
+                        setAiSettings(defaults);
+                        setAiSettingsErrors({});
+                        setAiSettingsMessage({ type: 'success', text: tr.aiSettingsReset });
+                      }}
+                      data-testid="ai-button-reset"
+                    >
+                      {tr.aiResetDefaults}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Training Sources Sub-tab */}
             {aiSubTab === 'trainingSources' && (
-              <div className="text-center py-12" data-testid="ai-section-trainingSources">
-                <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingSources">
-                  {tr.aiTrainingSources}
-                </h3>
-                <p className="text-muted-foreground" data-testid="ai-placeholder-trainingSources">
-                  {tr.aiPlaceholder}
-                </p>
-              </div>
+              getSubTabPermission('trainingSources') ? (
+                <div className="text-center py-12" data-testid="ai-section-trainingSources">
+                  <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingSources">
+                    {tr.aiTrainingSources}
+                  </h3>
+                  <p className="text-muted-foreground" data-testid="ai-placeholder-trainingSources">
+                    {tr.aiPlaceholder}
+                  </p>
+                </div>
+              ) : <AccessDenied />
             )}
 
             {/* Training Jobs Sub-tab */}
             {aiSubTab === 'trainingJobs' && (
-              <div className="text-center py-12" data-testid="ai-section-trainingJobs">
-                <Cpu className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingJobs">
-                  {tr.aiTrainingJobs}
-                </h3>
-                <p className="text-muted-foreground" data-testid="ai-placeholder-trainingJobs">
-                  {tr.aiPlaceholder}
-                </p>
-              </div>
+              getSubTabPermission('trainingJobs') ? (
+                <div className="text-center py-12" data-testid="ai-section-trainingJobs">
+                  <Cpu className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingJobs">
+                    {tr.aiTrainingJobs}
+                  </h3>
+                  <p className="text-muted-foreground" data-testid="ai-placeholder-trainingJobs">
+                    {tr.aiPlaceholder}
+                  </p>
+                </div>
+              ) : <AccessDenied />
             )}
 
             {/* Analytics Sub-tab */}
             {aiSubTab === 'analytics' && (
-              <div className="text-center py-12" data-testid="ai-section-analytics">
-                <BarChart3 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-analytics">
-                  {tr.aiAnalytics}
-                </h3>
-                <p className="text-muted-foreground" data-testid="ai-placeholder-analytics">
-                  {tr.aiPlaceholder}
-                </p>
-              </div>
+              getSubTabPermission('analytics') ? (
+                <div className="text-center py-12" data-testid="ai-section-analytics">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-analytics">
+                    {tr.aiAnalytics}
+                  </h3>
+                  <p className="text-muted-foreground" data-testid="ai-placeholder-analytics">
+                    {tr.aiPlaceholder}
+                  </p>
+                </div>
+              ) : <AccessDenied />
             )}
           </CardContent>
         </Card>
