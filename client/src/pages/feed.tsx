@@ -1501,7 +1501,7 @@ export default function Feed() {
                           <img 
                             src={post.imageUrl} 
                             alt="" 
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-cover object-center"
                             loading="lazy"
                           />
                         </div>
@@ -1520,7 +1520,7 @@ export default function Feed() {
                                 <img 
                                   src={attachment.url} 
                                   alt={attachment.name}
-                                  className="w-full h-full object-contain"
+                                  className="w-full h-full object-cover object-center"
                                   loading="lazy"
                                 />
                               </button>
