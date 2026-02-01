@@ -121,6 +121,9 @@ function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
 
 import { getNavbarConfig, saveNavbarConfig, resetNavbarConfig, type NavbarConfig } from "@/lib/navbar-config";
 import { getLandingNavbarConfig, saveLandingNavbarConfig, resetLandingNavbarConfig, getActionLabel, type LandingNavbarConfig } from "@/lib/landing-navbar-config";
+import { aiSettingsRepo, validateAISettings, DEFAULT_AI_SETTINGS, type AISettings } from "@/lib/ai-settings-storage";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 interface AdminNote {
   id: string;
@@ -311,6 +314,12 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
   const [aiSubTab, setAiSubTab] = useState('dashboard');
+  
+  // AI Settings State
+  const [aiSettings, setAiSettings] = useState<AISettings>(() => aiSettingsRepo.getSettings());
+  const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
+  const [aiSettingsMessage, setAiSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [aiSettingsErrors, setAiSettingsErrors] = useState<Record<string, string>>({});
   
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
   const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
@@ -812,6 +821,28 @@ export default function Admin() {
     aiTrainingJobs: lang === 'ar' ? 'مهام التدريب' : 'Training Jobs',
     aiAnalytics: lang === 'ar' ? 'التحليلات' : 'Analytics',
     aiPlaceholder: lang === 'ar' ? 'سيتم إضافة المحتوى لاحقاً' : 'Content will be added later',
+    // AI Settings Form
+    aiEnableAssistant: lang === 'ar' ? 'تفعيل مساعد DAAM' : 'Enable DAAM AI',
+    aiEnableAssistantDesc: lang === 'ar' ? 'تفعيل أو تعطيل مساعد الذكاء الاصطناعي' : 'Enable or disable the AI assistant',
+    aiDefaultLanguage: lang === 'ar' ? 'اللغة الافتراضية' : 'Default Language',
+    aiDefaultLanguageDesc: lang === 'ar' ? 'اللغة المستخدمة في الردود' : 'Language used for responses',
+    aiSystemPromptAr: lang === 'ar' ? 'النص التوجيهي (عربي)' : 'System Prompt (Arabic)',
+    aiSystemPromptEn: lang === 'ar' ? 'النص التوجيهي (إنجليزي)' : 'System Prompt (English)',
+    aiTemperature: lang === 'ar' ? 'درجة الإبداعية' : 'Temperature',
+    aiTemperatureDesc: lang === 'ar' ? 'قيمة أعلى = ردود أكثر إبداعية' : 'Higher value = more creative responses',
+    aiMaxTokens: lang === 'ar' ? 'الحد الأقصى للرموز' : 'Max Response Tokens',
+    aiMaxTokensDesc: lang === 'ar' ? 'عدد الرموز القصوى في الرد' : 'Maximum tokens in response',
+    aiActiveSnapshot: lang === 'ar' ? 'النسخة النشطة' : 'Active Snapshot',
+    aiNotPublished: lang === 'ar' ? 'غير منشور بعد' : 'Not published yet',
+    aiSaveSettings: lang === 'ar' ? 'حفظ الإعدادات' : 'Save Settings',
+    aiResetDefaults: lang === 'ar' ? 'استعادة الافتراضي' : 'Reset to Defaults',
+    aiSettingsSaved: lang === 'ar' ? 'تم حفظ الإعدادات بنجاح' : 'Settings saved successfully',
+    aiSettingsReset: lang === 'ar' ? 'تم استعادة الإعدادات الافتراضية' : 'Settings reset to defaults',
+    aiSettingsError: lang === 'ar' ? 'حدث خطأ في الحفظ' : 'Error saving settings',
+    aiArabic: lang === 'ar' ? 'العربية' : 'Arabic',
+    aiEnglish: lang === 'ar' ? 'الإنجليزية' : 'English',
+    aiEnabled: lang === 'ar' ? 'مفعّل' : 'Enabled',
+    aiDisabled: lang === 'ar' ? 'معطّل' : 'Disabled',
   };
 
   const allNavItems = [
@@ -4123,14 +4154,196 @@ export default function Admin() {
 
             {/* Settings Sub-tab */}
             {aiSubTab === 'settings' && (
-              <div className="text-center py-12" data-testid="ai-section-settings">
-                <Settings className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-settings">
-                  {tr.aiSettings}
-                </h3>
-                <p className="text-muted-foreground" data-testid="ai-placeholder-settings">
-                  {tr.aiPlaceholder}
-                </p>
+              <div className="space-y-6" data-testid="ai-section-settings">
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="w-5 h-5" />
+                  <h3 className="text-xl font-semibold" data-testid="ai-title-settings">
+                    {tr.aiSettings}
+                  </h3>
+                </div>
+
+                {/* Success/Error Messages */}
+                {aiSettingsMessage && (
+                  <div
+                    className={`p-3 rounded-md ${
+                      aiSettingsMessage.type === 'success'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}
+                    data-testid="ai-settings-message"
+                  >
+                    {aiSettingsMessage.text}
+                  </div>
+                )}
+
+                {/* Enable/Disable AI Toggle */}
+                <div className="flex items-center justify-between p-4 rounded-lg border border-white/10 bg-card/30">
+                  <div>
+                    <Label className="text-base font-medium">{tr.aiEnableAssistant}</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{tr.aiEnableAssistantDesc}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={aiSettings.enabled ? 'default' : 'outline'}>
+                      {aiSettings.enabled ? tr.aiEnabled : tr.aiDisabled}
+                    </Badge>
+                    <Switch
+                      checked={aiSettings.enabled}
+                      onCheckedChange={(checked) => setAiSettings(prev => ({ ...prev, enabled: checked }))}
+                      data-testid="ai-toggle-enabled"
+                    />
+                  </div>
+                </div>
+
+                {/* Default Language */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <Label className="text-base font-medium">{tr.aiDefaultLanguage}</Label>
+                  <p className="text-sm text-muted-foreground mt-1 mb-3">{tr.aiDefaultLanguageDesc}</p>
+                  <Select
+                    value={aiSettings.defaultLanguage}
+                    onValueChange={(value: 'ar' | 'en') => setAiSettings(prev => ({ ...prev, defaultLanguage: value }))}
+                  >
+                    <SelectTrigger className="w-full max-w-xs" data-testid="ai-select-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ar" data-testid="ai-select-language-ar">{tr.aiArabic}</SelectItem>
+                      <SelectItem value="en" data-testid="ai-select-language-en">{tr.aiEnglish}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* System Prompt Arabic */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <Label className="text-base font-medium">{tr.aiSystemPromptAr}</Label>
+                  {aiSettingsErrors.systemPrompt_ar && (
+                    <p className="text-sm text-red-400 mt-1">{aiSettingsErrors.systemPrompt_ar}</p>
+                  )}
+                  <Textarea
+                    value={aiSettings.systemPrompt_ar}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, systemPrompt_ar: e.target.value }))}
+                    className="mt-3 min-h-[120px]"
+                    dir="rtl"
+                    data-testid="ai-textarea-prompt-ar"
+                  />
+                </div>
+
+                {/* System Prompt English */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <Label className="text-base font-medium">{tr.aiSystemPromptEn}</Label>
+                  {aiSettingsErrors.systemPrompt_en && (
+                    <p className="text-sm text-red-400 mt-1">{aiSettingsErrors.systemPrompt_en}</p>
+                  )}
+                  <Textarea
+                    value={aiSettings.systemPrompt_en}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, systemPrompt_en: e.target.value }))}
+                    className="mt-3 min-h-[120px]"
+                    dir="ltr"
+                    data-testid="ai-textarea-prompt-en"
+                  />
+                </div>
+
+                {/* Temperature */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-base font-medium">{tr.aiTemperature}</Label>
+                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded" data-testid="ai-temperature-value">
+                      {aiSettings.temperature.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">{tr.aiTemperatureDesc}</p>
+                  {aiSettingsErrors.temperature && (
+                    <p className="text-sm text-red-400 mb-2">{aiSettingsErrors.temperature}</p>
+                  )}
+                  <Slider
+                    value={[aiSettings.temperature]}
+                    onValueChange={(value) => setAiSettings(prev => ({ ...prev, temperature: value[0] }))}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    className="w-full"
+                    data-testid="ai-slider-temperature"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>0.0</span>
+                    <span>1.0</span>
+                  </div>
+                </div>
+
+                {/* Max Response Tokens */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <Label className="text-base font-medium">{tr.aiMaxTokens}</Label>
+                  <p className="text-sm text-muted-foreground mt-1 mb-3">{tr.aiMaxTokensDesc}</p>
+                  {aiSettingsErrors.maxResponseTokens && (
+                    <p className="text-sm text-red-400 mb-2">{aiSettingsErrors.maxResponseTokens}</p>
+                  )}
+                  <Input
+                    type="number"
+                    value={aiSettings.maxResponseTokens}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, maxResponseTokens: parseInt(e.target.value) || 0 }))}
+                    min={1}
+                    max={8192}
+                    className="w-full max-w-xs"
+                    data-testid="ai-input-max-tokens"
+                  />
+                </div>
+
+                {/* Active Snapshot (Readonly) */}
+                <div className="p-4 rounded-lg border border-white/10 bg-card/30">
+                  <Label className="text-base font-medium">{tr.aiActiveSnapshot}</Label>
+                  <div className="mt-3 p-3 bg-muted/50 rounded-md text-muted-foreground" data-testid="ai-active-snapshot">
+                    {aiSettings.activeSnapshotId || tr.aiNotPublished}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-3 pt-4">
+                  <Button
+                    onClick={() => {
+                      setAiSettingsLoading(true);
+                      setAiSettingsErrors({});
+                      setAiSettingsMessage(null);
+                      
+                      const validation = validateAISettings(aiSettings, lang);
+                      if (!validation.valid) {
+                        setAiSettingsErrors(validation.errors);
+                        setAiSettingsLoading(false);
+                        setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
+                        return;
+                      }
+                      
+                      try {
+                        const updatedSettings: AISettings = {
+                          ...aiSettings,
+                          updatedAt: Date.now(),
+                          updatedBy: currentUser || null,
+                        };
+                        aiSettingsRepo.saveSettings(updatedSettings);
+                        setAiSettings(updatedSettings);
+                        setAiSettingsMessage({ type: 'success', text: tr.aiSettingsSaved });
+                      } catch {
+                        setAiSettingsMessage({ type: 'error', text: tr.aiSettingsError });
+                      } finally {
+                        setAiSettingsLoading(false);
+                      }
+                    }}
+                    disabled={aiSettingsLoading}
+                    data-testid="ai-button-save"
+                  >
+                    {tr.aiSaveSettings}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const defaults = aiSettingsRepo.resetToDefaults(currentUser || null);
+                      setAiSettings(defaults);
+                      setAiSettingsErrors({});
+                      setAiSettingsMessage({ type: 'success', text: tr.aiSettingsReset });
+                    }}
+                    data-testid="ai-button-reset"
+                  >
+                    {tr.aiResetDefaults}
+                  </Button>
+                </div>
               </div>
             )}
 

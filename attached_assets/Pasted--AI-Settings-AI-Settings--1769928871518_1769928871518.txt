@@ -1,0 +1,58 @@
+المهمة: بناء نظام "AI Settings" داخل تبويب AI (قسم Settings) مع تخزين محلي قابل للاستبدال.
+
+الهدف:
+إضافة صفحة إعدادات داخل Admin > AI > Settings تسمح للأدمن بتعديل إعدادات الشات بوت وحفظها في LocalStorage الآن، مع تصميم Repository/Storage Interface بحيث يمكن استبداله لاحقاً بقاعدة بيانات بدون تغيير UI.
+
+النطاق المسموح:
+- فقط ملفات تبويب AI + (hooks/store إن لزم) + util/storage
+- ممنوع تعديل صفحات أخرى أو سلوك أي تبويب آخر
+
+1) أنشئ نموذج بيانات AISettings (Type/Interface) يحتوي على الأقل:
+- enabled: boolean (تفعيل/تعطيل مساعد DAAM)
+- defaultLanguage: "ar" | "en"
+- systemPrompt_ar: string
+- systemPrompt_en: string
+- maxResponseTokens: number (قيمة افتراضية معقولة)
+- temperature: number (0.0 - 1.0)
+- activeSnapshotId: string | null (حالياً null)
+- updatedAt: number
+- updatedBy: string | null
+
+2) أنشئ طبقة Storage قابلة للاستبدال:
+- تعريف واجهة IKeyValueStorage (get/set/remove)
+- تنفيذ LocalStorageStorage الآن
+- كل تخزين AISettings يتم عبر Repository: AISettingsRepo
+- المفتاح: daam_ai_settings_v1
+
+3) UI داخل Admin > AI > Settings:
+- Toggle: "تفعيل مساعد DAAM" / "Enable DAAM AI"
+- Select: اللغة الافتراضية (AR/EN)
+- Textarea: System Prompt (Arabic)
+- Textarea: System Prompt (English)
+- Slider أو Input Number: Temperature
+- Input Number: Max Response Tokens
+- Readonly field: Active Snapshot (يعرض "غير منشور بعد" إذا null)
+- أزرار:
+  - Save (يحفظ)
+  - Reset to defaults (يرجع القيم الافتراضية)
+- رسائل نجاح/خطأ واضحة (bilingual)
+
+4) السلوك:
+- عند فتح صفحة Settings: تحميل الإعدادات من repo، إذا غير موجودة استخدم defaults ثم احفظها مرة واحدة.
+- عند الضغط Save: تحقق من القيم (temperature ضمن 0-1، tokens > 0، النصوص ليست فارغة) ثم احفظ.
+- لا تربط الشات بوت الحقيقي بهذه الإعدادات الآن (فقط إعدادات الأدمن).
+
+5) الالتزام بالتصميم:
+- نفس UI system الحالي (Buttons, Inputs, Cards)
+- RTL/LTR + عربي/إنجليزي بالكامل
+- أضف test ids للعناصر الأساسية
+
+ممنوع:
+- ممنوع إضافة Training أو Snapshots أو Analytics الآن
+- ممنوع تعديل RBAC حالياً
+- ممنوع أي API calls
+
+المخرجات المطلوبة:
+- ذكر الملفات التي تم إنشاؤها/تعديلها
+- تأكيد مفتاح LocalStorage المستخدم
+- وصف سريع لكيفية تجربة الإعدادات من واجهة الأدمن
