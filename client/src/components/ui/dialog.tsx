@@ -204,6 +204,31 @@ const DialogDescription = React.forwardRef<
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
+// Simple DialogContent without animations for cases where AnimatePresence causes issues
+const SimpleDialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  DialogContentProps
+>(({ className, children, container, ...props }, ref) => (
+  <DialogPrimitive.Portal container={container}>
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80" />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-lg border bg-background p-6 shadow-lg",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+))
+SimpleDialogContent.displayName = "SimpleDialogContent"
+
 export {
   Dialog,
   DialogPortal,
@@ -211,6 +236,7 @@ export {
   DialogClose,
   DialogTrigger,
   DialogContent,
+  SimpleDialogContent,
   DialogHeader,
   DialogFooter,
   DialogTitle,

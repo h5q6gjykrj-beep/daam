@@ -1,9 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, SimpleDialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +34,14 @@ import {
 import { getCampaignMedia, getCampaignAttachmentBlob, detectAttachmentKind, validateAttachment } from "@/lib/campaign-media";
 import { CAMPAIGN_TRANSLATIONS, formatCampaignDate, getCampaignStatusColor } from "@/lib/campaign-helpers";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  trainingSourcesRepo, 
+  type TrainingSource, 
+  type TrainingSourceType, 
+  type TrainingSourceLanguage, 
+  type TrainingSourceStatus,
+  validateTrainingSource
+} from "@/lib/ai-sources-storage";
 
 type UserStatus = 'active' | 'suspended' | 'banned';
 type PostStatus = 'visible' | 'hidden' | 'deleted';
@@ -869,6 +877,65 @@ export default function Admin() {
     aiEnglish: lang === 'ar' ? 'الإنجليزية' : 'English',
     aiEnabled: lang === 'ar' ? 'مفعّل' : 'Enabled',
     aiDisabled: lang === 'ar' ? 'معطّل' : 'Disabled',
+    // Training Sources
+    sourcesTitle: lang === 'ar' ? 'قائمة المصادر' : 'Sources List',
+    sourcesAddButton: lang === 'ar' ? 'إضافة مصدر' : 'Add Source',
+    sourcesEditButton: lang === 'ar' ? 'تعديل' : 'Edit',
+    sourcesDeleteButton: lang === 'ar' ? 'حذف' : 'Delete',
+    sourcesSearch: lang === 'ar' ? 'بحث...' : 'Search...',
+    sourcesFilterAll: lang === 'ar' ? 'الكل' : 'All',
+    sourcesNoResults: lang === 'ar' ? 'لا توجد مصادر' : 'No sources found',
+    sourcesColumn_title: lang === 'ar' ? 'العنوان' : 'Title',
+    sourcesColumn_type: lang === 'ar' ? 'النوع' : 'Type',
+    sourcesColumn_language: lang === 'ar' ? 'اللغة' : 'Language',
+    sourcesColumn_status: lang === 'ar' ? 'الحالة' : 'Status',
+    sourcesColumn_creator: lang === 'ar' ? 'المنشئ' : 'Creator',
+    sourcesColumn_date: lang === 'ar' ? 'التاريخ' : 'Date',
+    sourcesColumn_actions: lang === 'ar' ? 'الإجراءات' : 'Actions',
+    // Source Form Modal
+    sourceFormAdd: lang === 'ar' ? 'إضافة مصدر جديد' : 'Add New Source',
+    sourceFormEdit: lang === 'ar' ? 'تعديل المصدر' : 'Edit Source',
+    sourceFormType: lang === 'ar' ? 'نوع المصدر' : 'Source Type',
+    sourceFormTitle: lang === 'ar' ? 'العنوان' : 'Title',
+    sourceFormLanguage: lang === 'ar' ? 'اللغة' : 'Language',
+    sourceFormTags: lang === 'ar' ? 'الوسوم (مفصولة بفاصلة)' : 'Tags (comma separated)',
+    sourceFormContent: lang === 'ar' ? 'المحتوى' : 'Content',
+    sourceFormLinkUrl: lang === 'ar' ? 'رابط URL' : 'URL Link',
+    sourceFormSave: lang === 'ar' ? 'حفظ' : 'Save',
+    sourceFormCancel: lang === 'ar' ? 'إلغاء' : 'Cancel',
+    sourceFormCreated: lang === 'ar' ? 'تم إنشاء المصدر بنجاح' : 'Source created successfully',
+    sourceFormUpdated: lang === 'ar' ? 'تم تحديث المصدر بنجاح' : 'Source updated successfully',
+    // Source Types
+    sourceType_note: lang === 'ar' ? 'ملاحظة' : 'Note',
+    sourceType_summary: lang === 'ar' ? 'ملخص' : 'Summary',
+    sourceType_article: lang === 'ar' ? 'مقالة' : 'Article',
+    sourceType_qa: lang === 'ar' ? 'سؤال وجواب' : 'Q&A',
+    sourceType_link: lang === 'ar' ? 'رابط' : 'Link',
+    sourceType_file_meta: lang === 'ar' ? 'ملف' : 'File',
+    // Source Status
+    sourceStatus_draft: lang === 'ar' ? 'مسودة' : 'Draft',
+    sourceStatus_pending_review: lang === 'ar' ? 'قيد المراجعة' : 'Pending Review',
+    sourceStatus_approved: lang === 'ar' ? 'معتمد' : 'Approved',
+    sourceStatus_rejected: lang === 'ar' ? 'مرفوض' : 'Rejected',
+    sourceStatus_archived: lang === 'ar' ? 'مؤرشف' : 'Archived',
+    // Source Language
+    sourceLang_ar: lang === 'ar' ? 'العربية' : 'Arabic',
+    sourceLang_en: lang === 'ar' ? 'الإنجليزية' : 'English',
+    sourceLang_mixed: lang === 'ar' ? 'مختلط' : 'Mixed',
+    // Review Actions
+    sourceSubmitReview: lang === 'ar' ? 'إرسال للمراجعة' : 'Submit for Review',
+    sourceApprove: lang === 'ar' ? 'اعتماد' : 'Approve',
+    sourceReject: lang === 'ar' ? 'رفض' : 'Reject',
+    sourceArchive: lang === 'ar' ? 'أرشفة' : 'Archive',
+    sourceReviewNotes: lang === 'ar' ? 'ملاحظات المراجعة' : 'Review Notes',
+    sourceRejectReason: lang === 'ar' ? 'سبب الرفض' : 'Rejection Reason',
+    sourceSubmitted: lang === 'ar' ? 'تم إرسال المصدر للمراجعة' : 'Source submitted for review',
+    sourceApproved: lang === 'ar' ? 'تم اعتماد المصدر' : 'Source approved',
+    sourceRejected: lang === 'ar' ? 'تم رفض المصدر' : 'Source rejected',
+    sourceArchived: lang === 'ar' ? 'تم أرشفة المصدر' : 'Source archived',
+    sourceDeleted: lang === 'ar' ? 'تم حذف المصدر' : 'Source deleted',
+    // Read-only
+    sourcesReadOnly: lang === 'ar' ? 'وضع القراءة فقط - لا تملك صلاحية الإضافة أو التعديل' : 'Read-only mode - you do not have permission to add or edit',
   };
 
   const allNavItems: { id: string; label: string; icon: any; adminOnly?: boolean; permission?: DaamPermission }[] = [
@@ -4521,15 +4588,13 @@ export default function Admin() {
             {/* Training Sources Sub-tab */}
             {aiSubTab === 'trainingSources' && (
               getSubTabPermission('trainingSources') ? (
-                <div className="text-center py-12" data-testid="ai-section-trainingSources">
-                  <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingSources">
-                    {tr.aiTrainingSources}
-                  </h3>
-                  <p className="text-muted-foreground" data-testid="ai-placeholder-trainingSources">
-                    {tr.aiPlaceholder}
-                  </p>
-                </div>
+                <AITrainingSourcesSection
+                  tr={tr}
+                  currentUser={currentUser}
+                  currentUserName={user?.profile?.name || null}
+                  canCreate={isAdmin || canCurrentUser('ai.sources.create' as DaamPermission)}
+                  canReview={isAdmin || canCurrentUser('ai.sources.review' as DaamPermission)}
+                />
               ) : <AccessDenied section="sources" requiredPermission="ai.sources.create|ai.sources.review" />
             )}
 
@@ -4652,6 +4717,517 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+      </div>
+    );
+  };
+
+  // AI Training Sources Section Component
+  const AITrainingSourcesSection = ({ 
+    tr, 
+    currentUser, 
+    currentUserName,
+    canCreate,
+    canReview 
+  }: { 
+    tr: any; 
+    currentUser: string | null;
+    currentUserName: string | null;
+    canCreate: boolean;
+    canReview: boolean;
+  }) => {
+    console.log('[AITrainingSourcesSection] Component rendering, user:', currentUser);
+    const [sources, setSources] = useState<TrainingSource[]>([]);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<TrainingSourceStatus | '_all'>('_all');
+    const [showModal, setShowModal] = useState(false);
+    const [editingSource, setEditingSource] = useState<TrainingSource | null>(null);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectSourceId, setRejectSourceId] = useState<string | null>(null);
+    const [rejectNotes, setRejectNotes] = useState('');
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+      setMessage({ type, text });
+      setTimeout(() => setMessage(null), 3000);
+    };
+
+    // Form state
+    const [formType, setFormType] = useState<TrainingSourceType>('note');
+    const [formTitle, setFormTitle] = useState('');
+    const [formLanguage, setFormLanguage] = useState<TrainingSourceLanguage>('ar');
+    const [formTags, setFormTags] = useState('');
+    const [formContent, setFormContent] = useState('');
+    const [formLinkUrl, setFormLinkUrl] = useState('');
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const loadSources = useCallback(() => {
+      const filters: { status?: TrainingSourceStatus; search?: string } = {};
+      if (statusFilter !== '_all') {
+        filters.status = statusFilter;
+      }
+      if (search.trim()) {
+        filters.search = search.trim();
+      }
+      setSources(trainingSourcesRepo.list(filters));
+    }, [statusFilter, search]);
+
+    useEffect(() => {
+      loadSources();
+    }, [loadSources]);
+
+    useEffect(() => {
+      const handleUpdate = () => {
+        loadSources();
+      };
+      window.addEventListener('aiSourcesUpdated', handleUpdate);
+      return () => window.removeEventListener('aiSourcesUpdated', handleUpdate);
+    }, [loadSources]);
+
+    const resetForm = () => {
+      setFormType('note');
+      setFormTitle('');
+      setFormLanguage('ar');
+      setFormTags('');
+      setFormContent('');
+      setFormLinkUrl('');
+      setFormErrors({});
+      setEditingSource(null);
+    };
+
+    const openAddModal = () => {
+      resetForm();
+      setShowModal(true);
+    };
+
+    const openEditModal = (source: TrainingSource) => {
+      setEditingSource(source);
+      setFormType(source.type);
+      setFormTitle(source.title);
+      setFormLanguage(source.language);
+      setFormTags(source.tags.join(', '));
+      setFormContent(source.content);
+      setFormLinkUrl(source.linkUrl || '');
+      setFormErrors({});
+      setShowModal(true);
+    };
+
+    const handleSave = () => {
+      console.log('[Training Sources] handleSave called, currentUser:', currentUser);
+      if (!currentUser) {
+        console.log('[Training Sources] No currentUser, aborting');
+        return;
+      }
+
+      const validation = validateTrainingSource({
+        type: formType,
+        title: formTitle,
+        content: formContent,
+        linkUrl: formLinkUrl,
+      }, lang);
+
+      console.log('[Training Sources] Validation result:', validation);
+
+      if (!validation.valid) {
+        console.log('[Training Sources] Validation failed:', validation.errors);
+        setFormErrors(validation.errors);
+        return;
+      }
+
+      const tags = formTags.split(',').map(t => t.trim()).filter(Boolean);
+
+      if (editingSource) {
+        console.log('[Training Sources] Updating source:', editingSource.id);
+        trainingSourcesRepo.update(
+          editingSource.id,
+          { title: formTitle, language: formLanguage, tags, content: formContent, linkUrl: formLinkUrl || null },
+          currentUser,
+          currentUserName
+        );
+        showToast(tr.sourceFormUpdated, 'success');
+      } else {
+        console.log('[Training Sources] Creating new source:', { type: formType, title: formTitle });
+        const newSource = trainingSourcesRepo.create({
+          type: formType,
+          title: formTitle,
+          language: formLanguage,
+          tags,
+          content: formContent,
+          linkUrl: formLinkUrl || null,
+          createdByUserId: currentUser,
+          createdByName: currentUserName,
+        });
+        console.log('[Training Sources] Created source:', newSource);
+        showToast(tr.sourceFormCreated, 'success');
+      }
+
+      console.log('[Training Sources] Closing modal, resetting form');
+      setShowModal(false);
+      resetForm();
+    };
+
+    const handleDelete = (source: TrainingSource) => {
+      if (!currentUser) return;
+      trainingSourcesRepo.delete(source.id, currentUser, currentUserName);
+      showToast(tr.sourceDeleted, 'success');
+    };
+
+    const handleSubmitForReview = (source: TrainingSource) => {
+      if (!currentUser) return;
+      trainingSourcesRepo.changeStatus(source.id, 'pending_review', currentUser, currentUserName);
+      showToast(tr.sourceSubmitted, 'success');
+    };
+
+    const handleApprove = (source: TrainingSource) => {
+      if (!currentUser) return;
+      trainingSourcesRepo.changeStatus(source.id, 'approved', currentUser, currentUserName);
+      showToast(tr.sourceApproved, 'success');
+    };
+
+    const openRejectModal = (sourceId: string) => {
+      setRejectSourceId(sourceId);
+      setRejectNotes('');
+      setShowRejectModal(true);
+    };
+
+    const handleReject = () => {
+      if (!currentUser || !rejectSourceId) return;
+      trainingSourcesRepo.changeStatus(rejectSourceId, 'rejected', currentUser, currentUserName, rejectNotes);
+      showToast(tr.sourceRejected, 'success');
+      setShowRejectModal(false);
+      setRejectSourceId(null);
+    };
+
+    const handleArchive = (source: TrainingSource) => {
+      if (!currentUser) return;
+      trainingSourcesRepo.changeStatus(source.id, 'archived', currentUser, currentUserName);
+      showToast(tr.sourceArchived, 'success');
+    };
+
+    const getStatusColor = (status: TrainingSourceStatus): "default" | "secondary" | "destructive" | "outline" => {
+      switch (status) {
+        case 'draft': return 'secondary';
+        case 'pending_review': return 'outline';
+        case 'approved': return 'default';
+        case 'rejected': return 'destructive';
+        case 'archived': return 'secondary';
+        default: return 'secondary';
+      }
+    };
+
+    const getStatusLabel = (status: TrainingSourceStatus) => {
+      const labels: Record<TrainingSourceStatus, string> = {
+        draft: tr.sourceStatus_draft,
+        pending_review: tr.sourceStatus_pending_review,
+        approved: tr.sourceStatus_approved,
+        rejected: tr.sourceStatus_rejected,
+        archived: tr.sourceStatus_archived,
+      };
+      return labels[status];
+    };
+
+    const getTypeLabel = (type: TrainingSourceType) => {
+      const labels: Record<TrainingSourceType, string> = {
+        note: tr.sourceType_note,
+        summary: tr.sourceType_summary,
+        article: tr.sourceType_article,
+        qa: tr.sourceType_qa,
+        link: tr.sourceType_link,
+        file_meta: tr.sourceType_file_meta,
+      };
+      return labels[type];
+    };
+
+    const getLanguageLabel = (language: TrainingSourceLanguage) => {
+      const labels: Record<TrainingSourceLanguage, string> = {
+        ar: tr.sourceLang_ar,
+        en: tr.sourceLang_en,
+        mixed: tr.sourceLang_mixed,
+      };
+      return labels[language];
+    };
+
+    const showTextContent = ['note', 'summary', 'article', 'qa'].includes(formType);
+    const showLinkInput = formType === 'link';
+
+    return (
+      <div className="space-y-4" data-testid="ai-section-trainingSources">
+        {/* Message display */}
+        {message && (
+          <div className={`p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-destructive/10 text-destructive'}`} data-testid="sources-message">
+            {message.text}
+          </div>
+        )}
+
+        {/* Read-only notice */}
+        {!canCreate && (
+          <div className="bg-muted/50 border rounded-md p-3 text-sm text-muted-foreground" data-testid="sources-readonly-notice">
+            {tr.sourcesReadOnly}
+          </div>
+        )}
+
+        {/* Header with Search and Add Button */}
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <h3 className="text-lg font-semibold">{tr.sourcesTitle}</h3>
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={tr.sourcesSearch}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 w-48"
+                data-testid="sources-search"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as TrainingSourceStatus | '_all')}>
+              <SelectTrigger className="w-40" data-testid="sources-status-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">{tr.sourcesFilterAll}</SelectItem>
+                <SelectItem value="draft">{tr.sourceStatus_draft}</SelectItem>
+                <SelectItem value="pending_review">{tr.sourceStatus_pending_review}</SelectItem>
+                <SelectItem value="approved">{tr.sourceStatus_approved}</SelectItem>
+                <SelectItem value="rejected">{tr.sourceStatus_rejected}</SelectItem>
+                <SelectItem value="archived">{tr.sourceStatus_archived}</SelectItem>
+              </SelectContent>
+            </Select>
+            {canCreate && (
+              <Button onClick={openAddModal} data-testid="sources-add-button">
+                <Plus className="w-4 h-4 me-1" />
+                {tr.sourcesAddButton}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Sources Table */}
+        <div className="border rounded-md overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_title}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_type}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_language}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_status}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_creator}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_date}</th>
+                <th className="text-start p-3 font-medium">{tr.sourcesColumn_actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                    {tr.sourcesNoResults}
+                  </td>
+                </tr>
+              ) : (
+                sources.map((source) => {
+                  const isOwner = source.createdByUserId === currentUser;
+                  const canEdit = canCreate && isOwner && (source.status === 'draft' || source.status === 'rejected');
+                  const canSubmit = canCreate && isOwner && source.status === 'draft';
+                  const canApproveReject = canReview && source.status === 'pending_review';
+                  const canArchiveThis = canReview && (source.status === 'approved' || source.status === 'rejected');
+
+                  return (
+                    <tr key={source.id} className="border-t" data-testid={`source-row-${source.id}`}>
+                      <td className="p-3 font-medium">{source.title}</td>
+                      <td className="p-3">
+                        <Badge variant="outline">{getTypeLabel(source.type)}</Badge>
+                      </td>
+                      <td className="p-3">{getLanguageLabel(source.language)}</td>
+                      <td className="p-3">
+                        <Badge variant={getStatusColor(source.status)}>{getStatusLabel(source.status)}</Badge>
+                      </td>
+                      <td className="p-3">{source.createdByName || source.createdByUserId}</td>
+                      <td className="p-3 text-muted-foreground">
+                        {new Date(source.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-1 flex-wrap">
+                          {canEdit && (
+                            <Button variant="ghost" size="sm" onClick={() => openEditModal(source)} data-testid={`edit-source-${source.id}`}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {canSubmit && (
+                            <Button variant="outline" size="sm" onClick={() => handleSubmitForReview(source)} data-testid={`submit-source-${source.id}`}>
+                              {tr.sourceSubmitReview}
+                            </Button>
+                          )}
+                          {canApproveReject && (
+                            <>
+                              <Button variant="default" size="sm" onClick={() => handleApprove(source)} data-testid={`approve-source-${source.id}`}>
+                                <CheckCircle className="w-4 h-4 me-1" />
+                                {tr.sourceApprove}
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => openRejectModal(source.id)} data-testid={`reject-source-${source.id}`}>
+                                <XCircle className="w-4 h-4 me-1" />
+                                {tr.sourceReject}
+                              </Button>
+                            </>
+                          )}
+                          {canArchiveThis && (
+                            <Button variant="outline" size="sm" onClick={() => handleArchive(source)} data-testid={`archive-source-${source.id}`}>
+                              {tr.sourceArchive}
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(source)} data-testid={`delete-source-${source.id}`}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add/Edit Source Modal - Using SimpleDialogContent to avoid AnimatePresence issues */}
+        <Dialog open={showModal} onOpenChange={setShowModal}>
+          <SimpleDialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingSource ? tr.sourceFormEdit : tr.sourceFormAdd}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Type Selector (only for new sources) */}
+              {!editingSource && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{tr.sourceFormType}</label>
+                  <Select value={formType} onValueChange={(v) => setFormType(v as TrainingSourceType)}>
+                    <SelectTrigger data-testid="source-form-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="note">{tr.sourceType_note}</SelectItem>
+                      <SelectItem value="summary">{tr.sourceType_summary}</SelectItem>
+                      <SelectItem value="article">{tr.sourceType_article}</SelectItem>
+                      <SelectItem value="qa">{tr.sourceType_qa}</SelectItem>
+                      <SelectItem value="link">{tr.sourceType_link}</SelectItem>
+                      <SelectItem value="file_meta">{tr.sourceType_file_meta}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Title */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{tr.sourceFormTitle}</label>
+                <Input
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  data-testid="source-form-title"
+                />
+                {formErrors.title && <p className="text-sm text-destructive">{formErrors.title}</p>}
+              </div>
+
+              {/* Language */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{tr.sourceFormLanguage}</label>
+                <Select value={formLanguage} onValueChange={(v) => setFormLanguage(v as TrainingSourceLanguage)}>
+                  <SelectTrigger data-testid="source-form-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ar">{tr.sourceLang_ar}</SelectItem>
+                    <SelectItem value="en">{tr.sourceLang_en}</SelectItem>
+                    <SelectItem value="mixed">{tr.sourceLang_mixed}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{tr.sourceFormTags}</label>
+                <Input
+                  value={formTags}
+                  onChange={(e) => setFormTags(e.target.value)}
+                  placeholder={lang === 'ar' ? 'رياضيات, جبر, معادلات' : 'math, algebra, equations'}
+                  data-testid="source-form-tags"
+                />
+              </div>
+
+              {/* Content (for text types) */}
+              {showTextContent && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{tr.sourceFormContent}</label>
+                  <Textarea
+                    value={formContent}
+                    onChange={(e) => setFormContent(e.target.value)}
+                    rows={5}
+                    data-testid="source-form-content"
+                  />
+                  {formErrors.content && <p className="text-sm text-destructive">{formErrors.content}</p>}
+                </div>
+              )}
+
+              {/* Link URL (for link type) */}
+              {showLinkInput && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{tr.sourceFormLinkUrl}</label>
+                  <Input
+                    value={formLinkUrl}
+                    onChange={(e) => setFormLinkUrl(e.target.value)}
+                    placeholder="https://..."
+                    data-testid="source-form-linkUrl"
+                  />
+                  {formErrors.linkUrl && <p className="text-sm text-destructive">{formErrors.linkUrl}</p>}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)} data-testid="source-form-cancel">
+                {tr.sourceFormCancel}
+              </Button>
+              <div>
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    console.log('[SAVE CLICK] Button clicked!');
+                    localStorage.setItem('daam_debug_save_click', Date.now().toString());
+                    handleSave();
+                  }}
+                  data-testid="source-form-save"
+                >
+                  {tr.sourceFormSave}
+                </Button>
+              </div>
+            </div>
+          </SimpleDialogContent>
+        </Dialog>
+
+        {/* Reject Modal */}
+        <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{tr.sourceReject}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{tr.sourceRejectReason}</label>
+                <Textarea
+                  value={rejectNotes}
+                  onChange={(e) => setRejectNotes(e.target.value)}
+                  rows={3}
+                  data-testid="reject-notes-input"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+                {tr.sourceFormCancel}
+              </Button>
+              <Button variant="destructive" onClick={handleReject} data-testid="confirm-reject-button">
+                {tr.sourceReject}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   };

@@ -1,0 +1,89 @@
+المهمة: بناء نظام Training Sources داخل Admin → AI (مصادر التدريب) مع RBAC + Audit، باستخدام Storage قابل للاستبدال.
+
+الهدف:
+تمكين المشرفين (بصلاحية) من إضافة محتوى تدريب (Sources)، وتمكين المراجعين من اعتماده/رفضه، مع تسجيل كل الأحداث في AI Audit Log، وتخزين محلي الآن (LocalStorage) قابل للاستبدال لاحقاً.
+
+النطاق:
+- Admin → AI فقط + repos/storage + audit/metrics
+- ممنوع أي API/DB
+- ممنوع بناء Training Jobs أو Snapshots الآن
+
+1) نموذج البيانات: TrainingSource
+- id: string
+- type: "note" | "summary" | "article" | "qa" | "link" | "file_meta"
+- title: string
+- language: "ar" | "en" | "mixed"
+- tags: string[]
+- content: string (لـ note/summary/article/qa)
+- linkUrl: string | null (للـ link)
+- status: "draft" | "pending_review" | "approved" | "rejected" | "archived"
+- createdByUserId: string
+- createdByName: string | null
+- createdAt: number
+- reviewedByUserId: string | null
+- reviewedAt: number | null
+- reviewNotes: string | null
+- updatedAt: number
+
+2) التخزين القابل للاستبدال:
+- TrainingSourcesRepo (create/update/list/get/delete(soft)/changeStatus)
+- LocalStorage key: daam_ai_sources_v1
+- ممنوع تخزين ملفات فعلية الآن (file_meta فقط placeholder)
+
+3) UI: Admin → AI → Training Sources
+أقسام داخل الصفحة:
+A) قائمة/جدول مصادر التدريب:
+- الأعمدة: العنوان، النوع، اللغة، الحالة، المنشئ، التاريخ
+- بحث (بالعنوان/الوسوم)
+- فلتر بالحالة
+- زر "إضافة مصدر" يظهر فقط لمن لديه ai.sources.create
+
+B) شاشة إضافة/تعديل مصدر (Modal أو صفحة فرعية):
+- Type selector
+- Title input
+- Language selector
+- Tags input (comma separated)
+- Content textarea (تظهر لأنواع النص)
+- Link URL input (للنوع link)
+- أزرار: Save / Cancel
+- Validation: title مطلوب، content مطلوب للأنواع النصية، linkUrl مطلوب للروابط
+
+C) مراجعة/اعتماد (Review Panel) يظهر فقط لمن لديه ai.sources.review:
+- أزرار:
+  - إرسال للمراجعة (draft → pending_review) للمُنشئ
+  - اعتماد (pending_review → approved)
+  - رفض (pending_review → rejected) مع سبب (reviewNotes)
+  - أرشفة (approved/rejected → archived)
+- كل انتقال حالة يسجل Audit Event
+
+4) RBAC Enforcement:
+- بدون ai.sources.create: لا يمكن إضافة/تعديل/إرسال للمراجعة (Read-only list)
+- بدون ai.sources.review: لا يمكن اعتماد/رفض/أرشفة (اخفِ الأزرار أو عطّلها)
+
+5) تسجيل Audit Events (إلزامي):
+استخدم AIAuditRepo.append لتسجيل:
+- ai.source.created
+- ai.source.updated
+- ai.source.submitted (draft→pending_review)
+- ai.source.approved
+- ai.source.rejected
+- ai.source.archived
+Meta يجب أن يحتوي:
+- sourceId
+- sourceType
+- newStatus
+- (لا تخزن محتوى النص بالكامل في meta)
+
+6) تحديث Metrics:
+- لا تضف مقاييس جديدة معقدة الآن
+- فقط تأكد أن events تُضاف للـ audit وبالتالي ستدخل ضمن recompute لاحقاً (ولا تكسر النظام الحالي)
+
+7) اختبارات:
+- إنشاء مصدر يسجل ai.source.created
+- تغيير حالة إلى approved يسجل ai.source.approved
+- مستخدم بدون ai.sources.review لا يرى أزرار الاعتماد/الرفض
+
+المخرجات:
+- قائمة الملفات التي تم إنشاؤها/تعديلها
+- مفتاح LocalStorage: daam_ai_sources_v1
+- شرح خطوات تجربة: (مشرف ينشئ مصدر → يرسله للمراجعة → مراجع يعتمد) + تحقق أن الأحداث ظهرت في AI Audit
