@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **Social Feed**: Discussion arena with post creation, replies, and reporting.
 - **AI Tutor**: Interface for an AI assistant.
 - **Admin Dashboard**: Comprehensive tools for managing users, content, and platform settings.
+  - **AI Tab**: Admin-only section for future AI system management with sub-sections: Dashboard, Settings, Training Sources, Training Jobs, Analytics. Currently displays placeholder UI structure only.
   - **Audit Log**: Tracks moderator and admin actions.
   - **Reporting System**: Manages user-generated reports for posts, comments, and users.
   - **User Roles & RBAC**: `admin`, `moderator`, `user` roles with granular permissions.

@@ -22,7 +22,8 @@ import {
   User as UserIcon, Calendar, Filter, MoreHorizontal, Shield, AlertTriangle,
   LogOut, RotateCcw, StickyNote, Plus, Activity, History, Download, Building, Globe,
   Megaphone, Video, Image, Bell, Square, Play, Pause, Copy, X, File, Paperclip,
-  UserCheck, Home, VolumeX, Volume2, Pencil, Sparkles, GraduationCap
+  UserCheck, Home, VolumeX, Volume2, Pencil, Sparkles, GraduationCap, Brain, Settings,
+  Database, Cpu, BarChart3
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
@@ -309,6 +310,7 @@ export default function Admin() {
   } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
+  const [aiSubTab, setAiSubTab] = useState('dashboard');
   
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
   const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
@@ -802,6 +804,14 @@ export default function Admin() {
     landingNavbarSettings: lang === 'ar' ? 'شريط صفحة الهبوط' : 'Landing Top Bar',
     landingNavbarSettingsDesc: lang === 'ar' ? 'تحكم في عناصر الشريط العلوي لصفحة الهبوط - الترتيب والنصوص والإظهار/الإخفاء' : 'Control landing page top bar items - order, labels, and visibility',
     landingNavbarAction: lang === 'ar' ? 'الإجراء' : 'Action',
+    // AI Tab
+    aiTab: lang === 'ar' ? 'الذكاء الاصطناعي' : 'AI',
+    aiDashboard: lang === 'ar' ? 'لوحة التحكم' : 'Dashboard',
+    aiSettings: lang === 'ar' ? 'الإعدادات' : 'Settings',
+    aiTrainingSources: lang === 'ar' ? 'مصادر التدريب' : 'Training Sources',
+    aiTrainingJobs: lang === 'ar' ? 'مهام التدريب' : 'Training Jobs',
+    aiAnalytics: lang === 'ar' ? 'التحليلات' : 'Analytics',
+    aiPlaceholder: lang === 'ar' ? 'سيتم إضافة المحتوى لاحقاً' : 'Content will be added later',
   };
 
   const allNavItems = [
@@ -814,6 +824,7 @@ export default function Admin() {
     { id: 'universities', label: tr.universities, icon: Building },
     { id: 'officialContent', label: tr.officialContent, icon: Globe, adminOnly: true },
     { id: 'landingPage', label: tr.landingPage, icon: Home, adminOnly: true },
+    { id: 'ai', label: tr.aiTab, icon: Brain, adminOnly: true },
     { id: 'auditLog', label: tr.auditLog, icon: ClipboardList },
   ];
 
@@ -4056,6 +4067,117 @@ export default function Admin() {
     );
   };
 
+  // AI Tab with sub-sections (UI only, no logic)
+  const renderAI = () => {
+    const aiSubTabs = [
+      { id: 'dashboard', label: tr.aiDashboard, icon: LayoutDashboard },
+      { id: 'settings', label: tr.aiSettings, icon: Settings },
+      { id: 'trainingSources', label: tr.aiTrainingSources, icon: Database },
+      { id: 'trainingJobs', label: tr.aiTrainingJobs, icon: Cpu },
+      { id: 'analytics', label: tr.aiAnalytics, icon: BarChart3 },
+    ];
+
+    return (
+      <div className="space-y-6">
+        {/* AI Page Header */}
+        <Card className="border-white/10 bg-card/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              {tr.aiTab}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        {/* AI Sub-tabs Navigation */}
+        <div className="flex flex-wrap gap-2" data-testid="ai-subtabs-container">
+          {aiSubTabs.map(tab => (
+            <Button
+              key={tab.id}
+              variant={aiSubTab === tab.id ? 'default' : 'outline'}
+              onClick={() => setAiSubTab(tab.id)}
+              className="gap-2"
+              data-testid={`ai-subtab-${tab.id}`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* AI Sub-tab Content */}
+        <Card className="border-white/10 bg-card/50">
+          <CardContent className="p-6">
+            {/* Dashboard Sub-tab */}
+            {aiSubTab === 'dashboard' && (
+              <div className="text-center py-12" data-testid="ai-section-dashboard">
+                <LayoutDashboard className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-dashboard">
+                  {tr.aiDashboard}
+                </h3>
+                <p className="text-muted-foreground" data-testid="ai-placeholder-dashboard">
+                  {tr.aiPlaceholder}
+                </p>
+              </div>
+            )}
+
+            {/* Settings Sub-tab */}
+            {aiSubTab === 'settings' && (
+              <div className="text-center py-12" data-testid="ai-section-settings">
+                <Settings className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-settings">
+                  {tr.aiSettings}
+                </h3>
+                <p className="text-muted-foreground" data-testid="ai-placeholder-settings">
+                  {tr.aiPlaceholder}
+                </p>
+              </div>
+            )}
+
+            {/* Training Sources Sub-tab */}
+            {aiSubTab === 'trainingSources' && (
+              <div className="text-center py-12" data-testid="ai-section-trainingSources">
+                <Database className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingSources">
+                  {tr.aiTrainingSources}
+                </h3>
+                <p className="text-muted-foreground" data-testid="ai-placeholder-trainingSources">
+                  {tr.aiPlaceholder}
+                </p>
+              </div>
+            )}
+
+            {/* Training Jobs Sub-tab */}
+            {aiSubTab === 'trainingJobs' && (
+              <div className="text-center py-12" data-testid="ai-section-trainingJobs">
+                <Cpu className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-trainingJobs">
+                  {tr.aiTrainingJobs}
+                </h3>
+                <p className="text-muted-foreground" data-testid="ai-placeholder-trainingJobs">
+                  {tr.aiPlaceholder}
+                </p>
+              </div>
+            )}
+
+            {/* Analytics Sub-tab */}
+            {aiSubTab === 'analytics' && (
+              <div className="text-center py-12" data-testid="ai-section-analytics">
+                <BarChart3 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2" data-testid="ai-title-analytics">
+                  {tr.aiAnalytics}
+                </h3>
+                <p className="text-muted-foreground" data-testid="ai-placeholder-analytics">
+                  {tr.aiPlaceholder}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderAuditLog = () => (
     <Card className="border-white/10 bg-card/50">
       <CardHeader>
@@ -4873,6 +4995,7 @@ export default function Admin() {
                 {activeTab === 'universities' && renderUniversities()}
                 {activeTab === 'officialContent' && renderOfficialContent()}
                 {activeTab === 'landingPage' && renderLandingPage()}
+                {activeTab === 'ai' && renderAI()}
                 {activeTab === 'auditLog' && renderAuditLog()}
               </motion.div>
             </AnimatePresence>
