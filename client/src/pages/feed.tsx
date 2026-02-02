@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount, type DaamPermission } from "@/hooks/use-daam-store";
 import { isAdminEmail } from "@/config/admin";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,7 @@ export default function Feed() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const isRTL = lang === 'ar';
 
   // Date helpers for filtering
@@ -1228,13 +1229,18 @@ export default function Feed() {
                   </CardContent>
                 </Card>
               ) : (
-              <Card className="border-white/5 bg-card/50 hover:bg-card/70 transition-colors" data-testid={`post-${post.id}`}>
+              <Card 
+                className="border-white/5 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer" 
+                data-testid={`post-${post.id}`}
+                onClick={() => navigate(`/post/${post.id}`)}
+              >
                 <CardContent className="p-4">
                   <div className="flex gap-3">
                     <Link 
                       href={`/profile/${encodeURIComponent(post.authorEmail)}`}
                       className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                       data-testid={`link-avatar-${post.id}`}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <Avatar className="w-11 h-11 border border-primary/20">
                         <AvatarImage src={getProfile(post.authorEmail)?.avatarUrl} />
@@ -1251,6 +1257,7 @@ export default function Feed() {
                             href={`/profile/${encodeURIComponent(post.authorEmail)}`}
                             className="font-semibold text-sm hover:text-primary hover:underline cursor-pointer transition-colors"
                             data-testid={`link-author-${post.id}`}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             {getDisplayName(post.authorEmail)}
                           </Link>
@@ -1305,6 +1312,7 @@ export default function Feed() {
                               size="icon" 
                               variant="ghost"
                               data-testid={`button-post-menu-${post.id}`}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <MoreVertical className="w-4 h-4" />
                             </Button>
@@ -1513,7 +1521,7 @@ export default function Feed() {
                             attachment.type === 'image' ? (
                               <button
                                 key={idx}
-                                onClick={() => openAttachment(attachment)}
+                                onClick={(e) => { e.stopPropagation(); openAttachment(attachment); }}
                                 className="w-full aspect-square overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity"
                                 data-testid={`button-attachment-${idx}`}
                               >
@@ -1527,7 +1535,7 @@ export default function Feed() {
                             ) : (
                               <button 
                                 key={idx} 
-                                onClick={() => openAttachment(attachment)}
+                                onClick={(e) => { e.stopPropagation(); openAttachment(attachment); }}
                                 className="w-full flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors group cursor-pointer text-start border border-transparent hover:border-primary/30"
                                 data-testid={`button-attachment-${idx}`}
                               >
@@ -1560,9 +1568,9 @@ export default function Feed() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5">
+                      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
                         <button 
-                          onClick={() => setActiveReplyId(activeReplyId === post.id ? null : post.id)}
+                          onClick={(e) => { e.stopPropagation(); setActiveReplyId(activeReplyId === post.id ? null : post.id); }}
                           className={`flex items-center gap-1.5 text-sm transition-colors ${
                             activeReplyId === post.id 
                               ? 'text-primary' 
@@ -1576,7 +1584,7 @@ export default function Feed() {
                         </button>
 
                         <button 
-                          onClick={() => handleLike(post.id)}
+                          onClick={(e) => { e.stopPropagation(); handleLike(post.id); }}
                           className={`flex items-center gap-1.5 text-sm transition-colors ${
                             isLiked(post.id) 
                               ? 'text-rose-500' 
@@ -1590,7 +1598,7 @@ export default function Feed() {
                         </button>
                         
                         <button 
-                          onClick={() => handleSave(post.id)}
+                          onClick={(e) => { e.stopPropagation(); handleSave(post.id); }}
                           className={`flex items-center gap-1.5 text-sm transition-colors ${
                             isSaved(post.id) 
                               ? 'text-amber-500' 
@@ -1610,6 +1618,7 @@ export default function Feed() {
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             className="mt-3"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex gap-2">
                               <Avatar className="w-7 h-7 flex-shrink-0">
@@ -1625,11 +1634,12 @@ export default function Feed() {
                                   placeholder={tr.writeComment}
                                   className="flex-1 h-9 bg-background/50 border-white/10"
                                   onKeyDown={(e) => e.key === 'Enter' && handleReplySubmit(post.id)}
+                                  onClick={(e) => e.stopPropagation()}
                                   data-testid={`input-reply-${post.id}`}
                                 />
                                 <Button
                                   size="sm"
-                                  onClick={() => handleReplySubmit(post.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleReplySubmit(post.id); }}
                                   disabled={!replyInputs[post.id]?.trim()}
                                   className="h-9"
                                   data-testid={`button-submit-reply-${post.id}`}
@@ -1643,9 +1653,9 @@ export default function Feed() {
                       </AnimatePresence>
 
                       {getReplyCount(post.id) > 0 && (
-                        <div className="mt-3">
+                        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => toggleReplies(post.id)}
+                            onClick={(e) => { e.stopPropagation(); toggleReplies(post.id); }}
                             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                             data-testid={`button-toggle-replies-${post.id}`}
                           >
