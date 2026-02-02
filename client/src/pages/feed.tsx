@@ -243,7 +243,10 @@ export default function Feed() {
   };
 
   const openAttachment = (attachment: Attachment) => {
-    const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
+    const isPdf = attachment.name.toLowerCase().endsWith('.pdf') || 
+                  attachment.url.toLowerCase().endsWith('.pdf') ||
+                  (attachment as any).mimeType === 'application/pdf' ||
+                  (attachment as any).type === 'pdf';
     const isImage = attachment.type === 'image';
     
     // Convert base64 to blob URL for better browser compatibility

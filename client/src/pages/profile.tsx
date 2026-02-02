@@ -146,7 +146,8 @@ import {
   Flag,
   Library,
   FolderOpen,
-  BookOpen
+  BookOpen,
+  ExternalLink
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -588,41 +589,94 @@ export default function Profile() {
     </Card>
   );
 
-  const renderFileCard = (item: { attachment: Attachment; post: LocalPost }) => (
-    <Card 
-      key={`${item.post.id}-${item.attachment.name}`}
-      className="border-white/10 bg-card/50"
-      data-testid={`file-card-${item.attachment.name}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-6 h-6 text-primary" />
+  const isPdfFile = (attachment: Attachment) => {
+    return attachment.name.toLowerCase().endsWith('.pdf') || 
+           attachment.url.toLowerCase().endsWith('.pdf') ||
+           (attachment as any).mimeType === 'application/pdf' ||
+           (attachment as any).type === 'pdf';
+  };
+
+  const base64ToBlob = (base64Url: string, mimeType?: string): Blob | null => {
+    try {
+      const base64Data = base64Url.split(',')[1];
+      if (!base64Data) return null;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const extractedMime = mimeType || base64Url.split(';')[0].split(':')[1] || 'application/octet-stream';
+      return new Blob([byteArray], { type: extractedMime });
+    } catch {
+      return null;
+    }
+  };
+
+  const openPdfFile = (attachment: Attachment) => {
+    if (!attachment.url) return;
+    const blob = base64ToBlob(attachment.url, 'application/pdf');
+    if (blob) {
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      window.open(attachment.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const renderFileCard = (item: { attachment: Attachment; post: LocalPost }) => {
+    const isPdf = isPdfFile(item.attachment);
+    
+    return (
+      <Card 
+        key={`${item.post.id}-${item.attachment.name}`}
+        className={`border-white/10 bg-card/50 ${isPdf ? 'cursor-pointer hover:bg-card/70 transition-colors' : ''}`}
+        data-testid={`file-card-${item.attachment.name}`}
+        onClick={isPdf ? () => openPdfFile(item.attachment) : undefined}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{item.attachment.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {(item.attachment.size / 1024).toFixed(1)} KB
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(item.post.createdAt), 'PP', { locale: lang === 'ar' ? ar : enUS })}
+              </p>
+            </div>
+            {isPdf ? (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="gap-1 flex-shrink-0" 
+                data-testid={`open-${item.attachment.name}`}
+                onClick={(e) => { e.stopPropagation(); openPdfFile(item.attachment); }}
+              >
+                <ExternalLink className="w-3 h-3" />
+                {lang === 'ar' ? 'فتح' : 'Open'}
+              </Button>
+            ) : (
+              <a 
+                href={item.attachment.url} 
+                download={item.attachment.name}
+                className="flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button size="sm" variant="outline" className="gap-1" data-testid={`download-${item.attachment.name}`}>
+                  <Download className="w-3 h-3" />
+                  {tr.download}
+                </Button>
+              </a>
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{item.attachment.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {(item.attachment.size / 1024).toFixed(1)} KB
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(item.post.createdAt), 'PP', { locale: lang === 'ar' ? ar : enUS })}
-            </p>
-          </div>
-          <a 
-            href={item.attachment.url} 
-            download={item.attachment.name}
-            className="flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Button size="sm" variant="outline" className="gap-1" data-testid={`download-${item.attachment.name}`}>
-              <Download className="w-3 h-3" />
-              {tr.download}
-            </Button>
-          </a>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (!profileEmail) {
     return (

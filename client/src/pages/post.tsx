@@ -122,13 +122,20 @@ export default function PostPage() {
   };
 
   const openAttachment = (attachment: Attachment) => {
-    const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
+    const isPdf = attachment.name.toLowerCase().endsWith('.pdf') || 
+                  attachment.url.toLowerCase().endsWith('.pdf') ||
+                  (attachment as any).mimeType === 'application/pdf' ||
+                  (attachment as any).type === 'pdf';
     const isImage = attachment.type === 'image';
     const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
 
-    if (isPdf && blob) {
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
+    if (isPdf) {
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        window.open(attachment.url, '_blank', 'noopener,noreferrer');
+      }
     } else if (isImage && blob) {
       const blobUrl = URL.createObjectURL(blob);
       setViewerContent({ url: attachment.url, blobUrl, name: attachment.name });
