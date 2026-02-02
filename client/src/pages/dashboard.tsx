@@ -312,7 +312,7 @@ export default function Dashboard() {
                   >
                     <Card 
                       className="border-white/5 bg-card/50 hover:bg-card/70 cursor-pointer transition-all hover:border-primary/20"
-                      onClick={() => setLocation('/feed')}
+                      onClick={() => setLocation(`/post/${post.id}`)}
                       data-testid={`trending-post-${post.id}`}
                     >
                       <CardContent className="p-4">

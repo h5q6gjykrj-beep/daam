@@ -515,7 +515,7 @@ export default function Profile() {
     <Card 
       key={post.id} 
       className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => navigate('/feed')}
+      onClick={() => navigate(`/post/${post.id}`)}
       data-testid={`post-card-${post.id}`}
     >
       <CardContent className="p-4">
@@ -566,7 +566,7 @@ export default function Profile() {
     <Card 
       key={item.reply.id} 
       className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => navigate('/feed')}
+      onClick={() => navigate(`/post/${item.post.id}`)}
       data-testid={`reply-card-${item.reply.id}`}
     >
       <CardContent className="p-4">
