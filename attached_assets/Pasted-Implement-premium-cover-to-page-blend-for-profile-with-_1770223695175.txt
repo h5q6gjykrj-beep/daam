@@ -1,0 +1,98 @@
+Implement premium cover-to-page blend for profile with theme-aware backgrounds (UI only).
+File: client/src/pages/profile.tsx
+
+GOAL:
+- Dark mode: page background is deep navy-purple.
+- Light mode: page background is light (clean, not dark), but still slightly cool and academic.
+- When cover image exists: bottom of cover blends into page background with a premium fade (no hard edge).
+- Blend must match the active theme automatically.
+
+---------------------------------------
+A) Define theme-aware page background colors
+
+Use CSS variables or conditional class based on existing theme (dark class on html/body).
+
+Define:
+- DARK_BG = #0B1020  (deep navy with slight purple)
+- LIGHT_BG = #F4F5FB (soft cool off-white with slight lavender tint)
+
+Apply to profile page root container:
+- background-color: var(--profile-bg);
+
+Set:
+- In dark mode: --profile-bg = DARK_BG
+- In light mode: --profile-bg = LIGHT_BG
+
+(Implement using Tailwind + CSS variables or inline style with theme detection used elsewhere in the app.)
+
+---------------------------------------
+B) Premium bottom blend overlay (theme-aware)
+
+Inside cover wrapper, keep cover image as:
+<img className="absolute inset-0 w-full h-full object-cover" ... />
+
+Add a premium blend overlay ABOVE the image:
+
+<div
+  className="absolute inset-0 pointer-events-none"
+  style={{
+    background: `
+      linear-gradient(
+        to top,
+        var(--profile-bg) 0%,
+        color-mix(in srgb, var(--profile-bg) 92%, transparent) 18%,
+        color-mix(in srgb, var(--profile-bg) 78%, transparent) 34%,
+        color-mix(in srgb, var(--profile-bg) 55%, transparent) 52%,
+        color-mix(in srgb, var(--profile-bg) 25%, transparent) 70%,
+        transparent 88%
+      )
+    `
+  }}
+/>
+
+If color-mix is not allowed/unsupported, replace with rgba stops (theme-specific):
+- Dark: rgba(11,16,32,0.92)... etc
+- Light: rgba(244,245,251,0.92)... etc
+
+---------------------------------------
+C) Add subtle vignette + readability haze (premium look)
+
+Add SECOND overlay layer above the blend:
+
+<div className="absolute inset-0 pointer-events-none"
+     style={{
+       background: `
+         radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.18) 55%, rgba(0,0,0,0.38) 100%)
+       `
+     }}
+/>
+
+Theme tweak:
+- In light mode, vignette should be much softer:
+  use rgba(0,0,0,0.06) and rgba(0,0,0,0.14)
+
+Also add top readability (very subtle):
+<div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/20 via-black/10 to-transparent dark:from-black/30 dark:via-black/15" />
+
+---------------------------------------
+D) Ensure seamless connection between cover and body
+
+- Cover wrapper must be full-bleed: use -mx-4 md:-mx-6
+- The section immediately under cover must NOT introduce a different background; it must inherit --profile-bg.
+- Remove any default card backgrounds bleeding outside.
+
+---------------------------------------
+E) Acceptance checklist
+
+1) Dark mode:
+- Background is deep navy-purple.
+- Cover image fades into background from bottom (premium, no hard edge).
+
+2) Light mode:
+- Background is light and clean.
+- Cover image still fades into the same light background (no dark bottom band).
+- Text remains readable.
+
+3) Switching theme updates blend automatically.
+Return:
+- Show the exact JSX + style blocks you added for the overlays.

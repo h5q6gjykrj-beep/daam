@@ -203,7 +203,7 @@ function saveCoverToStorage(userId: string, coverUrl: string | null): void {
 }
 
 export default function Profile() {
-  const { user, posts, lang, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
+  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
   const [, navigate] = useLocation();
   
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -647,9 +647,16 @@ export default function Profile() {
     );
   }
 
+  // Theme-aware profile background colors
+  const isDarkMode = theme === 'dark';
+  const DARK_BG = '#0B1020';
+  const LIGHT_BG = '#F4F5FB';
+  const profileBg = isDarkMode ? DARK_BG : LIGHT_BG;
+
   return (
     <div 
       className="min-h-screen pb-8" 
+      style={{ backgroundColor: profileBg }}
       data-testid="profile-page" 
       key={profileEmail ?? "me"}
     >
@@ -667,11 +674,48 @@ export default function Profile() {
             <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
           )}
           
-          {/* Premium dark overlay with texture */}
-          <div className="absolute inset-0 bg-black/55" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
+          {/* Premium bottom blend overlay (theme-aware) */}
           <div 
-            className="absolute inset-0 opacity-30"
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: isDarkMode
+                ? `linear-gradient(
+                    to top,
+                    rgba(11,16,32,1) 0%,
+                    rgba(11,16,32,0.92) 18%,
+                    rgba(11,16,32,0.78) 34%,
+                    rgba(11,16,32,0.55) 52%,
+                    rgba(11,16,32,0.25) 70%,
+                    transparent 88%
+                  )`
+                : `linear-gradient(
+                    to top,
+                    rgba(244,245,251,1) 0%,
+                    rgba(244,245,251,0.92) 18%,
+                    rgba(244,245,251,0.78) 34%,
+                    rgba(244,245,251,0.55) 52%,
+                    rgba(244,245,251,0.25) 70%,
+                    transparent 88%
+                  )`
+            }}
+          />
+          
+          {/* Vignette overlay (premium look) */}
+          <div 
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: isDarkMode
+                ? `radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.18) 55%, rgba(0,0,0,0.38) 100%)`
+                : `radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.06) 55%, rgba(0,0,0,0.14) 100%)`
+            }}
+          />
+          
+          {/* Top readability haze */}
+          <div className={`absolute inset-0 pointer-events-none bg-gradient-to-b ${isDarkMode ? 'from-black/30 via-black/15' : 'from-black/20 via-black/10'} to-transparent`} />
+          
+          {/* Subtle warm texture */}
+          <div 
+            className="absolute inset-0 opacity-20 pointer-events-none"
             style={{
               backgroundImage: `
                 radial-gradient(ellipse at 20% 30%, rgba(120,100,80,0.15) 0%, transparent 50%),
