@@ -664,7 +664,7 @@ export default function Profile() {
           )}
           
           {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/80" />
           
           {/* Cover Edit Controls - Owner only, top-left */}
           {isOwnProfile && !isEditing && (
@@ -730,9 +730,9 @@ export default function Profile() {
       </div>
 
       {/* B) IDENTITY CENTER - Centered below cover */}
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-6">
         {/* Avatar centered with overlap */}
-        <div className="flex flex-col items-center -mt-12 md:-mt-16">
+        <div className="flex flex-col items-center -mt-12 md:-mt-16 gap-y-3">
           <button
             type="button"
             onClick={() => !isEditing && setShowAvatarPreview(true)}
@@ -773,7 +773,7 @@ export default function Profile() {
           )}
           
           {/* Name and info centered */}
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             {isEditing ? (
               <div className="space-y-3 max-w-md mx-auto">
                 <Input
@@ -815,23 +815,13 @@ export default function Profile() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-center gap-2">
-                  <h1 className="text-2xl md:text-4xl font-bold">
-                    {profile?.name || profileEmail.split('@')[0]}
-                  </h1>
-                  {isStaff(profileEmail) && (
-                    <Shield 
-                      size={20} 
-                      className="text-emerald-500" 
-                      aria-label={isAdmin(profileEmail) ? 'Admin' : 'Moderator'}
-                      data-testid="staff-badge-profile"
-                    />
-                  )}
-                </div>
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight mt-4">
+                  {profile?.name || profileEmail.split('@')[0]}
+                </h1>
                 
                 {/* Major + University line */}
                 {(profile?.major || profile?.university) && (
-                  <p className="text-xs md:text-base text-muted-foreground mt-1">
+                  <p className="text-base md:text-lg text-muted-foreground/80 mt-2">
                     {profile?.major}{profile?.level && ` (${profile.level})`}
                     {profile?.major && profile?.university && ' • '}
                     {profile?.university}
@@ -843,22 +833,14 @@ export default function Profile() {
                   <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{profile.bio}</p>
                 )}
                 
-                {/* Stats line - no icons, centered */}
-                <p className="text-xs md:text-sm text-muted-foreground mt-3">
+                {/* Stats line - no icons, balanced text */}
+                <p className="text-sm md:text-base text-muted-foreground/70 mt-4 tracking-wide">
                   <button 
                     onClick={() => setActiveView('posts')}
                     className="hover:text-foreground transition-colors"
                     data-testid="stats-posts"
                   >
-                    <span className="font-semibold text-foreground">{userPosts.length}</span> {lang === 'ar' ? 'منشور' : 'posts'}
-                  </button>
-                  {' | '}
-                  <button 
-                    onClick={() => setShowFollowersDialog(true)}
-                    className="hover:text-foreground transition-colors"
-                    data-testid="stats-followers"
-                  >
-                    <span className="font-semibold text-foreground">{profile?.followers?.length || 0}</span> {lang === 'ar' ? 'متابع' : 'followers'}
+                    {userPosts.length} {lang === 'ar' ? 'منشور' : 'posts'}
                   </button>
                   {' | '}
                   <button 
@@ -866,7 +848,15 @@ export default function Profile() {
                     className="hover:text-foreground transition-colors"
                     data-testid="stats-following"
                   >
-                    <span className="font-semibold text-foreground">{profile?.following?.length || 0}</span> {lang === 'ar' ? 'يتابع' : 'following'}
+                    {profile?.following?.length || 0} {lang === 'ar' ? 'يتابع' : 'following'}
+                  </button>
+                  {' | '}
+                  <button 
+                    onClick={() => setShowFollowersDialog(true)}
+                    className="hover:text-foreground transition-colors"
+                    data-testid="stats-followers"
+                  >
+                    {profile?.followers?.length || 0} {lang === 'ar' ? 'متابع' : 'followers'}
                   </button>
                 </p>
               </>
@@ -979,7 +969,7 @@ export default function Profile() {
       </div>
 
       {/* D) DASHBOARD GRID or OTHER VIEWS */}
-      <div className="max-w-6xl mx-auto px-4 mt-6">
+      <div className="max-w-7xl mx-auto px-6 mt-10 md:mt-14">
         {/* Back button when not on dashboard */}
         {activeView !== 'dashboard' && (
           <Button
@@ -995,16 +985,16 @@ export default function Profile() {
         )}
         {/* Dashboard View */}
         {activeView === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             {/* Activity Card */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3">
+            <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+              <CardHeader className="p-6 pb-4">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
+                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
                   {tr.activity}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-6 pt-0 space-y-3">
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
                     <p className="text-2xl font-semibold">{userPosts.length}</p>
@@ -1023,11 +1013,11 @@ export default function Profile() {
             </Card>
 
             {/* Posts Preview Card */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3">
+            <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+              <CardHeader className="p-6 pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-primary" />
+                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
                     {tr.posts}
                   </CardTitle>
                   {userPosts.length > 0 && (
@@ -1056,11 +1046,11 @@ export default function Profile() {
             </Card>
 
             {/* Saved Preview Card */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3">
+            <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+              <CardHeader className="p-6 pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Bookmark className="w-4 h-4 text-primary" />
+                    <Bookmark className="w-4 h-4 text-muted-foreground" />
                     {tr.saved}
                   </CardTitle>
                   {savedPosts.length > 0 && canViewFavorites && (
@@ -1096,12 +1086,12 @@ export default function Profile() {
             {/* Quick Access Cards - Second Row */}
             {/* Replies Card */}
             <Card 
-              className="border-border/50 cursor-pointer hover-elevate"
+              className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl cursor-pointer"
               onClick={() => setActiveView('replies')}
               data-testid="card-replies"
             >
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+              <CardContent className="p-6 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                   <Reply className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1114,12 +1104,12 @@ export default function Profile() {
 
             {/* Interests Card */}
             <Card 
-              className="border-border/50 cursor-pointer hover-elevate"
+              className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl cursor-pointer"
               onClick={() => setActiveView('interests')}
               data-testid="card-interests"
             >
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+              <CardContent className="p-6 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                   <Hash className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1133,12 +1123,12 @@ export default function Profile() {
             {/* Library Card - Owner only */}
             {isOwnProfile && (
               <Card 
-                className="border-border/50 cursor-pointer hover-elevate"
+                className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl cursor-pointer"
                 onClick={() => setActiveView('library')}
                 data-testid="card-library"
               >
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                <CardContent className="p-6 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                     <Library className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1153,12 +1143,12 @@ export default function Profile() {
             {/* Private Info Card - Owner only */}
             {isOwnProfile && (
               <Card 
-                className="border-border/50 cursor-pointer hover-elevate"
+                className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl cursor-pointer"
                 onClick={() => setActiveView('private')}
                 data-testid="card-private"
               >
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                <CardContent className="p-6 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                     <Lock className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
