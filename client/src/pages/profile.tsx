@@ -1761,7 +1761,13 @@ export default function Profile() {
 
       {/* Unified Edit Profile Dialog */}
       <Dialog open={showUnifiedEditDialog} onOpenChange={setShowUnifiedEditDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" data-testid="dialog-edit-profile">
+        <DialogContent 
+          className="sm:max-w-lg max-h-[85vh] overflow-y-auto" 
+          data-testid="dialog-edit-profile"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>
               {lang === 'ar' ? 'تحرير الملف الشخصي' : 'Edit Profile'}
@@ -2102,6 +2108,7 @@ export default function Profile() {
               <Check className="w-4 h-4 me-1.5" />
               {tr.save}
             </Button>
+          </div>
           </div>
         </DialogContent>
       </Dialog>
