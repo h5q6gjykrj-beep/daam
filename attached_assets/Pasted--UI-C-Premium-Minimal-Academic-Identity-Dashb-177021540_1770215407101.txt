@@ -1,0 +1,167 @@
+المهمة: إعادة بناء UI صفحة الملف الشخصي بالكامل لتصبح “C Premium Minimal – Academic Identity + Dashboard” مع دعم Responsive كامل (Desktop + Mobile) ودعم Dark/Light.
+
+الملف الوحيد المعدل:
+client/src/pages/profile.tsx
+
+⚠️ قيود صارمة:
+1) لا تغيّر أي Business Logic أو RBAC أو دوال fetch أو Dialogs.
+2) لا تحذف أي View (posts / replies / saved / library / interests / private).
+3) لا تعرض “إنجازات/Badges” في الصفحة الرئيسية.
+4) لا يوجد شريط تبويبات طويل تحت الغلاف.
+5) تغيير UI/Layout فقط.
+
+====================================================
+الهيكل الجديد المطلوب (استبدال الهيكل الحالي)
+====================================================
+
+الترتيب النهائي للصفحة يجب أن يكون:
+
+<ProfilePage>
+  <ProfileCoverHeader />
+  <ProfileIdentityCenter />
+  <ProfileDashboardGrid />
+</ProfilePage>
+
+ولا يوجد Navigation Pills تحت الغلاف.
+
+====================================================
+A) COVER HEADER
+====================================================
+
+- Full bleed عرض كامل.
+- ارتفاع:
+  mobile: h-[260px]
+  sm+: h-[300px]
+  md+: h-[380px]
+- صورة غلاف إن وجدت، وإلا gradient placeholder داكن بسيط.
+- Overlay دائم: bg-black/50
+- زر "تعديل الغلاف" يظهر فقط للمالك:
+  absolute top-4 left-4
+  زر صغير outline.
+
+❌ لا تضع الاسم أو الإحصائيات داخل الغلاف.
+
+====================================================
+B) IDENTITY CENTER (أسفل الغلاف مباشرة)
+====================================================
+
+- container: max-w-6xl mx-auto px-4
+- Avatar في المنتصف مع overlap:
+  mobile: w-24 h-24 -mt-12
+  md+: w-32 h-32 -mt-16
+  ring-2 ring-white/20
+
+- الاسم:
+  text-2xl mobile
+  text-4xl md+
+  font-bold
+  centered
+
+- سطر التخصص + الجامعة:
+  text-xs mobile
+  text-base md+
+  text-muted-foreground
+  centered
+
+- Stats line (إجباري بدون أيقونات):
+  "{postsCount} منشور | {followersCount} متابع | {followingCount} يتابع"
+  text-xs mobile
+  text-sm md+
+  centered
+
+- Action Buttons:
+  flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center
+  mobile: w-full
+  sm+: auto width
+  أزرار outline soft فقط
+  لا تغيّر منطقها.
+
+====================================================
+C) REMOVE PILLS NAV
+====================================================
+
+- احذف JSX الخاص بشريط:
+  لوحة معلومات / منشورات / ردود / محفوظات / مكتبة / اهتمامات / خاص
+- لا تحذف state activeView.
+- لا تحذف الدوال.
+- فقط لا تعرض هذا الشريط.
+
+====================================================
+D) DASHBOARD GRID (الواجهة الأساسية)
+====================================================
+
+container:
+max-w-6xl mx-auto px-4 mt-6
+
+grid:
+grid-cols-1 md:grid-cols-3 gap-4 md:gap-5
+
+الترتيب:
+
+1) Card النشاط
+   - 3 metric boxes داخل card
+   - كل box:
+     bg-white/5 rounded-lg p-3
+     رقم كبير font-semibold
+     label text-xs muted
+
+2) Card المنشورات (Preview فقط)
+   - عرض أحدث 2-3 عناصر فقط
+   - line-clamp-1 للعنوان والوصف
+   - زر "عرض الكل" -> setActiveView('posts')
+
+3) Card المحفوظات (Preview فقط)
+   - أحدث 2-3
+   - زر "عرض الكل" -> setActiveView('saved')
+
+4) Card مواد دراسية
+   - فقط إذا البيانات موجودة فعلياً
+   - إن لم توجد لا تعرض card
+
+❌ لا يوجد timeline طويل داخل dashboard.
+
+====================================================
+E) OTHER VIEWS
+====================================================
+
+إذا activeView !== 'dashboard':
+
+- اعرض زر "رجوع للملف"
+  setActiveView('dashboard')
+- ثم اعرض view الحالي كما هو.
+
+لا تغيّر renderPostCard إلا إذا أنشأت نسخة compact للـ preview.
+
+====================================================
+F) RESPONSIVE REQUIREMENTS
+====================================================
+
+- لا يوجد horizontal scroll.
+- الأزرار لا تتزاحم على mobile.
+- Grid يتحول لعمود واحد على الهاتف.
+- Avatar والاسم دائماً في المنتصف.
+- لا تترك أي عنصر يخرج خارج container.
+
+====================================================
+G) DARK / LIGHT
+====================================================
+
+- Dark هو الأساس (خلفية داكنة + borders خفيفة).
+- Light نفس layout بالضبط بألوان فاتحة.
+- لا تستخدم ألوان صارخة.
+- استعمل tokens الموجودة بالمشروع.
+
+====================================================
+التسليم المطلوب:
+====================================================
+
+1) اسم الملف المعدل (يجب أن يكون profile.tsx فقط).
+2) JSX skeleton النهائي.
+3) تأكيد حذف شريط pills.
+4) اختبار:
+   - بروفايل زائر
+   - بروفايل مالك
+   - تعديل الغلاف
+   - عرض الكل للمنشورات
+   - عرض الكل للمحفوظات
+   - زر رجوع

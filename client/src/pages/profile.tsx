@@ -150,7 +150,8 @@ import {
   ChevronRight,
   Library,
   FolderOpen,
-  BookOpen
+  BookOpen,
+  ArrowLeft
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -645,14 +646,13 @@ export default function Profile() {
 
   return (
     <div 
-      className="space-y-6 pb-8" 
+      className="min-h-screen pb-8" 
       data-testid="profile-page" 
       key={profileEmail ?? "me"}
     >
-      {/* Cover Header Section */}
+      {/* A) COVER HEADER - Full bleed */}
       <div className="relative -mx-4 md:-mx-6 -mt-6">
-        {/* Cover Image */}
-        <div className="relative h-[320px] md:h-[380px] overflow-hidden">
+        <div className="relative h-[260px] sm:h-[300px] md:h-[380px] overflow-hidden">
           {coverImage ? (
             <img 
               src={coverImage} 
@@ -660,15 +660,15 @@ export default function Profile() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/30 via-primary/20 to-muted" />
+            <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
           )}
           
-          {/* Overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent dark:from-background dark:via-background/70" />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-black/50" />
           
-          {/* Cover Edit Controls */}
+          {/* Cover Edit Controls - Owner only, top-left */}
           {isOwnProfile && !isEditing && (
-            <div className="absolute top-4 right-4 rtl:left-4 rtl:right-auto flex gap-2">
+            <div className="absolute top-4 left-4 rtl:right-4 rtl:left-auto flex gap-2">
               <input
                 ref={coverInputRef}
                 type="file"
@@ -680,8 +680,8 @@ export default function Profile() {
                 <>
                   <Button
                     size="sm"
-                    variant="secondary"
-                    className="gap-1 backdrop-blur-sm"
+                    variant="outline"
+                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
                     onClick={handleSaveCover}
                     data-testid="button-save-cover"
                   >
@@ -691,7 +691,7 @@ export default function Profile() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1 backdrop-blur-sm"
+                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
                     onClick={() => setTempCover(null)}
                     data-testid="button-cancel-cover"
                   >
@@ -703,8 +703,8 @@ export default function Profile() {
                 <>
                   <Button
                     size="sm"
-                    variant="secondary"
-                    className="gap-1 backdrop-blur-sm"
+                    variant="outline"
+                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
                     onClick={() => coverInputRef.current?.click()}
                     data-testid="button-edit-cover"
                   >
@@ -714,13 +714,12 @@ export default function Profile() {
                   {(storedCover || profile?.coverUrl) && (
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="gap-1 backdrop-blur-sm"
+                      variant="outline"
+                      className="gap-1 bg-destructive/20 backdrop-blur-sm border-destructive/40 text-destructive-foreground"
                       onClick={handleRemoveCover}
                       data-testid="button-remove-cover"
                     >
                       <Trash2 className="w-4 h-4" />
-                      {tr.removeCover}
                     </Button>
                   )}
                 </>
@@ -728,353 +727,275 @@ export default function Profile() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Profile Info Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-6">
-          <div className="flex flex-col md:flex-row md:items-end gap-4">
-            {/* Floating Avatar */}
-            <div className="relative -mt-16 md:-mt-20">
-              <button
-                type="button"
-                onClick={() => !isEditing && setShowAvatarPreview(true)}
-                className={`focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-full ${!isEditing ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
-                disabled={isEditing}
-                data-testid="button-avatar-preview"
+      {/* B) IDENTITY CENTER - Centered below cover */}
+      <div className="max-w-6xl mx-auto px-4">
+        {/* Avatar centered with overlap */}
+        <div className="flex flex-col items-center -mt-12 md:-mt-16">
+          <button
+            type="button"
+            onClick={() => !isEditing && setShowAvatarPreview(true)}
+            className={`focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-full ${!isEditing ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+            disabled={isEditing}
+            data-testid="button-avatar-preview"
+          >
+            <Avatar className="w-24 h-24 md:w-32 md:h-32 ring-2 ring-white/20 shadow-2xl">
+              {(tempAvatar || profile?.avatarUrl) ? (
+                <AvatarImage src={tempAvatar || profile?.avatarUrl} />
+              ) : null}
+              <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                {getInitials(profileEmail)}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+          
+          {isEditing && (
+            <>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload(e, 'avatar')}
+                className="hidden"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2 gap-1"
+                onClick={() => avatarInputRef.current?.click()}
+                data-testid="button-change-avatar"
               >
-                <Avatar className="w-32 h-32 md:w-36 md:h-36 border-4 border-background shadow-2xl">
-                  {(tempAvatar || profile?.avatarUrl) ? (
-                    <AvatarImage src={tempAvatar || profile?.avatarUrl} />
-                  ) : null}
-                  <AvatarFallback className="text-3xl md:text-4xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                    {getInitials(profileEmail)}
-                  </AvatarFallback>
-                </Avatar>
-              </button>
-              
-              {isEditing && (
-                <>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, 'avatar')}
-                    className="hidden"
-                  />
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute bottom-1 right-1 rtl:left-1 rtl:right-auto rounded-full"
-                    onClick={() => avatarInputRef.current?.click()}
-                    data-testid="button-change-avatar"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </Button>
-                </>
-              )}
-            </div>
-
-            {/* Profile Text Info */}
-            <div className="flex-1 min-w-0">
-              {isEditing ? (
-                <div className="space-y-3 max-w-md bg-background/80 backdrop-blur-sm p-4 rounded-lg">
+                <Camera className="w-4 h-4" />
+                {tr.changePhoto}
+              </Button>
+            </>
+          )}
+          
+          {/* Name and info centered */}
+          <div className="mt-4 text-center">
+            {isEditing ? (
+              <div className="space-y-3 max-w-md mx-auto">
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder={tr.name}
+                  className="text-center"
+                  data-testid="input-profile-name"
+                />
+                <div className="flex gap-2">
                   <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder={tr.name}
-                    className="bg-background border-border"
-                    data-testid="input-profile-name"
+                    value={editForm.major}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
+                    placeholder={tr.major}
+                    className="flex-1"
+                    data-testid="input-profile-major"
                   />
-                  <div className="flex gap-2">
-                    <Input
-                      value={editForm.major}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
-                      placeholder={tr.major}
-                      className="flex-1 bg-background border-border"
-                      data-testid="input-profile-major"
-                    />
-                    <Input
-                      value={editForm.level}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
-                      placeholder={tr.level}
-                      className="w-24 bg-background border-border"
-                      data-testid="input-profile-level"
-                    />
-                  </div>
                   <Input
-                    value={editForm.university}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
-                    placeholder={tr.university}
-                    className="bg-background border-border"
-                    data-testid="input-profile-university"
-                  />
-                  <Textarea
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                    placeholder={tr.bio}
-                    className="bg-background border-border min-h-[60px]"
-                    data-testid="input-profile-bio"
+                    value={editForm.level}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
+                    placeholder={tr.level}
+                    className="w-24"
+                    data-testid="input-profile-level"
                   />
                 </div>
-              ) : (
+                <Input
+                  value={editForm.university}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
+                  placeholder={tr.university}
+                  data-testid="input-profile-university"
+                />
+                <Textarea
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                  placeholder={tr.bio}
+                  className="min-h-[60px]"
+                  data-testid="input-profile-bio"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  <h1 className="text-2xl md:text-4xl font-bold">
+                    {profile?.name || profileEmail.split('@')[0]}
+                  </h1>
+                  {isStaff(profileEmail) && (
+                    <Shield 
+                      size={20} 
+                      className="text-emerald-500" 
+                      aria-label={isAdmin(profileEmail) ? 'Admin' : 'Moderator'}
+                      data-testid="staff-badge-profile"
+                    />
+                  )}
+                </div>
+                
+                {/* Major + University line */}
+                {(profile?.major || profile?.university) && (
+                  <p className="text-xs md:text-base text-muted-foreground mt-1">
+                    {profile?.major}{profile?.level && ` (${profile.level})`}
+                    {profile?.major && profile?.university && ' • '}
+                    {profile?.university}
+                  </p>
+                )}
+                
+                {/* Bio */}
+                {profile?.bio && (
+                  <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{profile.bio}</p>
+                )}
+                
+                {/* Stats line - no icons, centered */}
+                <p className="text-xs md:text-sm text-muted-foreground mt-3">
+                  <button 
+                    onClick={() => setActiveView('posts')}
+                    className="hover:text-foreground transition-colors"
+                    data-testid="stats-posts"
+                  >
+                    <span className="font-semibold text-foreground">{userPosts.length}</span> {lang === 'ar' ? 'منشور' : 'posts'}
+                  </button>
+                  {' | '}
+                  <button 
+                    onClick={() => setShowFollowersDialog(true)}
+                    className="hover:text-foreground transition-colors"
+                    data-testid="stats-followers"
+                  >
+                    <span className="font-semibold text-foreground">{profile?.followers?.length || 0}</span> {lang === 'ar' ? 'متابع' : 'followers'}
+                  </button>
+                  {' | '}
+                  <button 
+                    onClick={() => setShowFollowingDialog(true)}
+                    className="hover:text-foreground transition-colors"
+                    data-testid="stats-following"
+                  >
+                    <span className="font-semibold text-foreground">{profile?.following?.length || 0}</span> {lang === 'ar' ? 'يتابع' : 'following'}
+                  </button>
+                </p>
+              </>
+            )}
+          </div>
+          
+          {/* Action Buttons - centered */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4 w-full sm:w-auto">
+            {isOwnProfile ? (
+              isEditing ? (
                 <>
-                  {/* Name and Badge */}
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl md:text-3xl font-bold text-foreground drop-shadow-sm">
-                      {profile?.name || profileEmail.split('@')[0]}
-                    </h1>
-                    {isStaff(profileEmail) && (
-                      <Shield 
-                        size={20} 
-                        className="text-emerald-500" 
-                        aria-label={isAdmin(profileEmail) ? 'Admin' : 'Moderator'}
-                        data-testid="staff-badge-profile"
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Major and University */}
-                  {(profile?.major || profile?.university) && (
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
-                      {profile?.major && (
-                        <span className="flex items-center gap-1">
-                          <GraduationCap className="w-4 h-4" />
-                          {profile.major}
-                          {profile.level && ` (${profile.level})`}
-                        </span>
-                      )}
-                      {profile?.university && (
-                        <span className="flex items-center gap-1">
-                          <Building className="w-4 h-4" />
-                          {profile.university}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Bio */}
-                  {profile?.bio && (
-                    <p className="text-sm mt-2 max-w-lg text-foreground/80">{profile.bio}</p>
-                  )}
-                  
-                  {/* Stats Line */}
-                  <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                    <button 
-                      onClick={() => setActiveView('posts')}
-                      className="hover-elevate rounded px-1 transition-colors"
-                      data-testid="stats-posts"
-                    >
-                      <span className="font-semibold text-foreground">{userPosts.length}</span> {lang === 'ar' ? 'منشور' : 'posts'}
-                    </button>
-                    <span className="text-muted-foreground/50">|</span>
-                    <button 
-                      onClick={() => setShowFollowersDialog(true)}
-                      className="hover-elevate rounded px-1 transition-colors"
-                      data-testid="stats-followers"
-                    >
-                      <span className="font-semibold text-foreground">{profile?.followers?.length || 0}</span> {lang === 'ar' ? 'متابع' : 'followers'}
-                    </button>
-                    <span className="text-muted-foreground/50">|</span>
-                    <button 
-                      onClick={() => setShowFollowingDialog(true)}
-                      className="hover-elevate rounded px-1 transition-colors"
-                      data-testid="stats-following"
-                    >
-                      <span className="font-semibold text-foreground">{profile?.following?.length || 0}</span> {lang === 'ar' ? 'يتابع' : 'following'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 flex-wrap">
-              {isOwnProfile ? (
-                isEditing ? (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setIsEditing(false);
-                        setTempCover(null);
-                        setTempAvatar(null);
-                      }}
-                      className="gap-1"
-                      data-testid="button-cancel-edit"
-                    >
-                      <X className="w-4 h-4" />
-                      {tr.cancel}
-                    </Button>
-                    <Button 
-                      onClick={handleSaveProfile}
-                      className="gap-1"
-                      data-testid="button-save-profile"
-                    >
-                      <Check className="w-4 h-4" />
-                      {tr.save}
-                    </Button>
-                  </>
-                ) : (
                   <Button 
                     variant="outline" 
-                    onClick={() => setIsEditing(true)}
-                    className="gap-1"
-                    data-testid="button-edit-profile"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setTempCover(null);
+                      setTempAvatar(null);
+                    }}
+                    className="gap-1 w-full sm:w-auto"
+                    data-testid="button-cancel-edit"
                   >
-                    <Edit className="w-4 h-4" />
-                    {tr.editProfile}
+                    <X className="w-4 h-4" />
+                    {tr.cancel}
                   </Button>
-                )
-              ) : (
-                <>
                   <Button 
-                    variant={isFollowing(profileEmail) ? "outline" : "default"}
-                    onClick={() => toggleFollow(profileEmail)}
-                    className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
-                    data-testid="button-follow"
+                    onClick={handleSaveProfile}
+                    className="gap-1 w-full sm:w-auto"
+                    data-testid="button-save-profile"
                   >
-                    {isFollowing(profileEmail) ? (
-                      <>
-                        <Check className="w-4 h-4 group-hover:hidden" />
-                        <X className="w-4 h-4 hidden group-hover:block" />
-                        <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
-                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        {lang === 'ar' ? 'متابعة' : 'Follow'}
-                      </>
-                    )}
-                  </Button>
-                  {(() => {
-                    const dmCheck = canSendDM(profileEmail);
-                    if (dmCheck.allowed) {
-                      return (
-                        <Button 
-                          variant="outline"
-                          onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
-                          className="gap-1.5"
-                          data-testid="button-send-message"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          {tr.sendMessage}
-                        </Button>
-                      );
-                    } else {
-                      return (
-                        <Button 
-                          variant="outline"
-                          disabled
-                          className="gap-1.5 opacity-50"
-                          data-testid="button-send-message-disabled"
-                          title={tr.dmClosed}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          {tr.dmClosed}
-                        </Button>
-                      );
-                    }
-                  })()}
-                  <Button 
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setReportModalOpen(true)}
-                    className="text-amber-500"
-                    data-testid="button-report-user"
-                    title={tr.reportUser}
-                  >
-                    <Flag className="w-4 h-4" />
+                    <Check className="w-4 h-4" />
+                    {tr.save}
                   </Button>
                 </>
-              )}
-            </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditing(true)}
+                  className="gap-1 w-full sm:w-auto"
+                  data-testid="button-edit-profile"
+                >
+                  <Edit className="w-4 h-4" />
+                  {tr.editProfile}
+                </Button>
+              )
+            ) : (
+              <>
+                <Button 
+                  variant={isFollowing(profileEmail) ? "outline" : "default"}
+                  onClick={() => toggleFollow(profileEmail)}
+                  className={`gap-1.5 w-full sm:w-auto min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
+                  data-testid="button-follow"
+                >
+                  {isFollowing(profileEmail) ? (
+                    <>
+                      <Check className="w-4 h-4 group-hover:hidden" />
+                      <X className="w-4 h-4 hidden group-hover:block" />
+                      <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
+                      <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      {lang === 'ar' ? 'متابعة' : 'Follow'}
+                    </>
+                  )}
+                </Button>
+                {(() => {
+                  const dmCheck = canSendDM(profileEmail);
+                  if (dmCheck.allowed) {
+                    return (
+                      <Button 
+                        variant="outline"
+                        onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
+                        className="gap-1.5 w-full sm:w-auto"
+                        data-testid="button-send-message"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        {tr.sendMessage}
+                      </Button>
+                    );
+                  } else {
+                    return (
+                      <Button 
+                        variant="outline"
+                        disabled
+                        className="gap-1.5 w-full sm:w-auto opacity-50"
+                        data-testid="button-send-message-disabled"
+                        title={tr.dmClosed}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        {tr.dmClosed}
+                      </Button>
+                    );
+                  }
+                })()}
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setReportModalOpen(true)}
+                  className="text-amber-500 self-center"
+                  data-testid="button-report-user"
+                  title={tr.reportUser}
+                >
+                  <Flag className="w-4 h-4" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Navigation Pills */}
-      <div className="flex items-center gap-2 flex-wrap px-1">
-        <Button
-          variant={activeView === 'dashboard' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('dashboard')}
-          className="gap-1.5"
-          data-testid="nav-dashboard"
-        >
-          <BarChart3 className="w-4 h-4" />
-          {tr.dashboard}
-        </Button>
-        <Button
-          variant={activeView === 'posts' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('posts')}
-          className="gap-1.5"
-          data-testid="nav-posts"
-        >
-          <MessageSquare className="w-4 h-4" />
-          {tr.posts}
-        </Button>
-        <Button
-          variant={activeView === 'replies' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('replies')}
-          className="gap-1.5"
-          data-testid="nav-replies"
-        >
-          <Reply className="w-4 h-4" />
-          {tr.replies}
-        </Button>
-        <Button
-          variant={activeView === 'saved' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('saved')}
-          className="gap-1.5"
-          data-testid="nav-saved"
-        >
-          <Bookmark className="w-4 h-4" />
-          {tr.saved}
-        </Button>
-        {isOwnProfile && (
+      {/* D) DASHBOARD GRID or OTHER VIEWS */}
+      <div className="max-w-6xl mx-auto px-4 mt-6">
+        {/* Back button when not on dashboard */}
+        {activeView !== 'dashboard' && (
           <Button
-            variant={activeView === 'library' ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
-            onClick={() => setActiveView('library')}
-            className="gap-1.5"
-            data-testid="nav-library"
+            onClick={() => setActiveView('dashboard')}
+            className="gap-1.5 mb-4"
+            data-testid="button-back-to-profile"
           >
-            <Library className="w-4 h-4" />
-            {lang === 'ar' ? 'المكتبة' : 'Library'}
+            <ArrowLeft className="w-4 h-4" />
+            {lang === 'ar' ? 'رجوع للملف' : 'Back to Profile'}
           </Button>
         )}
-        <Button
-          variant={activeView === 'interests' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('interests')}
-          className="gap-1.5"
-          data-testid="nav-interests"
-        >
-          <Hash className="w-4 h-4" />
-          {tr.interests}
-        </Button>
-        {isOwnProfile && (
-          <Button
-            variant={activeView === 'private' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setActiveView('private')}
-            className="gap-1.5"
-            data-testid="nav-private"
-          >
-            <Lock className="w-4 h-4" />
-            {tr.privateInfo}
-          </Button>
-        )}
-      </div>
-
-      {/* Content Area */}
-      <div className="px-1">
         {/* Dashboard View */}
         {activeView === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
             {/* Activity Card */}
             <Card className="border-border/50">
               <CardHeader className="pb-3">
@@ -1085,16 +1006,16 @@ export default function Profile() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3 rounded-lg bg-primary/10">
-                    <p className="text-2xl font-bold text-primary">{userPosts.length}</p>
+                  <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                    <p className="text-2xl font-semibold">{userPosts.length}</p>
                     <p className="text-xs text-muted-foreground">{tr.posts}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-rose-500/10">
-                    <p className="text-2xl font-bold text-rose-500">{likedPosts.length}</p>
+                  <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                    <p className="text-2xl font-semibold">{likedPosts.length}</p>
                     <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إعجاب' : 'Likes'}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-blue-500/10">
-                    <p className="text-2xl font-bold text-blue-500">{userReplies.length}</p>
+                  <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                    <p className="text-2xl font-semibold">{userReplies.length}</p>
                     <p className="text-xs text-muted-foreground">{tr.replies}</p>
                   </div>
                 </div>
@@ -1171,6 +1092,83 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Quick Access Cards - Second Row */}
+            {/* Replies Card */}
+            <Card 
+              className="border-border/50 cursor-pointer hover-elevate"
+              onClick={() => setActiveView('replies')}
+              data-testid="card-replies"
+            >
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                  <Reply className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{tr.replies}</p>
+                  <p className="text-xs text-muted-foreground">{userReplies.length} {lang === 'ar' ? 'رد' : 'replies'}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+
+            {/* Interests Card */}
+            <Card 
+              className="border-border/50 cursor-pointer hover-elevate"
+              onClick={() => setActiveView('interests')}
+              data-testid="card-interests"
+            >
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                  <Hash className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{tr.interests}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.interests?.length || 0} {lang === 'ar' ? 'اهتمام' : 'interests'}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+
+            {/* Library Card - Owner only */}
+            {isOwnProfile && (
+              <Card 
+                className="border-border/50 cursor-pointer hover-elevate"
+                onClick={() => setActiveView('library')}
+                data-testid="card-library"
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                    <Library className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{lang === 'ar' ? 'المكتبة' : 'Library'}</p>
+                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'الملفات والمحفوظات' : 'Files & Saved'}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Private Info Card - Owner only */}
+            {isOwnProfile && (
+              <Card 
+                className="border-border/50 cursor-pointer hover-elevate"
+                onClick={() => setActiveView('private')}
+                data-testid="card-private"
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted/50 dark:bg-white/5 flex items-center justify-center shrink-0">
+                    <Lock className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{tr.privateInfo}</p>
+                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'معلومات خاصة بك' : 'Your private data'}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -1343,7 +1341,7 @@ export default function Profile() {
                             e.stopPropagation();
                             const isPdf = file.name?.toLowerCase().endsWith('.pdf') ||
                                           file.url?.toLowerCase().endsWith('.pdf') ||
-                                          file.mimeType?.includes('pdf') ||
+                                          (file as any).mimeType?.includes('pdf') ||
                                           file.type?.includes('pdf');
                             if (isPdf && file.url) {
                               try {
