@@ -656,18 +656,30 @@ export default function Profile() {
       {/* A) COVER HEADER with IDENTITY OVERLAY */}
       <div className="relative -mx-4 md:-mx-6 -mt-6">
         <div className="relative h-[320px] sm:h-[380px] md:h-[440px] overflow-hidden">
+          {/* Background layer - full bleed */}
           {coverImage ? (
             <img 
               src={coverImage} 
               alt="Cover" 
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
           )}
           
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/80" />
+          {/* Premium dark overlay with texture */}
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
+          <div 
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage: `
+                radial-gradient(ellipse at 20% 30%, rgba(120,100,80,0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(60,50,40,0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(100,90,70,0.08) 0%, transparent 70%)
+              `
+            }}
+          />
           
           {/* Hidden file inputs */}
           <input
@@ -685,12 +697,12 @@ export default function Profile() {
             className="hidden"
           />
           
-          {/* Single Pen Icon - Owner only, top-right */}
+          {/* Single Pen Icon - Owner only, top-left */}
           {isOwnProfile && (
             <Button
               size="icon"
               variant="outline"
-              className="absolute top-4 right-4 rtl:left-4 rtl:right-auto z-50 pointer-events-auto bg-background/20 backdrop-blur-sm border-white/20 text-white hover:bg-background/40"
+              className="absolute top-4 left-4 rtl:right-4 rtl:left-auto z-50 pointer-events-auto bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
               onClick={() => {
                 setEditTab('info');
                 setShowUnifiedEditDialog(true);
@@ -720,118 +732,122 @@ export default function Profile() {
             </Button>
           )}
           
-          {/* B) IDENTITY OVERLAY - Centered inside cover */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-8 md:pt-12 px-4 pointer-events-none">
-            {/* Avatar */}
-            <button
-              type="button"
-              onClick={() => setShowAvatarPreview(true)}
-              className="pointer-events-auto focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-transparent rounded-full cursor-pointer hover:opacity-90 transition-opacity"
-              data-testid="button-avatar-preview"
-            >
-              <Avatar className="w-24 h-24 md:w-28 md:h-28 ring-2 ring-white/25 shadow-2xl">
-                {profile?.avatarUrl ? (
-                  <AvatarImage src={profile.avatarUrl} />
-                ) : null}
-                <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                  {getInitials(profileEmail)}
-                </AvatarFallback>
-              </Avatar>
-            </button>
-            
-            {/* Name */}
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-white drop-shadow-lg">
-              {profile?.name || profileEmail.split('@')[0]}
-            </h1>
-            
-            {/* Major + University (Subtitle) */}
-            {(profile?.major || profile?.university) && (
-              <p className="text-sm md:text-base text-white/85 mt-1.5">
-                {profile?.major}{profile?.level && ` (${profile.level})`}
-                {profile?.major && profile?.university && ' • '}
-                {profile?.university}
-              </p>
-            )}
-            
-            {/* Stats line */}
-            <p className="text-xs md:text-sm text-white/75 mt-3 tracking-wide pointer-events-auto">
-              <button 
-                onClick={() => setActiveView('posts')}
-                className="hover:text-white transition-colors"
-                data-testid="stats-posts"
+          {/* B) CONTENT CONTAINER - Max-width with side gutters */}
+          <div className="relative h-full">
+            <div className="mx-auto max-w-[1100px] px-6 h-full flex flex-col items-center text-center pt-12 md:pt-14 pointer-events-none">
+              {/* Avatar - near top */}
+              <button
+                type="button"
+                onClick={() => setShowAvatarPreview(true)}
+                className="pointer-events-auto focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-transparent rounded-full cursor-pointer hover:opacity-90 transition-opacity"
+                data-testid="button-avatar-preview"
               >
-                {userPosts.length} {lang === 'ar' ? 'منشور' : 'posts'}
+                <Avatar className="w-24 h-24 md:w-28 md:h-28 ring-2 ring-white/25 shadow-2xl">
+                  {profile?.avatarUrl ? (
+                    <AvatarImage src={profile.avatarUrl} />
+                  ) : null}
+                  <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                    {getInitials(profileEmail)}
+                  </AvatarFallback>
+                </Avatar>
               </button>
-              {' | '}
-              <button 
-                onClick={() => setShowFollowingDialog(true)}
-                className="hover:text-white transition-colors"
-                data-testid="stats-following"
-              >
-                {profile?.following?.length || 0} {lang === 'ar' ? 'يتابع' : 'following'}
-              </button>
-              {' | '}
-              <button 
-                onClick={() => setShowFollowersDialog(true)}
-                className="hover:text-white transition-colors"
-                data-testid="stats-followers"
-              >
-                {profile?.followers?.length || 0} {lang === 'ar' ? 'متابع' : 'followers'}
-              </button>
-            </p>
-            
-            {/* Action Buttons - centered below stats */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4 pointer-events-auto">
-              {isOwnProfile ? (
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate(`/messages`)}
-                  className="gap-1.5 bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
-                  data-testid="button-my-messages"
+              
+              {/* Name */}
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mt-4 text-white drop-shadow-lg">
+                {profile?.name || profileEmail.split('@')[0]}
+              </h1>
+              
+              {/* Major + University (Subtitle) */}
+              {(profile?.major || profile?.university) && (
+                <p className="text-sm md:text-base text-white/80 mt-2">
+                  {profile?.major}{profile?.level && ` (${profile.level})`}
+                  {profile?.major && profile?.university && ' • '}
+                  {profile?.university}
+                </p>
+              )}
+              
+              {/* Stats line */}
+              <p className="text-xs md:text-sm text-white/70 mt-3 tracking-wide pointer-events-auto">
+                <button 
+                  onClick={() => setActiveView('posts')}
+                  className="hover:text-white transition-colors"
+                  data-testid="stats-posts"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  {tr.sendMessage}
-                </Button>
-              ) : (
-                <>
+                  {userPosts.length} {lang === 'ar' ? 'منشور' : 'posts'}
+                </button>
+                {' | '}
+                <button 
+                  onClick={() => setShowFollowingDialog(true)}
+                  className="hover:text-white transition-colors"
+                  data-testid="stats-following"
+                >
+                  {profile?.following?.length || 0} {lang === 'ar' ? 'يتابع' : 'following'}
+                </button>
+                {' | '}
+                <button 
+                  onClick={() => setShowFollowersDialog(true)}
+                  className="hover:text-white transition-colors"
+                  data-testid="stats-followers"
+                >
+                  {profile?.followers?.length || 0} {lang === 'ar' ? 'متابع' : 'followers'}
+                </button>
+              </p>
+              
+              {/* Thin divider line */}
+              <div className="mt-5 h-px w-full max-w-[520px] bg-white/15" />
+              
+              {/* Action Buttons - below divider */}
+              <div className="flex gap-3 justify-center mt-4 pointer-events-auto">
+                {isOwnProfile ? (
                   <Button 
-                    variant={isFollowing(profileEmail) ? "outline" : "default"}
-                    onClick={() => toggleFollow(profileEmail)}
-                    className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) 
-                      ? 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-destructive hover:text-destructive-foreground hover:border-destructive group' 
-                      : ''}`}
-                    data-testid="button-follow"
+                    variant="outline"
+                    onClick={() => navigate(`/messages`)}
+                    className="gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white"
+                    data-testid="button-my-messages"
                   >
-                    {isFollowing(profileEmail) ? (
-                      <>
-                        <Check className="w-4 h-4 group-hover:hidden" />
-                        <X className="w-4 h-4 hidden group-hover:block" />
-                        <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
-                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        {lang === 'ar' ? 'متابعة' : 'Follow'}
-                      </>
-                    )}
+                    <MessageSquare className="w-4 h-4" />
+                    {tr.sendMessage}
                   </Button>
-                  {(() => {
-                    const dmCheck = canSendDM(profileEmail);
-                    if (dmCheck.allowed) {
-                      return (
-                        <Button 
-                          variant="outline"
-                          onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
-                          className="gap-1.5 bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
-                          data-testid="button-send-message"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          {tr.sendMessage}
-                        </Button>
-                      );
-                    } else {
-                      return (
+                ) : (
+                  <>
+                    <Button 
+                      variant={isFollowing(profileEmail) ? "outline" : "default"}
+                      onClick={() => toggleFollow(profileEmail)}
+                      className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) 
+                        ? 'bg-white/10 hover:bg-white/15 border border-white/20 text-white hover:bg-destructive hover:text-destructive-foreground hover:border-destructive group' 
+                        : ''}`}
+                      data-testid="button-follow"
+                    >
+                      {isFollowing(profileEmail) ? (
+                        <>
+                          <Check className="w-4 h-4 group-hover:hidden" />
+                          <X className="w-4 h-4 hidden group-hover:block" />
+                          <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
+                          <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          {lang === 'ar' ? 'متابعة' : 'Follow'}
+                        </>
+                      )}
+                    </Button>
+                    {(() => {
+                      const dmCheck = canSendDM(profileEmail);
+                      if (dmCheck.allowed) {
+                        return (
+                          <Button 
+                            variant="outline"
+                            onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
+                            className="gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white"
+                            data-testid="button-send-message"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            {tr.sendMessage}
+                          </Button>
+                        );
+                      } else {
+                        return (
                         <Button 
                           variant="outline"
                           disabled
@@ -859,6 +875,7 @@ export default function Profile() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 

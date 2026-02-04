@@ -1,0 +1,57 @@
+Goal: Make profile header match reference C layout exactly: full-bleed background, centered max-width content with side gutters, avatar near top center, divider line before action buttons.
+
+File: client/src/pages/profile.tsx
+No logic changes.
+
+1) Full-bleed cover background:
+- Cover wrapper: relative -mx-4 md:-mx-6 -mt-6
+- Background layer must be 100% width of viewport (full-bleed).
+- Add dark premium texture/gradient overlay (not flat black).
+  Use:
+  - background image (cover) OR fallback: subtle noise-like gradient using multiple radial gradients.
+  - overlay: absolute inset-0 bg-black/55 + additional gradient.
+
+2) Content container MUST be constrained:
+- Inside the cover, create a centered content container:
+  <div className="relative h-full">
+    <div className="mx-auto max-w-[1100px] px-6 h-full flex flex-col items-center text-center">
+- This creates the side empty margins on desktop like reference C.
+- IMPORTANT: do NOT make the identity content stretch full width.
+
+3) Avatar position like C:
+- Avatar should be near top center, not center of cover:
+  Use padding-top:
+  pt-12 md:pt-14
+- Avatar size:
+  w-24 h-24 md:w-28 md:h-28
+- Add thin warm ring:
+  ring-2 ring-white/25 (or ring-[#c8b28a]/50 if you have gold token)
+
+4) Typography like C:
+- Name:
+  text-3xl md:text-4xl font-bold tracking-tight
+- Subtitle:
+  text-sm md:text-base text-white/80 mt-2
+- Stats line:
+  text-xs md:text-sm text-white/70 mt-3 tracking-wide
+
+5) Add the thin divider line ABOVE the buttons:
+- Insert after stats line:
+  <div className="mt-5 h-px w-full max-w-[520px] bg-white/15" />
+- This line must NOT be full width; it’s limited like C.
+
+6) Buttons row style like C:
+- Button group below divider:
+  mt-4 flex gap-3
+- Buttons are rectangular, subtle, glassy:
+  class: "bg-white/10 hover:bg-white/15 border border-white/20 text-white"
+- Keep Follow/Message logic same.
+
+7) Edit pencil button placement:
+- Keep pencil but place it top-left of the cover (as in your screenshot), small and subtle:
+  absolute top-4 left-4 z-50 pointer-events-auto
+- Ensure it does not affect layout.
+
+Deliver:
+- Show updated JSX for cover header (background + max-width container + avatar top + divider + buttons)
+- Verify desktop has visible side gutters (empty space) like reference C.
