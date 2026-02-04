@@ -50,7 +50,11 @@ Preferred communication style: Simple, everyday language.
   - **Official Content System**: Admin-editable pages for Privacy Policy, Contact Us, and Terms & Conditions.
   - **Landing Page Customization**: Admins can toggle visibility of "Why DAAM?" cards and configure the landing page navigation.
   - **Navbar Configuration**: Admins can enable/disable, reorder, and relabel navigation items for both internal and landing pages.
-- **User Profiles**: Public profiles with private data protections.
+- **User Profiles**: Public profiles with private data protections. Redesigned with "C Premium Minimal - Academic Identity + Dashboard" layout.
+  - **Cover Header**: Full-bleed responsive (260-380px height), dark overlay (bg-black/50), cover edit button at top-left for owner.
+  - **Identity Center**: Centered avatar with overlap, name/bio/stats, action buttons.
+  - **Dashboard Grid**: 3-column grid (Activity, Posts Preview, Saved Preview), plus quick access cards (Replies, Interests, Library owner-only, Private owner-only).
+  - **View Navigation**: Click on dashboard cards to access detailed views (Posts, Replies, Saved, Interests, Library, Private), with back button to return to dashboard.
   - **Library Tab**: Consolidated tab containing Saved posts, Files, and Summaries with internal chip filters.
     - Saved: Shows posts the user has bookmarked (uses post `savedBy` array)
     - Files: Shows files uploaded by the user
