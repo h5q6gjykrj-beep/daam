@@ -690,7 +690,7 @@ export default function Profile() {
             <Button
               size="icon"
               variant="outline"
-              className="absolute top-4 right-4 rtl:left-4 rtl:right-auto bg-background/20 backdrop-blur-sm border-white/20 text-white hover:bg-background/40"
+              className="absolute top-4 right-4 rtl:left-4 rtl:right-auto z-50 pointer-events-auto bg-background/20 backdrop-blur-sm border-white/20 text-white hover:bg-background/40"
               onClick={() => {
                 setEditTab('info');
                 setShowUnifiedEditDialog(true);
@@ -721,12 +721,12 @@ export default function Profile() {
           )}
           
           {/* B) IDENTITY OVERLAY - Centered inside cover */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-8 md:pt-12 px-4">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-8 md:pt-12 px-4 pointer-events-none">
             {/* Avatar */}
             <button
               type="button"
               onClick={() => setShowAvatarPreview(true)}
-              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-transparent rounded-full cursor-pointer hover:opacity-90 transition-opacity"
+              className="pointer-events-auto focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-transparent rounded-full cursor-pointer hover:opacity-90 transition-opacity"
               data-testid="button-avatar-preview"
             >
               <Avatar className="w-24 h-24 md:w-28 md:h-28 ring-2 ring-white/25 shadow-2xl">
@@ -754,7 +754,7 @@ export default function Profile() {
             )}
             
             {/* Stats line */}
-            <p className="text-xs md:text-sm text-white/75 mt-3 tracking-wide">
+            <p className="text-xs md:text-sm text-white/75 mt-3 tracking-wide pointer-events-auto">
               <button 
                 onClick={() => setActiveView('posts')}
                 className="hover:text-white transition-colors"
@@ -781,7 +781,7 @@ export default function Profile() {
             </p>
             
             {/* Action Buttons - centered below stats */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4 pointer-events-auto">
               {isOwnProfile ? (
                 <Button 
                   variant="outline"
@@ -1676,7 +1676,7 @@ export default function Profile() {
 
       {/* Avatar Preview Dialog */}
       <Dialog open={showAvatarPreview} onOpenChange={setShowAvatarPreview}>
-        <DialogContent className="max-w-sm md:max-w-md p-0 bg-transparent border-none shadow-none">
+        <DialogContent className="max-w-sm md:max-w-md p-0 bg-transparent border-none shadow-none [&>button]:hidden">
           <div className="relative flex items-center justify-center">
             <button
               onClick={() => setShowAvatarPreview(false)}
