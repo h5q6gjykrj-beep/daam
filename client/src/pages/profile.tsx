@@ -258,6 +258,9 @@ export default function Profile() {
   
   const [storedCover, setStoredCover] = useState<string | null>(null);
   
+  const [showUnifiedEditDialog, setShowUnifiedEditDialog] = useState(false);
+  const [editTab, setEditTab] = useState<'cover' | 'avatar' | 'info' | 'account'>('info');
+  
   useEffect(() => {
     if (profileEmail) {
       const p = getProfile(profileEmail);
@@ -650,9 +653,9 @@ export default function Profile() {
       data-testid="profile-page" 
       key={profileEmail ?? "me"}
     >
-      {/* A) COVER HEADER - Full bleed */}
+      {/* A) COVER HEADER with IDENTITY OVERLAY */}
       <div className="relative -mx-4 md:-mx-6 -mt-6">
-        <div className="relative h-[260px] sm:h-[300px] md:h-[380px] overflow-hidden">
+        <div className="relative h-[320px] sm:h-[380px] md:h-[440px] overflow-hidden">
           {coverImage ? (
             <img 
               src={coverImage} 
@@ -666,304 +669,195 @@ export default function Profile() {
           {/* Dark overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/80" />
           
-          {/* Cover Edit Controls - Owner only, top-left */}
-          {isOwnProfile && !isEditing && (
-            <div className="absolute top-4 left-4 rtl:right-4 rtl:left-auto flex gap-2">
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e, 'cover')}
-                className="hidden"
-              />
-              {tempCover ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
-                    onClick={handleSaveCover}
-                    data-testid="button-save-cover"
-                  >
-                    <Check className="w-4 h-4" />
-                    {tr.saveCover}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
-                    onClick={() => setTempCover(null)}
-                    data-testid="button-cancel-cover"
-                  >
-                    <X className="w-4 h-4" />
-                    {tr.cancelCover}
-                  </Button>
-                </>
+          {/* Hidden file inputs */}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload(e, 'cover')}
+            className="hidden"
+          />
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload(e, 'avatar')}
+            className="hidden"
+          />
+          
+          {/* Single Pen Icon - Owner only, top-right */}
+          {isOwnProfile && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="absolute top-4 right-4 rtl:left-4 rtl:right-auto bg-background/20 backdrop-blur-sm border-white/20 text-white hover:bg-background/40"
+              onClick={() => {
+                setEditTab('info');
+                setShowUnifiedEditDialog(true);
+                setEditForm({
+                  name: profile?.name || '',
+                  major: profile?.major || '',
+                  university: profile?.university || '',
+                  level: profile?.level || '',
+                  bio: profile?.bio || '',
+                  interests: profile?.interests || [],
+                  showFavorites: profile?.showFavorites !== false,
+                  showInterests: profile?.showInterests !== false
+                });
+                const account = user?.email ? getAccount(user.email) : undefined;
+                setPrivateEditForm({
+                  phone: account?.phone || '',
+                  governorate: account?.region?.governorate || '',
+                  wilayat: account?.region?.wilayat || ''
+                });
+                setPrivateEditErrors({});
+                setTempCover(null);
+                setTempAvatar(null);
+              }}
+              data-testid="button-edit-profile-pen"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          )}
+          
+          {/* B) IDENTITY OVERLAY - Centered inside cover */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-8 md:pt-12 px-4">
+            {/* Avatar */}
+            <button
+              type="button"
+              onClick={() => setShowAvatarPreview(true)}
+              className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-transparent rounded-full cursor-pointer hover:opacity-90 transition-opacity"
+              data-testid="button-avatar-preview"
+            >
+              <Avatar className="w-24 h-24 md:w-28 md:h-28 ring-2 ring-white/25 shadow-2xl">
+                {profile?.avatarUrl ? (
+                  <AvatarImage src={profile.avatarUrl} />
+                ) : null}
+                <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                  {getInitials(profileEmail)}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            
+            {/* Name */}
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-white drop-shadow-lg">
+              {profile?.name || profileEmail.split('@')[0]}
+            </h1>
+            
+            {/* Major + University (Subtitle) */}
+            {(profile?.major || profile?.university) && (
+              <p className="text-sm md:text-base text-white/85 mt-1.5">
+                {profile?.major}{profile?.level && ` (${profile.level})`}
+                {profile?.major && profile?.university && ' • '}
+                {profile?.university}
+              </p>
+            )}
+            
+            {/* Stats line */}
+            <p className="text-xs md:text-sm text-white/75 mt-3 tracking-wide">
+              <button 
+                onClick={() => setActiveView('posts')}
+                className="hover:text-white transition-colors"
+                data-testid="stats-posts"
+              >
+                {userPosts.length} {lang === 'ar' ? 'منشور' : 'posts'}
+              </button>
+              {' | '}
+              <button 
+                onClick={() => setShowFollowingDialog(true)}
+                className="hover:text-white transition-colors"
+                data-testid="stats-following"
+              >
+                {profile?.following?.length || 0} {lang === 'ar' ? 'يتابع' : 'following'}
+              </button>
+              {' | '}
+              <button 
+                onClick={() => setShowFollowersDialog(true)}
+                className="hover:text-white transition-colors"
+                data-testid="stats-followers"
+              >
+                {profile?.followers?.length || 0} {lang === 'ar' ? 'متابع' : 'followers'}
+              </button>
+            </p>
+            
+            {/* Action Buttons - centered below stats */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4">
+              {isOwnProfile ? (
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate(`/messages`)}
+                  className="gap-1.5 bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                  data-testid="button-my-messages"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  {tr.sendMessage}
+                </Button>
               ) : (
                 <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1 bg-background/20 backdrop-blur-sm border-white/20 text-white"
-                    onClick={() => coverInputRef.current?.click()}
-                    data-testid="button-edit-cover"
+                  <Button 
+                    variant={isFollowing(profileEmail) ? "outline" : "default"}
+                    onClick={() => toggleFollow(profileEmail)}
+                    className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) 
+                      ? 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-destructive hover:text-destructive-foreground hover:border-destructive group' 
+                      : ''}`}
+                    data-testid="button-follow"
                   >
-                    <Pencil className="w-4 h-4" />
-                    {tr.editCover}
+                    {isFollowing(profileEmail) ? (
+                      <>
+                        <Check className="w-4 h-4 group-hover:hidden" />
+                        <X className="w-4 h-4 hidden group-hover:block" />
+                        <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
+                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        {lang === 'ar' ? 'متابعة' : 'Follow'}
+                      </>
+                    )}
                   </Button>
-                  {(storedCover || profile?.coverUrl) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1 bg-destructive/20 backdrop-blur-sm border-destructive/40 text-destructive-foreground"
-                      onClick={handleRemoveCover}
-                      data-testid="button-remove-cover"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                  {(() => {
+                    const dmCheck = canSendDM(profileEmail);
+                    if (dmCheck.allowed) {
+                      return (
+                        <Button 
+                          variant="outline"
+                          onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
+                          className="gap-1.5 bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                          data-testid="button-send-message"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {tr.sendMessage}
+                        </Button>
+                      );
+                    } else {
+                      return (
+                        <Button 
+                          variant="outline"
+                          disabled
+                          className="gap-1.5 opacity-50 bg-white/10 backdrop-blur-sm border-white/20 text-white"
+                          data-testid="button-send-message-disabled"
+                          title={tr.dmClosed}
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {tr.dmClosed}
+                        </Button>
+                      );
+                    }
+                  })()}
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setReportModalOpen(true)}
+                    className="text-amber-400 hover:text-amber-300"
+                    data-testid="button-report-user"
+                    title={tr.reportUser}
+                  >
+                    <Flag className="w-4 h-4" />
+                  </Button>
                 </>
               )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* B) IDENTITY CENTER - Centered below cover */}
-      <div className="max-w-7xl mx-auto px-6">
-        {/* Avatar centered with overlap */}
-        <div className="flex flex-col items-center -mt-12 md:-mt-16 gap-y-3">
-          <button
-            type="button"
-            onClick={() => !isEditing && setShowAvatarPreview(true)}
-            className={`focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background rounded-full ${!isEditing ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
-            disabled={isEditing}
-            data-testid="button-avatar-preview"
-          >
-            <Avatar className="w-24 h-24 md:w-32 md:h-32 ring-2 ring-white/20 shadow-2xl">
-              {(tempAvatar || profile?.avatarUrl) ? (
-                <AvatarImage src={tempAvatar || profile?.avatarUrl} />
-              ) : null}
-              <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                {getInitials(profileEmail)}
-              </AvatarFallback>
-            </Avatar>
-          </button>
-          
-          {isEditing && (
-            <>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e, 'avatar')}
-                className="hidden"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2 gap-1"
-                onClick={() => avatarInputRef.current?.click()}
-                data-testid="button-change-avatar"
-              >
-                <Camera className="w-4 h-4" />
-                {tr.changePhoto}
-              </Button>
-            </>
-          )}
-          
-          {/* Name and info centered */}
-          <div className="mt-6 text-center">
-            {isEditing ? (
-              <div className="space-y-3 max-w-md mx-auto">
-                <Input
-                  value={editForm.name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder={tr.name}
-                  className="text-center"
-                  data-testid="input-profile-name"
-                />
-                <div className="flex gap-2">
-                  <Input
-                    value={editForm.major}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
-                    placeholder={tr.major}
-                    className="flex-1"
-                    data-testid="input-profile-major"
-                  />
-                  <Input
-                    value={editForm.level}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
-                    placeholder={tr.level}
-                    className="w-24"
-                    data-testid="input-profile-level"
-                  />
-                </div>
-                <Input
-                  value={editForm.university}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
-                  placeholder={tr.university}
-                  data-testid="input-profile-university"
-                />
-                <Textarea
-                  value={editForm.bio}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                  placeholder={tr.bio}
-                  className="min-h-[60px]"
-                  data-testid="input-profile-bio"
-                />
-              </div>
-            ) : (
-              <>
-                <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight mt-4">
-                  {profile?.name || profileEmail.split('@')[0]}
-                </h1>
-                
-                {/* Major + University line */}
-                {(profile?.major || profile?.university) && (
-                  <p className="text-base md:text-lg text-muted-foreground/80 mt-2">
-                    {profile?.major}{profile?.level && ` (${profile.level})`}
-                    {profile?.major && profile?.university && ' • '}
-                    {profile?.university}
-                  </p>
-                )}
-                
-                {/* Bio */}
-                {profile?.bio && (
-                  <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{profile.bio}</p>
-                )}
-                
-                {/* Stats line - no icons, balanced text */}
-                <p className="text-sm md:text-base text-muted-foreground/70 mt-4 tracking-wide">
-                  <button 
-                    onClick={() => setActiveView('posts')}
-                    className="hover:text-foreground transition-colors"
-                    data-testid="stats-posts"
-                  >
-                    {userPosts.length} {lang === 'ar' ? 'منشور' : 'posts'}
-                  </button>
-                  {' | '}
-                  <button 
-                    onClick={() => setShowFollowingDialog(true)}
-                    className="hover:text-foreground transition-colors"
-                    data-testid="stats-following"
-                  >
-                    {profile?.following?.length || 0} {lang === 'ar' ? 'يتابع' : 'following'}
-                  </button>
-                  {' | '}
-                  <button 
-                    onClick={() => setShowFollowersDialog(true)}
-                    className="hover:text-foreground transition-colors"
-                    data-testid="stats-followers"
-                  >
-                    {profile?.followers?.length || 0} {lang === 'ar' ? 'متابع' : 'followers'}
-                  </button>
-                </p>
-              </>
-            )}
-          </div>
-          
-          {/* Action Buttons - centered */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center mt-4 w-full sm:w-auto">
-            {isOwnProfile ? (
-              isEditing ? (
-                <>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsEditing(false);
-                      setTempCover(null);
-                      setTempAvatar(null);
-                    }}
-                    className="gap-1 w-full sm:w-auto"
-                    data-testid="button-cancel-edit"
-                  >
-                    <X className="w-4 h-4" />
-                    {tr.cancel}
-                  </Button>
-                  <Button 
-                    onClick={handleSaveProfile}
-                    className="gap-1 w-full sm:w-auto"
-                    data-testid="button-save-profile"
-                  >
-                    <Check className="w-4 h-4" />
-                    {tr.save}
-                  </Button>
-                </>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsEditing(true)}
-                  className="gap-1 w-full sm:w-auto"
-                  data-testid="button-edit-profile"
-                >
-                  <Edit className="w-4 h-4" />
-                  {tr.editProfile}
-                </Button>
-              )
-            ) : (
-              <>
-                <Button 
-                  variant={isFollowing(profileEmail) ? "outline" : "default"}
-                  onClick={() => toggleFollow(profileEmail)}
-                  className={`gap-1.5 w-full sm:w-auto min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
-                  data-testid="button-follow"
-                >
-                  {isFollowing(profileEmail) ? (
-                    <>
-                      <Check className="w-4 h-4 group-hover:hidden" />
-                      <X className="w-4 h-4 hidden group-hover:block" />
-                      <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
-                      <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      {lang === 'ar' ? 'متابعة' : 'Follow'}
-                    </>
-                  )}
-                </Button>
-                {(() => {
-                  const dmCheck = canSendDM(profileEmail);
-                  if (dmCheck.allowed) {
-                    return (
-                      <Button 
-                        variant="outline"
-                        onClick={() => navigate(`/messages?to=${encodeURIComponent(profileEmail)}`)}
-                        className="gap-1.5 w-full sm:w-auto"
-                        data-testid="button-send-message"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        {tr.sendMessage}
-                      </Button>
-                    );
-                  } else {
-                    return (
-                      <Button 
-                        variant="outline"
-                        disabled
-                        className="gap-1.5 w-full sm:w-auto opacity-50"
-                        data-testid="button-send-message-disabled"
-                        title={tr.dmClosed}
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        {tr.dmClosed}
-                      </Button>
-                    );
-                  }
-                })()}
-                <Button 
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setReportModalOpen(true)}
-                  className="text-amber-500 self-center"
-                  data-testid="button-report-user"
-                  title={tr.reportUser}
-                >
-                  <Flag className="w-4 h-4" />
-                </Button>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -1860,6 +1754,353 @@ export default function Profile() {
             >
               <Flag className="w-4 h-4 me-2" />
               {tr.reportSubmit}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unified Edit Profile Dialog */}
+      <Dialog open={showUnifiedEditDialog} onOpenChange={setShowUnifiedEditDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" data-testid="dialog-edit-profile">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'تحرير الملف الشخصي' : 'Edit Profile'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Tab Navigation */}
+          <div className="flex gap-1 border-b pb-2 mb-4 flex-wrap">
+            <Button
+              size="sm"
+              variant={editTab === 'cover' ? 'default' : 'ghost'}
+              onClick={() => setEditTab('cover')}
+              className="gap-1.5"
+              data-testid="tab-cover"
+            >
+              <ImageIcon className="w-4 h-4" />
+              {lang === 'ar' ? 'الغلاف' : 'Cover'}
+            </Button>
+            <Button
+              size="sm"
+              variant={editTab === 'avatar' ? 'default' : 'ghost'}
+              onClick={() => setEditTab('avatar')}
+              className="gap-1.5"
+              data-testid="tab-avatar"
+            >
+              <Camera className="w-4 h-4" />
+              {lang === 'ar' ? 'الصورة' : 'Photo'}
+            </Button>
+            <Button
+              size="sm"
+              variant={editTab === 'info' ? 'default' : 'ghost'}
+              onClick={() => setEditTab('info')}
+              className="gap-1.5"
+              data-testid="tab-info"
+            >
+              <User className="w-4 h-4" />
+              {lang === 'ar' ? 'المعلومات' : 'Info'}
+            </Button>
+            <Button
+              size="sm"
+              variant={editTab === 'account' ? 'default' : 'ghost'}
+              onClick={() => setEditTab('account')}
+              className="gap-1.5"
+              data-testid="tab-account"
+            >
+              <Lock className="w-4 h-4" />
+              {lang === 'ar' ? 'الحساب' : 'Account'}
+            </Button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="space-y-4">
+            {/* Cover Tab */}
+            {editTab === 'cover' && (
+              <div className="space-y-4">
+                <div className="relative h-32 rounded-lg overflow-hidden bg-muted">
+                  {(tempCover || storedCover || profile?.coverUrl) ? (
+                    <img 
+                      src={tempCover || storedCover || profile?.coverUrl} 
+                      alt="Cover preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="flex-1 gap-1.5"
+                    data-testid="button-upload-cover"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    {lang === 'ar' ? 'رفع غلاف' : 'Upload Cover'}
+                  </Button>
+                  {(tempCover || storedCover || profile?.coverUrl) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleRemoveCover();
+                        setTempCover(null);
+                      }}
+                      className="gap-1.5 text-destructive hover:text-destructive"
+                      data-testid="button-remove-cover-dialog"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {lang === 'ar' ? 'إزالة' : 'Remove'}
+                    </Button>
+                  )}
+                </div>
+                {tempCover && (
+                  <Button
+                    onClick={() => {
+                      handleSaveCover();
+                    }}
+                    className="w-full gap-1.5"
+                    data-testid="button-save-cover-dialog"
+                  >
+                    <Check className="w-4 h-4" />
+                    {lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover'}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Avatar Tab */}
+            {editTab === 'avatar' && (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <Avatar className="w-28 h-28 ring-2 ring-border">
+                      {(tempAvatar || profile?.avatarUrl) ? (
+                        <AvatarImage src={tempAvatar || profile?.avatarUrl} />
+                      ) : null}
+                      <AvatarFallback className="text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                        {getInitials(profileEmail)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="w-full gap-1.5"
+                  data-testid="button-upload-avatar"
+                >
+                  <Camera className="w-4 h-4" />
+                  {lang === 'ar' ? 'رفع صورة' : 'Upload Photo'}
+                </Button>
+              </div>
+            )}
+
+            {/* Info Tab */}
+            {editTab === 'info' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>{tr.name}</Label>
+                  <Input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder={tr.name}
+                    data-testid="input-edit-name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label>{tr.major}</Label>
+                    <Input
+                      value={editForm.major}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
+                      placeholder={tr.major}
+                      data-testid="input-edit-major"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{tr.level}</Label>
+                    <Input
+                      value={editForm.level}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
+                      placeholder={tr.level}
+                      data-testid="input-edit-level"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{tr.university}</Label>
+                  <Input
+                    value={editForm.university}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
+                    placeholder={tr.university}
+                    data-testid="input-edit-university"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{tr.bio}</Label>
+                  <Textarea
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                    placeholder={tr.bio}
+                    className="min-h-[80px] resize-none"
+                    data-testid="input-edit-bio"
+                  />
+                </div>
+                
+                {/* Privacy toggles */}
+                <div className="pt-3 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{tr.showFavorites}</span>
+                    <Button
+                      size="sm"
+                      variant={editForm.showFavorites ? 'default' : 'outline'}
+                      onClick={() => setEditForm(prev => ({ ...prev, showFavorites: !prev.showFavorites }))}
+                      data-testid="toggle-favorites-dialog"
+                    >
+                      {editForm.showFavorites ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{tr.showInterests}</span>
+                    <Button
+                      size="sm"
+                      variant={editForm.showInterests ? 'default' : 'outline'}
+                      onClick={() => setEditForm(prev => ({ ...prev, showInterests: !prev.showInterests }))}
+                      data-testid="toggle-interests-dialog"
+                    >
+                      {editForm.showInterests ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Account Tab */}
+            {editTab === 'account' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                    </p>
+                    <p className="font-medium text-sm">{user?.email}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>{tr.phoneLabel}</Label>
+                  <Input
+                    type="tel"
+                    value={privateEditForm.phone}
+                    onChange={(e) => { 
+                      setPrivateEditForm(prev => ({ ...prev, phone: e.target.value })); 
+                      setPrivateEditErrors(prev => ({ ...prev, phone: '' }));
+                    }}
+                    placeholder={lang === 'ar' ? 'أدخل رقم الهاتف' : 'Enter phone number'}
+                    className={privateEditErrors.phone ? 'border-destructive' : ''}
+                    dir="ltr"
+                    data-testid="input-account-phone"
+                  />
+                  {privateEditErrors.phone && <p className="text-sm text-destructive">{privateEditErrors.phone}</p>}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>{tr.governorateLabel}</Label>
+                    <Select 
+                      value={privateEditForm.governorate} 
+                      onValueChange={(val) => { 
+                        setPrivateEditForm(prev => ({ ...prev, governorate: val, wilayat: '' }));
+                        setPrivateEditErrors(prev => ({ ...prev, governorate: '' }));
+                      }}
+                    >
+                      <SelectTrigger className={privateEditErrors.governorate ? 'border-destructive' : ''} data-testid="select-account-governorate">
+                        <SelectValue placeholder={tr.selectGovernorate} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {governorates.map((gov) => (
+                          <SelectItem key={gov.value} value={gov.value}>{gov.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {privateEditErrors.governorate && <p className="text-sm text-destructive">{privateEditErrors.governorate}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{tr.wilayatLabel}</Label>
+                    <Select 
+                      value={privateEditForm.wilayat} 
+                      onValueChange={(val) => { 
+                        setPrivateEditForm(prev => ({ ...prev, wilayat: val }));
+                        setPrivateEditErrors(prev => ({ ...prev, wilayat: '' }));
+                      }}
+                      disabled={!privateEditForm.governorate}
+                    >
+                      <SelectTrigger className={privateEditErrors.wilayat ? 'border-destructive' : ''} data-testid="select-account-wilayat">
+                        <SelectValue placeholder={tr.selectWilayat} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wilayatOptions.map((wil, idx) => (
+                          <SelectItem key={idx} value={wil.en}>{lang === 'ar' ? wil.ar : wil.en}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {privateEditErrors.wilayat && <p className="text-sm text-destructive">{privateEditErrors.wilayat}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dialog Actions */}
+          <div className="flex gap-2 pt-4 border-t mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUnifiedEditDialog(false);
+                setTempCover(null);
+                setTempAvatar(null);
+                setPrivateEditErrors({});
+              }}
+              className="flex-1"
+              data-testid="button-cancel-edit-dialog"
+            >
+              {tr.cancel}
+            </Button>
+            <Button
+              onClick={() => {
+                handleSaveProfile();
+                if (user?.email) {
+                  const existingAccount = getAccount(user.email);
+                  const updates: { phone?: string; region?: { governorate: string; wilayat: string } } = {};
+                  if (privateEditForm.phone && privateEditForm.phone.trim()) {
+                    updates.phone = privateEditForm.phone;
+                  } else if (existingAccount?.phone) {
+                    updates.phone = existingAccount.phone;
+                  }
+                  if (privateEditForm.governorate && privateEditForm.wilayat) {
+                    updates.region = {
+                      governorate: privateEditForm.governorate,
+                      wilayat: privateEditForm.wilayat
+                    };
+                  } else if (existingAccount?.region) {
+                    updates.region = existingAccount.region;
+                  }
+                  if (Object.keys(updates).length > 0) {
+                    updateAccount(user.email, updates);
+                  }
+                }
+                setShowUnifiedEditDialog(false);
+                setPrivateEditErrors({});
+              }}
+              className="flex-1"
+              data-testid="button-save-edit-dialog"
+            >
+              <Check className="w-4 h-4 me-1.5" />
+              {tr.save}
             </Button>
           </div>
         </DialogContent>

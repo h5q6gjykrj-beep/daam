@@ -50,9 +50,17 @@ Preferred communication style: Simple, everyday language.
   - **Official Content System**: Admin-editable pages for Privacy Policy, Contact Us, and Terms & Conditions.
   - **Landing Page Customization**: Admins can toggle visibility of "Why DAAM?" cards and configure the landing page navigation.
   - **Navbar Configuration**: Admins can enable/disable, reorder, and relabel navigation items for both internal and landing pages.
-- **User Profiles**: Public profiles with private data protections. Redesigned with "C Premium Minimal - Academic Identity + Dashboard" layout.
-  - **Cover Header**: Full-bleed responsive (260-380px height), dark overlay (bg-black/50), cover edit button at top-left for owner.
-  - **Identity Center**: Centered avatar with overlap, name/bio/stats, action buttons.
+- **User Profiles**: Public profiles with private data protections. Redesigned with "Academic Identity Overlay" layout.
+  - **Cover with Identity Overlay**: Full-bleed responsive (320-440px height) cover with dark gradient overlay. Identity (avatar, name, subtitle, stats, action buttons) is absolutely positioned inside the cover, centered vertically with slight offset (pt-8 md:pt-12).
+  - **Single Edit Button**: Pen icon (top-right corner) for profile owner opens unified edit dialog. Replaces scattered cover/profile edit buttons.
+  - **Unified Edit Profile Dialog**: Tabbed dialog with 4 sections:
+    - Cover: Upload/remove cover image with preview
+    - Photo: Upload avatar with preview
+    - Info: Name, major, level, university, bio, privacy toggles for favorites/interests
+    - Account: Email (read-only), phone, governorate, wilayat with error display
+  - **Identity Styling**: White text on dark overlay, glass-morphism buttons (bg-white/10 backdrop-blur-sm border-white/20)
+  - **Avatar**: w-24 h-24 (mobile) / w-28 h-28 (desktop), ring-2 ring-white/25
+  - **Stats Line**: text-xs md:text-sm, white/75 opacity, format: "{posts} منشور | {following} يتابع | {followers} متابع"
   - **Dashboard Grid**: 3-column grid (Activity, Posts Preview, Saved Preview), plus quick access cards (Replies, Interests, Library owner-only, Private owner-only).
   - **View Navigation**: Click on dashboard cards to access detailed views (Posts, Replies, Saved, Interests, Library, Private), with back button to return to dashboard.
   - **Library Tab**: Consolidated tab containing Saved posts, Files, and Summaries with internal chip filters.
