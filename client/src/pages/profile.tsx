@@ -111,14 +111,13 @@ const WILAYAT: Record<string, { ar: string; en: string }[]> = {
     { ar: 'الجازر', en: 'Al Jazir' },
   ],
 };
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, 
@@ -134,7 +133,6 @@ import {
   ImageIcon,
   GraduationCap,
   Building,
-  Calendar,
   X,
   Plus,
   Check,
@@ -144,14 +142,18 @@ import {
   Phone,
   MapPin,
   Flag,
+  ExternalLink,
+  BarChart3,
+  TrendingUp,
+  Pencil,
+  Trash2,
+  ChevronRight,
   Library,
   FolderOpen,
-  BookOpen,
-  ExternalLink
+  BookOpen
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { motion } from "framer-motion";
 import { formatDistanceToNow, format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import type { LocalPost, LocalReply, UserProfile, Attachment } from "@shared/schema";
@@ -171,11 +173,38 @@ const INTEREST_OPTIONS = [
   { id: 'media', labelAr: 'إعلام', labelEn: 'Media' }
 ];
 
+const COVER_STORAGE_KEY = 'daam_profile_cover_v1';
+
+function getCoverFromStorage(userId: string): string | null {
+  try {
+    const data = localStorage.getItem(COVER_STORAGE_KEY);
+    if (!data) return null;
+    const covers = JSON.parse(data);
+    return covers[userId] || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCoverToStorage(userId: string, coverUrl: string | null): void {
+  try {
+    const data = localStorage.getItem(COVER_STORAGE_KEY);
+    const covers = data ? JSON.parse(data) : {};
+    if (coverUrl) {
+      covers[userId] = coverUrl;
+    } else {
+      delete covers[userId];
+    }
+    localStorage.setItem(COVER_STORAGE_KEY, JSON.stringify(covers));
+  } catch {
+    // Storage error, ignore
+  }
+}
+
 export default function Profile() {
   const { user, posts, lang, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
   const [, navigate] = useLocation();
   
-  // Helper functions for staff detection
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
   const isModerator = (email: string) => {
     const emailLower = email.toLowerCase();
@@ -191,7 +220,7 @@ export default function Profile() {
   const isOwnProfile = user?.email === profileEmail;
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState("posts");
+  const [activeView, setActiveView] = useState<'dashboard' | 'posts' | 'replies' | 'saved' | 'library' | 'interests' | 'private'>('dashboard');
   const [libraryFilter, setLibraryFilter] = useState<'saved' | 'files' | 'summaries'>('saved');
   const [isEditing, setIsEditing] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -212,8 +241,6 @@ export default function Profile() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [tempCover, setTempCover] = useState<string | null>(null);
   const [tempAvatar, setTempAvatar] = useState<string | null>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [isSticky, setIsSticky] = useState(false);
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
@@ -227,14 +254,18 @@ export default function Profile() {
   const [isSavingPrivate, setIsSavingPrivate] = useState(false);
   const [draftAllowDM, setDraftAllowDM] = useState<'everyone' | 'none'>('everyone');
   const [isSavingDMSettings, setIsSavingDMSettings] = useState(false);
+  
+  const [storedCover, setStoredCover] = useState<string | null>(null);
+  
   useEffect(() => {
     if (profileEmail) {
       const p = getProfile(profileEmail);
       setProfile(p || null);
+      const cover = getCoverFromStorage(profileEmail);
+      setStoredCover(cover);
     }
   }, [profileEmail, getProfile]);
 
-  // Reset edit form when profile changes or when entering edit mode
   useEffect(() => {
     if (profile && isEditing) {
       setEditForm({
@@ -261,17 +292,6 @@ export default function Profile() {
     }
   }, [user, getAccount]);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (headerRef.current) {
-        const headerBottom = headerRef.current.getBoundingClientRect().bottom;
-        setIsSticky(headerBottom <= 64);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'avatar') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -295,6 +315,28 @@ export default function Profile() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveCover = () => {
+    if (!profileEmail || !tempCover) return;
+    saveCoverToStorage(profileEmail, tempCover);
+    setStoredCover(tempCover);
+    setTempCover(null);
+    toast({
+      title: lang === 'ar' ? 'تم الحفظ' : 'Saved',
+      description: lang === 'ar' ? 'تم تحديث الغلاف بنجاح' : 'Cover updated successfully'
+    });
+  };
+
+  const handleRemoveCover = () => {
+    if (!profileEmail) return;
+    saveCoverToStorage(profileEmail, null);
+    setStoredCover(null);
+    setTempCover(null);
+    toast({
+      title: lang === 'ar' ? 'تمت الإزالة' : 'Removed',
+      description: lang === 'ar' ? 'تمت إزالة الغلاف' : 'Cover removed'
+    });
   };
 
   const handleSaveProfile = () => {
@@ -383,7 +425,6 @@ export default function Profile() {
     changeCover: lang === 'ar' ? 'تغيير الغلاف' : 'Change Cover',
     changePhoto: lang === 'ar' ? 'تغيير الصورة' : 'Change Photo',
     noProfile: lang === 'ar' ? 'لم يتم إعداد الملف الشخصي بعد' : 'Profile not set up yet',
-    setupProfile: lang === 'ar' ? 'إعداد الملف' : 'Set Up Profile',
     noPosts: lang === 'ar' ? 'لا توجد منشورات' : 'No posts yet',
     noReplies: lang === 'ar' ? 'لا توجد ردود' : 'No replies yet',
     noFavorites: lang === 'ar' ? 'لا توجد تفضيلات' : 'No favorites yet',
@@ -421,12 +462,16 @@ export default function Profile() {
     requiredField: lang === 'ar' ? 'هذا الحقل مطلوب' : 'This field is required',
     savedSuccessfully: lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully',
     saving: lang === 'ar' ? 'جاري الحفظ...' : 'Saving...',
-    library: lang === 'ar' ? 'المكتبة' : 'Library',
-    librarySaved: lang === 'ar' ? 'المحفوظات' : 'Saved',
-    libraryFiles: lang === 'ar' ? 'الملفات' : 'Files',
-    librarySummaries: lang === 'ar' ? 'الملخصات' : 'Summaries',
     noSavedPosts: lang === 'ar' ? 'لم تحفظ أي منشور بعد' : 'No saved posts yet',
-    noSummaries: lang === 'ar' ? 'لا توجد ملخصات بعد' : 'No summaries yet'
+    activity: lang === 'ar' ? 'النشاط' : 'Activity',
+    viewAll: lang === 'ar' ? 'عرض الكل' : 'View All',
+    editCover: lang === 'ar' ? 'تعديل الغلاف' : 'Edit Cover',
+    removeCover: lang === 'ar' ? 'إزالة الغلاف' : 'Remove Cover',
+    saveCover: lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover',
+    cancelCover: lang === 'ar' ? 'إلغاء' : 'Cancel',
+    dashboard: lang === 'ar' ? 'لوحة المعلومات' : 'Dashboard',
+    saved: lang === 'ar' ? 'المحفوظات' : 'Saved',
+    privateInfo: lang === 'ar' ? 'معلومات خاصة' : 'Private Info'
   };
 
   const governorates = GOVERNORATES[lang];
@@ -506,88 +551,11 @@ export default function Profile() {
   };
 
   const postTypeColors: Record<string, string> = {
-    question: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-    explanation: 'bg-green-500/20 text-green-300 border-green-500/30',
-    summary: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    discussion: 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+    question: 'bg-orange-500/20 text-orange-400 dark:text-orange-300 border-orange-500/30',
+    explanation: 'bg-green-500/20 text-green-600 dark:text-green-300 border-green-500/30',
+    summary: 'bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/30',
+    discussion: 'bg-violet-500/20 text-violet-600 dark:text-violet-300 border-violet-500/30'
   };
-
-  const renderPostCard = (post: LocalPost, showAuthor = false) => (
-    <Card 
-      key={post.id} 
-      className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => navigate(`/post/${post.id}`)}
-      data-testid={`post-card-${post.id}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          {showAuthor && (
-            <Avatar className="w-8 h-8 border border-white/10 flex-shrink-0">
-              <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                {getInitials(post.authorEmail)}
-              </AvatarFallback>
-            </Avatar>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {showAuthor && (
-                <span className="text-sm font-medium">{getDisplayName(post.authorEmail)}</span>
-              )}
-              <Badge variant="outline" className={`text-[10px] ${postTypeColors[post.postType]}`}>
-                {postTypeLabels[post.postType]}
-              </Badge>
-              {post.subject && (
-                <Badge variant="secondary" className="text-[10px]">{post.subject}</Badge>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(post.createdAt), { 
-                  addSuffix: true,
-                  locale: lang === 'ar' ? ar : enUS 
-                })}
-              </span>
-            </div>
-            <p className="text-sm line-clamp-3">{post.content}</p>
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Heart className="w-3 h-3" />
-                {post.likedBy?.length || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />
-                {post.replies?.length || 0}
-              </span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const renderReplyCard = (item: { reply: LocalReply; post: LocalPost }) => (
-    <Card 
-      key={item.reply.id} 
-      className="border-white/10 bg-card/50 hover:bg-card/70 transition-colors cursor-pointer"
-      onClick={() => navigate(`/post/${item.post.id}`)}
-      data-testid={`reply-card-${item.reply.id}`}
-    >
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-          <Reply className="w-3 h-3" />
-          {tr.replyTo} <span className="font-medium text-foreground">{getDisplayName(item.post.authorEmail)}</span>
-        </div>
-        <div className="bg-black/20 rounded p-2 mb-2 text-xs text-muted-foreground line-clamp-2">
-          {item.post.content}
-        </div>
-        <p className="text-sm">{item.reply.content}</p>
-        <span className="text-xs text-muted-foreground mt-2 block">
-          {formatDistanceToNow(new Date(item.reply.createdAt), { 
-            addSuffix: true,
-            locale: lang === 'ar' ? ar : enUS 
-          })}
-        </span>
-      </CardContent>
-    </Card>
-  );
 
   const isPdfFile = (attachment: Attachment) => {
     return attachment.name.toLowerCase().endsWith('.pdf') || 
@@ -624,59 +592,48 @@ export default function Profile() {
     }
   };
 
-  const renderFileCard = (item: { attachment: Attachment; post: LocalPost }) => {
-    const isPdf = isPdfFile(item.attachment);
-    
-    return (
-      <Card 
-        key={`${item.post.id}-${item.attachment.name}`}
-        className={`border-white/10 bg-card/50 ${isPdf ? 'cursor-pointer hover:bg-card/70 transition-colors' : ''}`}
-        data-testid={`file-card-${item.attachment.name}`}
-        onClick={isPdf ? () => openPdfFile(item.attachment) : undefined}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-primary" />
+  const renderPostCard = (post: LocalPost, compact = false) => (
+    <Card 
+      key={post.id} 
+      className="border-border/50 hover-elevate cursor-pointer"
+      onClick={() => navigate(`/post/${post.id}`)}
+      data-testid={`post-card-${post.id}`}
+    >
+      <CardContent className={compact ? "p-3" : "p-4"}>
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Badge variant="outline" className={`text-[10px] ${postTypeColors[post.postType]}`}>
+                {postTypeLabels[post.postType]}
+              </Badge>
+              {post.subject && (
+                <Badge variant="secondary" className="text-[10px]">{post.subject}</Badge>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(post.createdAt), { 
+                  addSuffix: true,
+                  locale: lang === 'ar' ? ar : enUS 
+                })}
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{item.attachment.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {(item.attachment.size / 1024).toFixed(1)} KB
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(item.post.createdAt), 'PP', { locale: lang === 'ar' ? ar : enUS })}
-              </p>
+            <p className={`text-sm ${compact ? 'line-clamp-2' : 'line-clamp-3'}`}>{post.content}</p>
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Heart className="w-3 h-3" />
+                {post.likedBy?.length || 0}
+              </span>
+              <span className="flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" />
+                {post.replies?.length || 0}
+              </span>
             </div>
-            {isPdf ? (
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="gap-1 flex-shrink-0" 
-                data-testid={`open-${item.attachment.name}`}
-                onClick={(e) => { e.stopPropagation(); openPdfFile(item.attachment); }}
-              >
-                <ExternalLink className="w-3 h-3" />
-                {lang === 'ar' ? 'فتح' : 'Open'}
-              </Button>
-            ) : (
-              <a 
-                href={item.attachment.url} 
-                download={item.attachment.name}
-                className="flex-shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Button size="sm" variant="outline" className="gap-1" data-testid={`download-${item.attachment.name}`}>
-                  <Download className="w-3 h-3" />
-                  {tr.download}
-                </Button>
-              </a>
-            )}
           </div>
-        </CardContent>
-      </Card>
-    );
-  };
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const coverImage = tempCover || storedCover || profile?.coverUrl;
 
   if (!profileEmail) {
     return (
@@ -688,25 +645,30 @@ export default function Profile() {
 
   return (
     <div 
-      className="space-y-0" 
+      className="space-y-6 pb-8" 
       data-testid="profile-page" 
       key={profileEmail ?? "me"}
     >
-      <div ref={headerRef}>
-        <div className="relative h-48 md:h-64 -mx-4 md:-mx-6 -mt-6 overflow-hidden">
-          {profile?.coverUrl || tempCover ? (
+      {/* Cover Header Section */}
+      <div className="relative -mx-4 md:-mx-6 -mt-6">
+        {/* Cover Image */}
+        <div className="relative h-[320px] md:h-[380px] overflow-hidden">
+          {coverImage ? (
             <img 
-              src={tempCover || profile?.coverUrl} 
+              src={coverImage} 
               alt="Cover" 
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-violet-600/40 via-purple-500/30 to-gray-600/40" />
+            <div className="w-full h-full bg-gradient-to-br from-primary/30 via-primary/20 to-muted" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           
-          {isEditing && (
-            <>
+          {/* Overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent dark:from-background dark:via-background/70" />
+          
+          {/* Cover Edit Controls */}
+          {isOwnProfile && !isEditing && (
+            <div className="absolute top-4 right-4 rtl:left-4 rtl:right-auto flex gap-2">
               <input
                 ref={coverInputRef}
                 type="file"
@@ -714,23 +676,64 @@ export default function Profile() {
                 onChange={(e) => handleImageUpload(e, 'cover')}
                 className="hidden"
               />
-              <Button
-                size="sm"
-                variant="secondary"
-                className="absolute top-4 right-4 rtl:left-4 rtl:right-auto gap-1 bg-black/50 hover:bg-black/70"
-                onClick={() => coverInputRef.current?.click()}
-                data-testid="button-change-cover"
-              >
-                <ImageIcon className="w-4 h-4" />
-                {tr.changeCover}
-              </Button>
-            </>
+              {tempCover ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="gap-1 backdrop-blur-sm"
+                    onClick={handleSaveCover}
+                    data-testid="button-save-cover"
+                  >
+                    <Check className="w-4 h-4" />
+                    {tr.saveCover}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 backdrop-blur-sm"
+                    onClick={() => setTempCover(null)}
+                    data-testid="button-cancel-cover"
+                  >
+                    <X className="w-4 h-4" />
+                    {tr.cancelCover}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="gap-1 backdrop-blur-sm"
+                    onClick={() => coverInputRef.current?.click()}
+                    data-testid="button-edit-cover"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    {tr.editCover}
+                  </Button>
+                  {(storedCover || profile?.coverUrl) && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="gap-1 backdrop-blur-sm"
+                      onClick={handleRemoveCover}
+                      data-testid="button-remove-cover"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {tr.removeCover}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
 
-        <div className="relative px-4 -mt-16 md:-mt-20 pb-4">
+        {/* Profile Info Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-6">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
-            <div className="relative">
+            {/* Floating Avatar */}
+            <div className="relative -mt-16 md:-mt-20">
               <button
                 type="button"
                 onClick={() => !isEditing && setShowAvatarPreview(true)}
@@ -738,11 +741,11 @@ export default function Profile() {
                 disabled={isEditing}
                 data-testid="button-avatar-preview"
               >
-                <Avatar className="w-28 h-28 md:w-36 md:h-36 border-4 border-background shadow-xl">
+                <Avatar className="w-32 h-32 md:w-36 md:h-36 border-4 border-background shadow-2xl">
                   {(tempAvatar || profile?.avatarUrl) ? (
                     <AvatarImage src={tempAvatar || profile?.avatarUrl} />
                   ) : null}
-                  <AvatarFallback className="text-2xl md:text-3xl bg-gradient-to-br from-violet-600 to-purple-500 text-white">
+                  <AvatarFallback className="text-3xl md:text-4xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
                     {getInitials(profileEmail)}
                   </AvatarFallback>
                 </Avatar>
@@ -760,7 +763,7 @@ export default function Profile() {
                   <Button
                     size="icon"
                     variant="secondary"
-                    className="absolute bottom-1 right-1 rtl:left-1 rtl:right-auto w-8 h-8 rounded-full bg-black/50 hover:bg-black/70"
+                    className="absolute bottom-1 right-1 rtl:left-1 rtl:right-auto rounded-full"
                     onClick={() => avatarInputRef.current?.click()}
                     data-testid="button-change-avatar"
                   >
@@ -770,14 +773,15 @@ export default function Profile() {
               )}
             </div>
 
-            <div className="flex-1">
+            {/* Profile Text Info */}
+            <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="space-y-3 max-w-md">
+                <div className="space-y-3 max-w-md bg-background/80 backdrop-blur-sm p-4 rounded-lg">
                   <Input
                     value={editForm.name}
                     onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                     placeholder={tr.name}
-                    className="bg-black/20 border-white/10"
+                    className="bg-background border-border"
                     data-testid="input-profile-name"
                   />
                   <div className="flex gap-2">
@@ -785,14 +789,14 @@ export default function Profile() {
                       value={editForm.major}
                       onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
                       placeholder={tr.major}
-                      className="flex-1 bg-black/20 border-white/10"
+                      className="flex-1 bg-background border-border"
                       data-testid="input-profile-major"
                     />
                     <Input
                       value={editForm.level}
                       onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
                       placeholder={tr.level}
-                      className="w-24 bg-black/20 border-white/10"
+                      className="w-24 bg-background border-border"
                       data-testid="input-profile-level"
                     />
                   </div>
@@ -800,87 +804,90 @@ export default function Profile() {
                     value={editForm.university}
                     onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
                     placeholder={tr.university}
-                    className="bg-black/20 border-white/10"
+                    className="bg-background border-border"
                     data-testid="input-profile-university"
                   />
                   <Textarea
                     value={editForm.bio}
                     onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
                     placeholder={tr.bio}
-                    className="bg-black/20 border-white/10 min-h-[60px]"
+                    className="bg-background border-border min-h-[60px]"
                     data-testid="input-profile-bio"
                   />
                 </div>
               ) : (
                 <>
+                  {/* Name and Badge */}
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl md:text-3xl font-bold">
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground drop-shadow-sm">
                       {profile?.name || profileEmail.split('@')[0]}
                     </h1>
                     {isStaff(profileEmail) && (
                       <Shield 
-                        size={18} 
-                        className="inline-block text-emerald-400" 
+                        size={20} 
+                        className="text-emerald-500" 
                         aria-label={isAdmin(profileEmail) ? 'Admin' : 'Moderator'}
                         data-testid="staff-badge-profile"
                       />
                     )}
                   </div>
-                  {profile?.major && (
-                    <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                      <GraduationCap className="w-4 h-4" />
-                      {profile.major}
-                      {profile.level && <span className="text-sm">({profile.level})</span>}
-                    </p>
-                  )}
-                  {profile?.university && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Building className="w-4 h-4" />
-                      {profile.university}
-                    </p>
-                  )}
-                  {profile?.bio && (
-                    <p className="text-sm mt-2 max-w-lg">{profile.bio}</p>
+                  
+                  {/* Major and University */}
+                  {(profile?.major || profile?.university) && (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
+                      {profile?.major && (
+                        <span className="flex items-center gap-1">
+                          <GraduationCap className="w-4 h-4" />
+                          {profile.major}
+                          {profile.level && ` (${profile.level})`}
+                        </span>
+                      )}
+                      {profile?.university && (
+                        <span className="flex items-center gap-1">
+                          <Building className="w-4 h-4" />
+                          {profile.university}
+                        </span>
+                      )}
+                    </div>
                   )}
                   
-                  {/* Profile Stats */}
-                  <div className="flex items-center gap-6 mt-4">
+                  {/* Bio */}
+                  {profile?.bio && (
+                    <p className="text-sm mt-2 max-w-lg text-foreground/80">{profile.bio}</p>
+                  )}
+                  
+                  {/* Stats Line */}
+                  <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                    <button 
+                      onClick={() => setActiveView('posts')}
+                      className="hover-elevate rounded px-1 transition-colors"
+                      data-testid="stats-posts"
+                    >
+                      <span className="font-semibold text-foreground">{userPosts.length}</span> {lang === 'ar' ? 'منشور' : 'posts'}
+                    </button>
+                    <span className="text-muted-foreground/50">|</span>
                     <button 
                       onClick={() => setShowFollowersDialog(true)}
-                      className="text-center hover:text-primary transition-colors cursor-pointer"
-                      data-testid="button-stats-followers"
+                      className="hover-elevate rounded px-1 transition-colors"
+                      data-testid="stats-followers"
                     >
-                      <span className="block text-xl font-bold">{profile?.followers?.length || 0}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {lang === 'ar' ? 'المتابعون' : 'Followers'}
-                      </span>
+                      <span className="font-semibold text-foreground">{profile?.followers?.length || 0}</span> {lang === 'ar' ? 'متابع' : 'followers'}
                     </button>
+                    <span className="text-muted-foreground/50">|</span>
                     <button 
                       onClick={() => setShowFollowingDialog(true)}
-                      className="text-center hover:text-primary transition-colors cursor-pointer"
-                      data-testid="button-stats-following"
+                      className="hover-elevate rounded px-1 transition-colors"
+                      data-testid="stats-following"
                     >
-                      <span className="block text-xl font-bold">{profile?.following?.length || 0}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {lang === 'ar' ? 'يتابع' : 'Following'}
-                      </span>
-                    </button>
-                    <button 
-                      onClick={() => setActiveTab('posts')}
-                      className="text-center hover:text-primary transition-colors cursor-pointer"
-                      data-testid="button-stats-posts"
-                    >
-                      <span className="block text-xl font-bold">{userPosts.length}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {lang === 'ar' ? 'المنشورات' : 'Posts'}
-                      </span>
+                      <span className="font-semibold text-foreground">{profile?.following?.length || 0}</span> {lang === 'ar' ? 'يتابع' : 'following'}
                     </button>
                   </div>
                 </>
               )}
             </div>
 
-            <div className="flex gap-2">
+            {/* Action Buttons */}
+            <div className="flex gap-2 flex-wrap">
               {isOwnProfile ? (
                 isEditing ? (
                   <>
@@ -899,7 +906,7 @@ export default function Profile() {
                     </Button>
                     <Button 
                       onClick={handleSaveProfile}
-                      className="gap-1 bg-primary hover:bg-primary/90"
+                      className="gap-1"
                       data-testid="button-save-profile"
                     >
                       <Check className="w-4 h-4" />
@@ -910,7 +917,7 @@ export default function Profile() {
                   <Button 
                     variant="outline" 
                     onClick={() => setIsEditing(true)}
-                    className="gap-1 border-white/10"
+                    className="gap-1"
                     data-testid="button-edit-profile"
                   >
                     <Edit className="w-4 h-4" />
@@ -918,9 +925,9 @@ export default function Profile() {
                   </Button>
                 )
               ) : (
-                <div className="flex items-center gap-2">
+                <>
                   <Button 
-                    variant={isFollowing(profileEmail) ? "secondary" : "default"}
+                    variant={isFollowing(profileEmail) ? "outline" : "default"}
                     onClick={() => toggleFollow(profileEmail)}
                     className={`gap-1.5 min-w-[100px] ${isFollowing(profileEmail) ? 'group hover:bg-destructive hover:text-destructive-foreground hover:border-destructive' : ''}`}
                     data-testid="button-follow"
@@ -930,7 +937,7 @@ export default function Profile() {
                         <Check className="w-4 h-4 group-hover:hidden" />
                         <X className="w-4 h-4 hidden group-hover:block" />
                         <span className="group-hover:hidden">{lang === 'ar' ? 'متابَع' : 'Following'}</span>
-                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء المتابعة' : 'Unfollow'}</span>
+                        <span className="hidden group-hover:inline">{lang === 'ar' ? 'إلغاء' : 'Unfollow'}</span>
                       </>
                     ) : (
                       <>
@@ -978,500 +985,713 @@ export default function Profile() {
                   >
                     <Flag className="w-4 h-4" />
                   </Button>
-                </div>
+                </>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`${isSticky ? 'sticky top-16 z-40 bg-background/95 backdrop-blur-sm border-b border-white/10 -mx-4 md:-mx-6 px-4 md:px-6' : ''}`}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir={isRTL ? 'rtl' : 'ltr'}>
-          <TabsList className="w-full justify-start bg-transparent border-b border-white/10 rounded-none h-auto p-0 gap-0 overflow-x-auto flex-nowrap">
-            <TabsTrigger 
-              value="posts" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-posts"
-            >
-              <MessageSquare className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.posts} ({userPosts.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="replies" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-replies"
-            >
-              <Reply className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.replies} ({userReplies.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="favorites" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-favorites"
-            >
-              <Heart className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.favorites}
-              {!canViewFavorites && !isOwnProfile && (
-                <Badge variant="secondary" className="ml-1 rtl:mr-1 rtl:ml-0 text-[10px]">{tr.private}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="library" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-library"
-            >
-              <Library className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.library}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="interests" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-              data-testid="tab-interests"
-            >
-              <Hash className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-              {tr.interests}
-            </TabsTrigger>
-            {isOwnProfile && (
-              <TabsTrigger 
-                value="private" 
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 shrink-0 whitespace-nowrap"
-                data-testid="tab-private"
-              >
-                <Lock className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-                {lang === 'ar' ? 'معلومات خاصة' : 'Private Info'}
-              </TabsTrigger>
-            )}
-          </TabsList>
+      {/* Navigation Pills */}
+      <div className="flex items-center gap-2 flex-wrap px-1">
+        <Button
+          variant={activeView === 'dashboard' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('dashboard')}
+          className="gap-1.5"
+          data-testid="nav-dashboard"
+        >
+          <BarChart3 className="w-4 h-4" />
+          {tr.dashboard}
+        </Button>
+        <Button
+          variant={activeView === 'posts' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('posts')}
+          className="gap-1.5"
+          data-testid="nav-posts"
+        >
+          <MessageSquare className="w-4 h-4" />
+          {tr.posts}
+        </Button>
+        <Button
+          variant={activeView === 'replies' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('replies')}
+          className="gap-1.5"
+          data-testid="nav-replies"
+        >
+          <Reply className="w-4 h-4" />
+          {tr.replies}
+        </Button>
+        <Button
+          variant={activeView === 'saved' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('saved')}
+          className="gap-1.5"
+          data-testid="nav-saved"
+        >
+          <Bookmark className="w-4 h-4" />
+          {tr.saved}
+        </Button>
+        {isOwnProfile && (
+          <Button
+            variant={activeView === 'library' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('library')}
+            className="gap-1.5"
+            data-testid="nav-library"
+          >
+            <Library className="w-4 h-4" />
+            {lang === 'ar' ? 'المكتبة' : 'Library'}
+          </Button>
+        )}
+        <Button
+          variant={activeView === 'interests' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('interests')}
+          className="gap-1.5"
+          data-testid="nav-interests"
+        >
+          <Hash className="w-4 h-4" />
+          {tr.interests}
+        </Button>
+        {isOwnProfile && (
+          <Button
+            variant={activeView === 'private' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('private')}
+            className="gap-1.5"
+            data-testid="nav-private"
+          >
+            <Lock className="w-4 h-4" />
+            {tr.privateInfo}
+          </Button>
+        )}
+      </div>
 
-          <div className="py-4">
-            <TabsContent value="posts" className="mt-0 space-y-3">
-              {userPosts.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.noPosts}</p>
-                </div>
-              ) : (
-                userPosts.map(post => renderPostCard(post))
-              )}
-            </TabsContent>
-
-            <TabsContent value="replies" className="mt-0 space-y-3">
-              {userReplies.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Reply className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.noReplies}</p>
-                </div>
-              ) : (
-                userReplies.map(item => renderReplyCard(item))
-              )}
-            </TabsContent>
-
-            <TabsContent value="favorites" className="mt-0 space-y-3">
-              {!canViewFavorites && !isOwnProfile ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.private}</p>
-                </div>
-              ) : favoritePosts.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Heart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.noFavorites}</p>
-                </div>
-              ) : (
-                <>
-                  {isEditing && (
-                    <Card className="border-white/10 bg-card/30 mb-4">
-                      <CardContent className="p-3 flex items-center justify-between">
-                        <span className="text-sm">{tr.showFavorites}</span>
-                        <Button
-                          size="sm"
-                          variant={editForm.showFavorites ? 'default' : 'outline'}
-                          onClick={() => setEditForm(prev => ({ ...prev, showFavorites: !prev.showFavorites }))}
-                          data-testid="toggle-show-favorites"
-                        >
-                          {editForm.showFavorites ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                  {favoritePosts.map(post => renderPostCard(post, true))}
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="library" className="mt-0 space-y-4">
-              {/* Library Filter Chips */}
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={libraryFilter === 'saved' ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => setLibraryFilter('saved')}
-                  data-testid="chip-library-saved"
-                >
-                  <Bookmark className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-                  {tr.librarySaved}
-                </Badge>
-                <Badge
-                  variant={libraryFilter === 'files' ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => setLibraryFilter('files')}
-                  data-testid="chip-library-files"
-                >
-                  <FolderOpen className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-                  {tr.libraryFiles}
-                </Badge>
-                <Badge
-                  variant={libraryFilter === 'summaries' ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => setLibraryFilter('summaries')}
-                  data-testid="chip-library-summaries"
-                >
-                  <BookOpen className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-                  {tr.librarySummaries}
-                </Badge>
-              </div>
-
-              {/* Library Content based on filter */}
-              <div className="space-y-3">
-                {libraryFilter === 'saved' && (
-                  <>
-                    {savedPosts.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-saved">
-                        <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p data-testid="text-no-saved">{tr.noSavedPosts}</p>
-                      </div>
-                    ) : (
-                      savedPosts.map(post => renderPostCard(post, true))
-                    )}
-                  </>
-                )}
-                
-                {libraryFilter === 'files' && (
-                  <>
-                    {userFiles.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-files">
-                        <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p data-testid="text-no-files">{tr.noFiles}</p>
-                      </div>
-                    ) : (
-                      userFiles.map(item => renderFileCard(item))
-                    )}
-                  </>
-                )}
-                
-                {libraryFilter === 'summaries' && (
-                  <div className="text-center py-12 text-muted-foreground" data-testid="empty-state-summaries">
-                    <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p data-testid="text-no-summaries">{tr.noSummaries}</p>
+      {/* Content Area */}
+      <div className="px-1">
+        {/* Dashboard View */}
+        {activeView === 'dashboard' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Activity Card */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  {tr.activity}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <p className="text-2xl font-bold text-primary">{userPosts.length}</p>
+                    <p className="text-xs text-muted-foreground">{tr.posts}</p>
                   </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="interests" className="mt-0">
-              {!canViewInterests && !isOwnProfile ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Hash className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.private}</p>
+                  <div className="p-3 rounded-lg bg-rose-500/10">
+                    <p className="text-2xl font-bold text-rose-500">{likedPosts.length}</p>
+                    <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إعجاب' : 'Likes'}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-500/10">
+                    <p className="text-2xl font-bold text-blue-500">{userReplies.length}</p>
+                    <p className="text-xs text-muted-foreground">{tr.replies}</p>
+                  </div>
                 </div>
-              ) : isEditing ? (
-                <div className="space-y-4">
-                  <Card className="border-white/10 bg-card/30">
+              </CardContent>
+            </Card>
+
+            {/* Posts Preview Card */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    {tr.posts}
+                  </CardTitle>
+                  {userPosts.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setActiveView('posts')}
+                      className="gap-1 text-xs"
+                    >
+                      {tr.viewAll}
+                      <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {userPosts.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">{tr.noPosts}</p>
+                  </div>
+                ) : (
+                  userPosts.slice(0, 2).map(post => renderPostCard(post, true))
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Saved Preview Card */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bookmark className="w-4 h-4 text-primary" />
+                    {tr.saved}
+                  </CardTitle>
+                  {savedPosts.length > 0 && canViewFavorites && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setActiveView('saved')}
+                      className="gap-1 text-xs"
+                    >
+                      {tr.viewAll}
+                      <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {!canViewFavorites && !isOwnProfile ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Lock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">{tr.private}</p>
+                  </div>
+                ) : savedPosts.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Bookmark className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">{tr.noSavedPosts}</p>
+                  </div>
+                ) : (
+                  savedPosts.slice(0, 2).map(post => renderPostCard(post, true))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Posts View */}
+        {activeView === 'posts' && (
+          <div className="space-y-3">
+            {userPosts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.noPosts}</p>
+              </div>
+            ) : (
+              userPosts.map(post => renderPostCard(post))
+            )}
+          </div>
+        )}
+
+        {/* Replies View */}
+        {activeView === 'replies' && (
+          <div className="space-y-3">
+            {userReplies.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Reply className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.noReplies}</p>
+              </div>
+            ) : (
+              userReplies.map(item => (
+                <Card 
+                  key={item.reply.id} 
+                  className="border-border/50 hover-elevate cursor-pointer"
+                  onClick={() => navigate(`/post/${item.post.id}`)}
+                  data-testid={`reply-card-${item.reply.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                      <Reply className="w-3 h-3" />
+                      {tr.replyTo} <span className="font-medium text-foreground">{getDisplayName(item.post.authorEmail)}</span>
+                    </div>
+                    <div className="bg-muted/50 rounded p-2 mb-2 text-xs text-muted-foreground line-clamp-2">
+                      {item.post.content}
+                    </div>
+                    <p className="text-sm">{item.reply.content}</p>
+                    <span className="text-xs text-muted-foreground mt-2 block">
+                      {formatDistanceToNow(new Date(item.reply.createdAt), { 
+                        addSuffix: true,
+                        locale: lang === 'ar' ? ar : enUS 
+                      })}
+                    </span>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Saved View */}
+        {activeView === 'saved' && (
+          <div className="space-y-3">
+            {!canViewFavorites && !isOwnProfile ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.private}</p>
+              </div>
+            ) : savedPosts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.noSavedPosts}</p>
+              </div>
+            ) : (
+              <>
+                {isEditing && (
+                  <Card className="border-border/50 mb-4">
                     <CardContent className="p-3 flex items-center justify-between">
-                      <span className="text-sm">{tr.showInterests}</span>
+                      <span className="text-sm">{tr.showFavorites}</span>
                       <Button
                         size="sm"
-                        variant={editForm.showInterests ? 'default' : 'outline'}
-                        onClick={() => setEditForm(prev => ({ ...prev, showInterests: !prev.showInterests }))}
-                        data-testid="toggle-show-interests"
+                        variant={editForm.showFavorites ? 'default' : 'outline'}
+                        onClick={() => setEditForm(prev => ({ ...prev, showFavorites: !prev.showFavorites }))}
+                        data-testid="toggle-show-favorites"
                       >
-                        {editForm.showInterests ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                        {editForm.showFavorites ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
                       </Button>
                     </CardContent>
                   </Card>
-                  <div className="flex flex-wrap gap-2">
-                    {INTEREST_OPTIONS.map(opt => (
-                      <Badge
-                        key={opt.id}
-                        variant={editForm.interests.includes(opt.id) ? 'default' : 'outline'}
-                        className={`cursor-pointer text-sm py-1.5 px-3 ${editForm.interests.includes(opt.id) ? 'bg-primary' : 'hover:bg-primary/20'}`}
-                        onClick={() => toggleInterest(opt.id)}
-                        data-testid={`interest-${opt.id}`}
-                      >
-                        #{lang === 'ar' ? opt.labelAr : opt.labelEn}
-                        {editForm.interests.includes(opt.id) && <Check className="w-3 h-3 ml-1 rtl:mr-1 rtl:ml-0" />}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : (profile?.interests?.length || 0) === 0 ? (
+                )}
+                {savedPosts.map(post => renderPostCard(post))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Library View */}
+        {activeView === 'library' && isOwnProfile && (
+          <div className="space-y-4">
+            {/* Library Filter Chips */}
+            <div className="flex gap-2 flex-wrap">
+              <Badge
+                variant={libraryFilter === 'saved' ? 'default' : 'outline'}
+                className="cursor-pointer py-1.5 px-3"
+                onClick={() => setLibraryFilter('saved')}
+                data-testid="library-filter-saved"
+              >
+                <Bookmark className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                {tr.saved}
+              </Badge>
+              <Badge
+                variant={libraryFilter === 'files' ? 'default' : 'outline'}
+                className="cursor-pointer py-1.5 px-3"
+                onClick={() => setLibraryFilter('files')}
+                data-testid="library-filter-files"
+              >
+                <FolderOpen className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                {lang === 'ar' ? 'الملفات' : 'Files'}
+              </Badge>
+              <Badge
+                variant={libraryFilter === 'summaries' ? 'default' : 'outline'}
+                className="cursor-pointer py-1.5 px-3"
+                onClick={() => setLibraryFilter('summaries')}
+                data-testid="library-filter-summaries"
+              >
+                <BookOpen className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0" />
+                {lang === 'ar' ? 'الملخصات' : 'Summaries'}
+              </Badge>
+            </div>
+
+            {/* Library Content */}
+            {libraryFilter === 'saved' && (
+              savedPosts.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Hash className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{tr.noInterests}</p>
+                  <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>{tr.noSavedPosts}</p>
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {profile?.interests?.map(id => {
-                    const opt = INTEREST_OPTIONS.find(o => o.id === id);
-                    return opt ? (
-                      <Badge 
-                        key={id} 
-                        variant="secondary" 
-                        className="text-sm py-1.5 px-3"
-                        data-testid={`interest-tag-${id}`}
-                      >
-                        #{lang === 'ar' ? opt.labelAr : opt.labelEn}
-                      </Badge>
-                    ) : null;
-                  })}
+                <div className="space-y-3">
+                  {savedPosts.map(post => renderPostCard(post))}
                 </div>
-              )}
-            </TabsContent>
+              )
+            )}
 
-            {isOwnProfile && (
-              <TabsContent value="private" className="mt-0">
-                <Card className="border-white/10 bg-card/30">
-                  <CardContent className="p-4 space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-5 h-5 text-amber-500" />
-                        <h3 className="font-semibold">
-                          {lang === 'ar' ? 'معلوماتك الخاصة' : 'Your Private Information'}
-                        </h3>
+            {libraryFilter === 'files' && (
+              <div className="space-y-3">
+                {(() => {
+                  const userFiles = posts
+                    .filter(p => p.authorEmail === profileEmail && p.attachments?.length)
+                    .flatMap(p => (p.attachments || []).map(att => ({ ...att, postId: p.id, postContent: p.content })));
+                  
+                  if (userFiles.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p>{lang === 'ar' ? 'لا توجد ملفات' : 'No files uploaded'}</p>
                       </div>
-                      {!isEditingPrivate && (
+                    );
+                  }
+                  
+                  return userFiles.map((file, idx) => (
+                    <Card key={`${file.postId}-${idx}`} className="border-border/50">
+                      <CardContent className="p-3 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{file.postContent?.slice(0, 50)}...</p>
+                        </div>
                         <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleStartEditPrivate}
-                          className="gap-1"
-                          data-testid="button-edit-private"
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isPdf = file.name?.toLowerCase().endsWith('.pdf') ||
+                                          file.url?.toLowerCase().endsWith('.pdf') ||
+                                          file.mimeType?.includes('pdf') ||
+                                          file.type?.includes('pdf');
+                            if (isPdf && file.url) {
+                              try {
+                                const base64Data = file.url.split(',')[1];
+                                const byteCharacters = atob(base64Data);
+                                const byteNumbers = new Array(byteCharacters.length);
+                                for (let i = 0; i < byteCharacters.length; i++) {
+                                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                }
+                                const byteArray = new Uint8Array(byteNumbers);
+                                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                const blobUrl = URL.createObjectURL(blob);
+                                window.open(blobUrl, '_blank');
+                              } catch {
+                                window.open(file.url, '_blank');
+                              }
+                            } else if (file.url) {
+                              const link = document.createElement('a');
+                              link.href = file.url;
+                              link.download = file.name || 'download';
+                              link.click();
+                            }
+                          }}
+                          data-testid={`download-file-${idx}`}
                         >
-                          <Edit className="w-3 h-3" />
-                          {tr.editPrivate}
+                          <Download className="w-4 h-4" />
                         </Button>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {lang === 'ar' 
-                        ? 'هذه المعلومات خاصة بك ولا يمكن لأي شخص آخر رؤيتها.'
-                        : 'This information is private to you. No one else can see it.'}
-                    </p>
-                    
-                    {(() => {
-                      const account = user?.email ? getAccount(user.email) : undefined;
-                      
-                      if (isEditingPrivate) {
-                        return (
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                              <Mail className="w-5 h-5 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
-                                </p>
-                                <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-phone">{tr.phoneLabel} <span className="text-destructive">*</span></Label>
-                              <Input
-                                id="edit-phone"
-                                type="tel"
-                                value={privateEditForm.phone}
-                                onChange={(e) => { setPrivateEditForm(prev => ({ ...prev, phone: e.target.value })); setPrivateEditErrors(prev => ({ ...prev, phone: '' })); }}
-                                className={`bg-black/20 border-white/10 ${privateEditErrors.phone ? 'border-destructive' : ''}`}
-                                dir="ltr"
-                                data-testid="input-edit-phone"
-                              />
-                              {privateEditErrors.phone && <p className="text-sm text-destructive" data-testid="error-edit-phone">{privateEditErrors.phone}</p>}
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-2">
-                                <Label>{tr.governorateLabel} <span className="text-destructive">*</span></Label>
-                                <Select 
-                                  value={privateEditForm.governorate} 
-                                  onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, governorate: val, wilayat: '' })); setPrivateEditErrors(prev => ({ ...prev, governorate: '' })); }}
-                                >
-                                  <SelectTrigger className={`bg-black/20 border-white/10 ${privateEditErrors.governorate ? 'border-destructive' : ''}`} data-testid="select-edit-governorate">
-                                    <SelectValue placeholder={tr.selectGovernorate} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {governorates.map((gov) => (
-                                      <SelectItem key={gov.value} value={gov.value}>{gov.label}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {privateEditErrors.governorate && <p className="text-sm text-destructive" data-testid="error-edit-governorate">{privateEditErrors.governorate}</p>}
-                              </div>
+                      </CardContent>
+                    </Card>
+                  ));
+                })()}
+              </div>
+            )}
 
-                              <div className="space-y-2">
-                                <Label>{tr.wilayatLabel} <span className="text-destructive">*</span></Label>
-                                <Select 
-                                  value={privateEditForm.wilayat} 
-                                  onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, wilayat: val })); setPrivateEditErrors(prev => ({ ...prev, wilayat: '' })); }}
-                                  disabled={!privateEditForm.governorate}
-                                >
-                                  <SelectTrigger className={`bg-black/20 border-white/10 ${privateEditErrors.wilayat ? 'border-destructive' : ''}`} data-testid="select-edit-wilayat">
-                                    <SelectValue placeholder={tr.selectWilayat} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {wilayatOptions.map((wil, idx) => (
-                                      <SelectItem key={idx} value={wil.en}>{lang === 'ar' ? wil.ar : wil.en}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {privateEditErrors.wilayat && <p className="text-sm text-destructive" data-testid="error-edit-wilayat">{privateEditErrors.wilayat}</p>}
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2 pt-4">
-                              <Button
-                                onClick={handleSavePrivate}
-                                disabled={isSavingPrivate}
-                                className="flex-1"
-                                data-testid="button-save-private"
-                              >
-                                {isSavingPrivate ? tr.saving : tr.savePrivate}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={handleCancelEditPrivate}
-                                disabled={isSavingPrivate}
-                                data-testid="button-cancel-private"
-                              >
-                                {tr.cancelPrivate}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      }
+            {libraryFilter === 'summaries' && (
+              <div className="text-center py-12 text-muted-foreground">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{lang === 'ar' ? 'لا توجد ملخصات بعد' : 'No summaries yet'}</p>
+                <p className="text-xs mt-1">{lang === 'ar' ? 'قريباً...' : 'Coming soon...'}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Interests View */}
+        {activeView === 'interests' && (
+          <div className="space-y-4">
+            {!canViewInterests && !isOwnProfile ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Hash className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.private}</p>
+              </div>
+            ) : isEditing ? (
+              <div className="space-y-4">
+                <Card className="border-border/50">
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <span className="text-sm">{tr.showInterests}</span>
+                    <Button
+                      size="sm"
+                      variant={editForm.showInterests ? 'default' : 'outline'}
+                      onClick={() => setEditForm(prev => ({ ...prev, showInterests: !prev.showInterests }))}
+                      data-testid="toggle-show-interests"
+                    >
+                      {editForm.showInterests ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                    </Button>
+                  </CardContent>
+                </Card>
+                <div className="flex flex-wrap gap-2">
+                  {INTEREST_OPTIONS.map(opt => (
+                    <Badge
+                      key={opt.id}
+                      variant={editForm.interests.includes(opt.id) ? 'default' : 'outline'}
+                      className="cursor-pointer text-sm py-1.5 px-3"
+                      onClick={() => toggleInterest(opt.id)}
+                      data-testid={`interest-${opt.id}`}
+                    >
+                      #{lang === 'ar' ? opt.labelAr : opt.labelEn}
+                      {editForm.interests.includes(opt.id) && <Check className="w-3 h-3 ml-1 rtl:mr-1 rtl:ml-0" />}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : (profile?.interests?.length || 0) === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Hash className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{tr.noInterests}</p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile?.interests?.map(id => {
+                  const opt = INTEREST_OPTIONS.find(o => o.id === id);
+                  return opt ? (
+                    <Badge 
+                      key={id} 
+                      variant="secondary" 
+                      className="text-sm py-1.5 px-3"
+                      data-testid={`interest-tag-${id}`}
+                    >
+                      #{lang === 'ar' ? opt.labelAr : opt.labelEn}
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Private Info View */}
+        {activeView === 'private' && isOwnProfile && (
+          <Card className="border-border/50">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-semibold">
+                    {lang === 'ar' ? 'معلوماتك الخاصة' : 'Your Private Information'}
+                  </h3>
+                </div>
+                {!isEditingPrivate && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleStartEditPrivate}
+                    className="gap-1"
+                    data-testid="button-edit-private"
+                  >
+                    <Edit className="w-3 h-3" />
+                    {tr.editPrivate}
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                {lang === 'ar' 
+                  ? 'هذه المعلومات خاصة بك ولا يمكن لأي شخص آخر رؤيتها.'
+                  : 'This information is private to you. No one else can see it.'}
+              </p>
+              
+              {(() => {
+                const account = user?.email ? getAccount(user.email) : undefined;
+                
+                if (isEditingPrivate) {
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Mail className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                          </p>
+                          <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
+                        </div>
+                      </div>
                       
-                      return (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                            <Mail className="w-5 h-5 text-muted-foreground" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">
-                                {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
-                              </p>
-                              <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
-                            </div>
-                          </div>
-                          
-                          {account?.phone && (
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                              <Phone className="w-5 h-5 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  {lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
-                                </p>
-                                <p className="font-medium" data-testid="text-private-phone">{account.phone}</p>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {account?.region && (
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                              <MapPin className="w-5 h-5 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  {lang === 'ar' ? 'المنطقة' : 'Region'}
-                                </p>
-                                <p className="font-medium" data-testid="text-private-region">
-                                  {account.region.governorate} - {account.region.wilayat}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className="pt-4 border-t border-white/10">
-                            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                              <div className="flex items-center gap-3">
-                                <MessageSquare className="w-5 h-5 text-muted-foreground" />
-                                <div>
-                                  <p className="font-medium">
-                                    {lang === 'ar' ? 'الرسائل الخاصة' : 'Direct Messages'}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {lang === 'ar' ? 'السماح للآخرين بإرسال رسائل لك' : 'Allow others to send you messages'}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant={draftAllowDM === 'everyone' ? 'default' : 'outline'}
-                                  onClick={() => setDraftAllowDM('everyone')}
-                                  className="text-xs px-3"
-                                  data-testid="button-dm-on"
-                                >
-                                  {lang === 'ar' ? 'مفتوحة' : 'On'}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={draftAllowDM === 'none' ? 'default' : 'outline'}
-                                  onClick={() => setDraftAllowDM('none')}
-                                  className="text-xs px-3"
-                                  data-testid="button-dm-off"
-                                >
-                                  {lang === 'ar' ? 'مغلقة' : 'Off'}
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {draftAllowDM !== (account?.allowDM ?? 'everyone') && (
-                              <div className="flex gap-2 mt-4 justify-end">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setDraftAllowDM(account?.allowDM ?? 'everyone')}
-                                  disabled={isSavingDMSettings}
-                                  data-testid="button-cancel-dm-settings"
-                                >
-                                  {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setIsSavingDMSettings(true);
-                                    updateAccount(user?.email || '', { allowDM: draftAllowDM });
-                                    toast({
-                                      title: lang === 'ar' ? 'تم الحفظ' : 'Saved',
-                                      description: lang === 'ar' ? 'تم حفظ إعدادات الرسائل الخاصة' : 'DM settings saved successfully'
-                                    });
-                                    setIsSavingDMSettings(false);
-                                  }}
-                                  disabled={isSavingDMSettings}
-                                  data-testid="button-save-dm-settings"
-                                >
-                                  {isSavingDMSettings 
-                                    ? (lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') 
-                                    : (lang === 'ar' ? 'حفظ الإعدادات' : 'Save settings')}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="pt-4 border-t border-white/10">
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Shield className="w-3 h-3" />
-                              {lang === 'ar' 
-                                ? 'هذه المعلومات محمية ولن تتم مشاركتها مع أي شخص.'
-                                : 'This information is protected and will not be shared with anyone.'}
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-phone">{tr.phoneLabel} <span className="text-destructive">*</span></Label>
+                        <Input
+                          id="edit-phone"
+                          type="tel"
+                          value={privateEditForm.phone}
+                          onChange={(e) => { setPrivateEditForm(prev => ({ ...prev, phone: e.target.value })); setPrivateEditErrors(prev => ({ ...prev, phone: '' })); }}
+                          className={`${privateEditErrors.phone ? 'border-destructive' : ''}`}
+                          dir="ltr"
+                          data-testid="input-edit-phone"
+                        />
+                        {privateEditErrors.phone && <p className="text-sm text-destructive" data-testid="error-edit-phone">{privateEditErrors.phone}</p>}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>{tr.governorateLabel} <span className="text-destructive">*</span></Label>
+                          <Select 
+                            value={privateEditForm.governorate} 
+                            onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, governorate: val, wilayat: '' })); setPrivateEditErrors(prev => ({ ...prev, governorate: '' })); }}
+                          >
+                            <SelectTrigger className={`${privateEditErrors.governorate ? 'border-destructive' : ''}`} data-testid="select-edit-governorate">
+                              <SelectValue placeholder={tr.selectGovernorate} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {governorates.map((gov) => (
+                                <SelectItem key={gov.value} value={gov.value}>{gov.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {privateEditErrors.governorate && <p className="text-sm text-destructive" data-testid="error-edit-governorate">{privateEditErrors.governorate}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>{tr.wilayatLabel} <span className="text-destructive">*</span></Label>
+                          <Select 
+                            value={privateEditForm.wilayat} 
+                            onValueChange={(val) => { setPrivateEditForm(prev => ({ ...prev, wilayat: val })); setPrivateEditErrors(prev => ({ ...prev, wilayat: '' })); }}
+                            disabled={!privateEditForm.governorate}
+                          >
+                            <SelectTrigger className={`${privateEditErrors.wilayat ? 'border-destructive' : ''}`} data-testid="select-edit-wilayat">
+                              <SelectValue placeholder={tr.selectWilayat} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {wilayatOptions.map((wil, idx) => (
+                                <SelectItem key={idx} value={wil.en}>{lang === 'ar' ? wil.ar : wil.en}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {privateEditErrors.wilayat && <p className="text-sm text-destructive" data-testid="error-edit-wilayat">{privateEditErrors.wilayat}</p>}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 pt-4">
+                        <Button
+                          onClick={handleSavePrivate}
+                          disabled={isSavingPrivate}
+                          className="flex-1"
+                          data-testid="button-save-private"
+                        >
+                          {isSavingPrivate ? tr.saving : tr.savePrivate}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelEditPrivate}
+                          disabled={isSavingPrivate}
+                          data-testid="button-cancel-private"
+                        >
+                          {tr.cancelPrivate}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                      <Mail className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                        </p>
+                        <p className="font-medium" data-testid="text-private-email">{user?.email}</p>
+                      </div>
+                    </div>
+                    
+                    {account?.phone && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Phone className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            {lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                          </p>
+                          <p className="font-medium" data-testid="text-private-phone">{account.phone}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {account?.region && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <MapPin className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            {lang === 'ar' ? 'المنطقة' : 'Region'}
+                          </p>
+                          <p className="font-medium" data-testid="text-private-region">
+                            {account.region.governorate} - {account.region.wilayat}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="pt-4 border-t border-border">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">
+                              {lang === 'ar' ? 'الرسائل الخاصة' : 'Direct Messages'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {lang === 'ar' ? 'السماح للآخرين بإرسال رسائل لك' : 'Allow others to send you messages'}
                             </p>
                           </div>
                         </div>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
-          </div>
-        </Tabs>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant={draftAllowDM === 'everyone' ? 'default' : 'outline'}
+                            onClick={() => setDraftAllowDM('everyone')}
+                            className="text-xs px-3"
+                            data-testid="button-dm-on"
+                          >
+                            {lang === 'ar' ? 'مفتوحة' : 'On'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={draftAllowDM === 'none' ? 'default' : 'outline'}
+                            onClick={() => setDraftAllowDM('none')}
+                            className="text-xs px-3"
+                            data-testid="button-dm-off"
+                          >
+                            {lang === 'ar' ? 'مغلقة' : 'Off'}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {draftAllowDM !== (account?.allowDM ?? 'everyone') && (
+                        <div className="flex gap-2 mt-4 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDraftAllowDM(account?.allowDM ?? 'everyone')}
+                            disabled={isSavingDMSettings}
+                            data-testid="button-cancel-dm-settings"
+                          >
+                            {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setIsSavingDMSettings(true);
+                              updateAccount(user?.email || '', { allowDM: draftAllowDM });
+                              toast({
+                                title: lang === 'ar' ? 'تم الحفظ' : 'Saved',
+                                description: lang === 'ar' ? 'تم حفظ إعدادات الرسائل الخاصة' : 'DM settings saved successfully'
+                              });
+                              setIsSavingDMSettings(false);
+                            }}
+                            disabled={isSavingDMSettings}
+                            data-testid="button-save-dm-settings"
+                          >
+                            {isSavingDMSettings 
+                              ? (lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') 
+                              : (lang === 'ar' ? 'حفظ الإعدادات' : 'Save settings')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pt-4 border-t border-border">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        {lang === 'ar' 
+                          ? 'هذه المعلومات محمية ولن تتم مشاركتها مع أي شخص.'
+                          : 'This information is protected and will not be shared with anyone.'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Followers Dialog */}
@@ -1494,14 +1714,14 @@ export default function Profile() {
                   <button
                     type="button"
                     key={followerEmail}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
                     onClick={() => {
                       setShowFollowersDialog(false);
                       requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followerEmail)}`));
                     }}
                   >
-                    <Avatar className="w-10 h-10 border border-white/10">
+                    <Avatar className="w-10 h-10 border border-border">
                       <AvatarImage src={followerProfile?.avatarUrl} />
                       <AvatarFallback className="bg-primary/20 text-primary text-sm">
                         {(followerProfile?.name || followerEmail.split('@')[0]).substring(0, 2).toUpperCase()}
@@ -1543,14 +1763,14 @@ export default function Profile() {
                   <button
                     type="button"
                     key={followingEmail}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors w-full text-left"
+                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
                     onClick={() => {
                       setShowFollowingDialog(false);
                       requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followingEmail)}`));
                     }}
                   >
-                    <Avatar className="w-10 h-10 border border-white/10">
+                    <Avatar className="w-10 h-10 border border-border">
                       <AvatarImage src={followingProfile?.avatarUrl} />
                       <AvatarFallback className="bg-primary/20 text-primary text-sm">
                         {(followingProfile?.name || followingEmail.split('@')[0]).substring(0, 2).toUpperCase()}
@@ -1578,13 +1798,13 @@ export default function Profile() {
           <div className="relative flex items-center justify-center">
             <button
               onClick={() => setShowAvatarPreview(false)}
-              className="absolute -top-10 right-0 md:-right-10 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+              className="absolute -top-10 right-0 md:-right-10 p-2 rounded-full bg-background/80 hover-elevate text-foreground transition-colors z-10"
               aria-label={lang === 'ar' ? 'إغلاق' : 'Close'}
               data-testid="button-close-avatar-preview"
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="rounded-full overflow-hidden shadow-2xl border-4 border-white/10">
+            <div className="rounded-full overflow-hidden shadow-2xl border-4 border-background">
               {(profile?.avatarUrl) ? (
                 <img 
                   src={profile.avatarUrl} 
@@ -1594,10 +1814,10 @@ export default function Profile() {
                 />
               ) : (
                 <div 
-                  className="w-72 h-72 md:w-80 md:h-80 bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center"
+                  className="w-72 h-72 md:w-80 md:h-80 bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center"
                   data-testid="avatar-fallback-preview"
                 >
-                  <span className="text-6xl md:text-7xl font-bold text-white">
+                  <span className="text-6xl md:text-7xl font-bold text-primary-foreground">
                     {getInitials(profileEmail || '')}
                   </span>
                 </div>
