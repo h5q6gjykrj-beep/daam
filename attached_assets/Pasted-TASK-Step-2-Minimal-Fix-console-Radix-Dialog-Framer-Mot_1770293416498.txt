@@ -1,0 +1,86 @@
+TASK: Step 2 (Minimal Fix) — إصلاح تحذيرات console الخاصة بـ Radix Dialog + Framer Motion في DAAM
+
+CONTEXT:
+- Project: React + TypeScript + Tailwind + shadcn/ui + wouter
+- Console warnings الحالية:
+  1) Warning: Invalid hook call. Hooks can only be called inside of the body of a function component.
+  2) Warning: Function components cannot be given refs. Attempts to access this ref will fail.
+- Stack يشير إلى: dialog.tsx lines 128-143 تقريبًا
+- Root cause المتوقع: استخدام DialogPrimitive.Content مع asChild + ref ثم تمرير ref آخر إلى MotionContent (double ref forwarding) + احتمال استدعاء useReducedMotion خارج جسم component.
+
+SCOPE (STRICT):
+- عدّل ملف واحد فقط: ملف الـ dialog الخاص بـ shadcn:
+  client/src/components/ui/dialog.tsx
+  (إذا كان المسار مختلف، عدّل الملف الذي يحتوي على <DialogPrimitive.Content ... asChild ...> و MotionContent و useReducedMotion)
+- ممنوع تعديل أي صفحة أو أي Dialog usage (مثل صفحة الملف الشخصي / تبويب المواد).
+- ممنوع تغيير UI/Design أو إعادة هيكلة كبيرة.
+- الهدف إزالة التحذيرات مع الحفاظ على نفس API exports.
+
+STEP 1 (DIFF-DRIVEN): 
+1) افتح dialog.tsx وحدد المقطع الذي يشبه:
+   <DialogPrimitive.Content ref={ref} asChild forceMount {...props}>
+     <MotionContent ref={contentRef} ...>
+   أو أي تركيب يضع asChild مع ref على Content ثم ref آخر على child.
+
+STEP 2 (APPLY MINIMAL FIX):
+A) إزالة تضارب refs مع asChild:
+- أزل asChild من DialogPrimitive.Content (لا تستخدم asChild هنا).
+- اجعل DialogPrimitive.Content هو العنصر الفعلي الذي يحمل ref={ref}.
+- ضع Motion/animations داخل Content كـ wrapper داخلي بدون ref إضافي.
+
+✅ Implement exactly like this pattern (مع الحفاظ على props/className الموجودة عندك قدر الإمكان):
+
+BEFORE (مثال):
+<DialogPrimitive.Content ref={ref} asChild forceMount {...props}>
+  <MotionContent ref={contentRef} className={...} ...>
+    {children}
+  </MotionContent>
+</DialogPrimitive.Content>
+
+AFTER (مطلوب):
+<DialogPrimitive.Content ref={ref} forceMount {...props}>
+  <MotionContent className={...} ...>
+    {children}
+  </MotionContent>
+</DialogPrimitive.Content>
+
+IMPORTANT:
+- احذف أي contentRef و/أو ref ثاني يتم تمريره إلى MotionContent إذا كان MotionContent function component غير forwardRef.
+- إذا MotionContent يحتاج أن يكون عنصر motion مباشرة، اجعله:
+  const MotionContent = motion.div
+  (أو استخدم motion(YourComponent) فقط إذا كان forwardRef)
+  لكن الأفضل Minimal: استخدم motion.div / motion.div wrapper.
+
+B) إصلاح Invalid hook call:
+- ابحث في dialog.tsx عن useReducedMotion() أو أي hook آخر.
+- تأكد 100% أنه يُستدعى فقط داخل body لمكوّن React (مثل داخل DialogContent component).
+- ممنوع أن يكون hook في أعلى الملف (module scope) أو داخل helper function خارج component.
+
+✅ مثال صحيح (إن احتجت):
+const DialogContent = React.forwardRef<...>((props, ref) => {
+  const reducedMotion = useReducedMotion();
+  ...
+});
+
+C) لا تغيّر exports ولا أسماء المكوّنات:
+- حافظ على نفس export names: Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription ... إلخ.
+- حافظ على نفس props وclassName behavior قدر الإمكان.
+
+STEP 3 (VERIFY):
+1) شغّل التطبيق.
+2) افتح Add Material dialog من صفحة الملف الشخصي > تبويب المواد.
+3) افتح Dialog المتابعين/يتابع.
+4) تأكد من اختفاء التحذيرات التالية من console بالكامل:
+   - Invalid hook call
+   - Function components cannot be given refs
+
+ACCEPTANCE CHECKLIST (MUST PASS):
+- [ ] لا يوجد أي تحذير console من النوعين أعلاه بعد التعديل.
+- [ ] Dialog “Add Material” يفتح/يغلق طبيعيًا، والـ inputs/select تعمل.
+- [ ] Dialog المتابعين يفتح/يغلق طبيعيًا.
+- [ ] ESC والإغلاق بالضغط خارج الـ dialog و focus trap تعمل كما قبل.
+- [ ] تغييرات محصورة في dialog.tsx فقط.
+- [ ] لا تغيّر UI أو behavior خارج إزالة التحذيرات.
+
+DELIVERABLE:
+- أعطني diff واضح أو وصف سطور معدلة داخل dialog.tsx فقط.

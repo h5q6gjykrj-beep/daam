@@ -112,7 +112,6 @@ const DialogContent = React.forwardRef<
 >(({ className, children, container, ...props }, ref) => {
   const prefersReducedMotion = useReducedMotion()
   const [isPresent, setIsPresent] = React.useState(false)
-  const contentRef = React.useRef<HTMLDivElement>(null)
 
   // Sync with Radix's internal state
   React.useEffect(() => {
@@ -120,26 +119,46 @@ const DialogContent = React.forwardRef<
     return () => setIsPresent(false)
   }, [])
 
+  const duration = prefersReducedMotion ? 0 : ANIMATION_DURATION
+
   return (
     <DialogPrimitive.Portal container={container}>
       <AnimatePresence mode="wait">
         {isPresent && (
           <div key="dialog-content" style={{ display: 'contents' }}>
-            <DialogPrimitive.Overlay asChild forceMount>
-              <MotionOverlay prefersReducedMotion={prefersReducedMotion} />
+            <DialogPrimitive.Overlay forceMount className="fixed inset-0 z-40">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={overlayVariants}
+                transition={{ duration, ease: ANIMATION_EASE }}
+                className="fixed inset-0 bg-black/80 will-change-[opacity]"
+              />
             </DialogPrimitive.Overlay>
-            <DialogPrimitive.Content ref={ref} asChild forceMount {...props}>
-              <MotionContent 
-                ref={contentRef} 
-                className={className}
-                prefersReducedMotion={prefersReducedMotion}
+            <DialogPrimitive.Content ref={ref} forceMount {...props} className="contents">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={contentVariants}
+                transition={{ duration, ease: ANIMATION_EASE }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
               >
-                {children}
-                <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </DialogPrimitive.Close>
-              </MotionContent>
+                <div
+                  className={cn(
+                    "relative z-50 pointer-events-auto w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg transform-gpu",
+                    className
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {children}
+                  <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </DialogPrimitive.Close>
+                </div>
+              </motion.div>
             </DialogPrimitive.Content>
           </div>
         )}
