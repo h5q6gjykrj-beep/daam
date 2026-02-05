@@ -1,0 +1,99 @@
+TASK: Profile > Research tab — add Edit/Delete + PDF attachment upload (minimal)
+
+CONTEXT:
+- Profile page uses AcademicProfileShell and has tabs including: "البحوث" and "المواد".
+- Research tab currently has:
+  - Button "إضافة بحث"
+  - Dialog "إضافة بحث جديد" with fields: title, abstract (optional), tags (comma separated)
+  - Research cards list exists.
+- Missing:
+  1) No Edit/Delete for research entries
+  2) No PDF upload/attachment for research
+
+SCOPE (STRICT):
+- Minimal changes only.
+- Do NOT redesign UI. Keep existing research dialog layout; only add one "PDF file" field.
+- Reuse existing PDF upload infrastructure already implemented for Materials:
+  - POST /api/materials/upload  (or the existing upload endpoint)
+  - DELETE endpoint for removing pdf file (if exists) — reuse the one created for materials if available.
+- Keep bilingual messages AR/EN consistent with current i18n pattern.
+- Changes should be limited to Research tab component + (maybe) shared store + small server route reuse (no new big routes unless necessary).
+
+STEP 1 — DIAGNOSIS (NO CHANGES YET):
+1) Locate the Research tab component/file:
+   - Search: "البحوث", "Research", "إضافة بحث", "Add Research"
+2) Identify research storage:
+   - Is it in useDaamStore/localStorage? Identify key and shape.
+3) Identify research object model:
+   - fields like: id, title, abstract, tags[], createdAt
+   - Confirm stable id exists; if not, add id on create only (crypto.randomUUID()).
+
+STEP 2 — ADD PDF ATTACHMENT TO RESEARCH (MINIMAL):
+A) Dialog UI:
+- When adding/editing a research:
+  - Add a file input below tags:
+    Label AR: "ملف PDF (اختياري)"
+    Label EN: "PDF file (optional)"
+    <input type="file" accept="application/pdf" />
+  - Show selected filename inline (minimal text line).
+
+B) Upload logic:
+- If user selected a PDF file:
+  - Upload using existing endpoint (do not create a second upload system):
+    const fd = new FormData(); fd.append("file", pdfFile);
+    POST "/api/materials/upload"
+  - On success receives { url } like "/uploads/materials/xxx.pdf"
+  - Save into research model as:
+    research.pdfUrl = url
+    research.pdfName = originalName (optional if supported)
+- If no pdf selected: allow saving research normally.
+
+C) Click-to-open:
+- In research card/list UI:
+  - If research.pdfUrl exists:
+    - Show a small PDF chip/button "PDF" (or existing icon style)
+    - Clicking opens:
+      window.open(research.pdfUrl, "_blank", "noopener,noreferrer")
+
+STEP 3 — EDIT/DELETE FOR RESEARCH (MINIMAL):
+A) Add two icon buttons on each research card:
+- Edit (pencil) -> opens Edit Research dialog prefilled
+- Delete (trash) -> confirm then delete
+
+B) Edit behavior:
+- Reuse same dialog component for edit:
+  - Prefill title/abstract/tags and show current PDF status
+  - Allow replacing PDF by selecting a new file (optional minimal):
+    - If new file selected -> upload new -> update pdfUrl
+    - (Optional) delete old file after successful replace (only if easy)
+  - Allow removing attached PDF with small "Remove PDF" action (optional minimal)
+    - If implemented: calls server delete endpoint then clears pdfUrl in model
+
+C) Delete behavior:
+- On delete research:
+  - If research.pdfUrl exists:
+    - Call server delete endpoint to remove the file
+      (use existing DELETE endpoint used by Materials)
+    - Only after success remove research from store
+  - If no pdfUrl: just remove research
+
+STEP 4 — SERVER REUSE (ONLY IF NEEDED):
+- Do NOT add new upload endpoint.
+- Reuse existing PDF delete endpoint:
+  - If current delete endpoint expects { url }, call it with research.pdfUrl.
+- If delete endpoint does not exist yet, add minimal:
+  DELETE /api/materials
+  body { url } with strict validation that url starts with "/uploads/materials/"
+
+STEP 5 — ACCEPTANCE CHECKLIST (MUST PASS):
+1) Add research without PDF works.
+2) Add research with PDF uploads successfully and shows clickable PDF (opens in new tab).
+3) Edit research updates title/abstract/tags.
+4) Edit can attach/replace PDF (if implemented) OR at least can keep existing pdfUrl.
+5) Delete research removes it from list; if it had PDF, old URL returns 404.
+6) No breakage to Materials tab.
+7) Minimal file changes and no UI redesign.
+
+DELIVERABLE:
+- List exact files changed (client + any server route touched).
+- Confirm checklist pass/fail.

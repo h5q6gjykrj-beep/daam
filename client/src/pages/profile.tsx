@@ -156,7 +156,8 @@ import {
   Link2,
   StickyNote,
   FlaskConical,
-  Tag
+  Tag,
+  Upload
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -222,6 +223,8 @@ type ProfileResearch = {
   title: string;
   abstract?: string;
   tags?: string[];
+  pdfUrl?: string;
+  pdfName?: string;
   createdAt: number;
 };
 
@@ -331,6 +334,17 @@ export default function Profile() {
   const [isDeletingMaterial, setIsDeletingMaterial] = useState(false);
   const [viewingNote, setViewingNote] = useState<ProfileMaterial | null>(null);
   const [newResearch, setNewResearch] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
+  const [researchPdfFile, setResearchPdfFile] = useState<File | null>(null);
+  const [isUploadingResearchPdf, setIsUploadingResearchPdf] = useState(false);
+  const [showEditResearchDialog, setShowEditResearchDialog] = useState(false);
+  const [editingResearch, setEditingResearch] = useState<ProfileResearch | null>(null);
+  const [editResearchForm, setEditResearchForm] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
+  const [editResearchPdfFile, setEditResearchPdfFile] = useState<File | null>(null);
+  const [showDeleteResearchConfirm, setShowDeleteResearchConfirm] = useState(false);
+  const [deletingResearchId, setDeletingResearchId] = useState<string | null>(null);
+  const [isDeletingResearch, setIsDeletingResearch] = useState(false);
+  const researchPdfInputRef = useRef<HTMLInputElement>(null);
+  const editResearchPdfInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState({
     name: '',
     major: '',
@@ -1142,11 +1156,56 @@ export default function Profile() {
                             <FlaskConical className="w-5 h-5 text-purple-500" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium">{item.title}</h3>
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-medium">{item.title}</h3>
+                              {isOwnProfile && (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setEditingResearch(item);
+                                      setEditResearchForm({
+                                        title: item.title,
+                                        abstract: item.abstract || '',
+                                        tags: item.tags?.join(', ') || ''
+                                      });
+                                      setEditResearchPdfFile(null);
+                                      setShowEditResearchDialog(true);
+                                    }}
+                                    data-testid={`button-edit-research-${item.id}`}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setDeletingResearchId(item.id);
+                                      setShowDeleteResearchConfirm(true);
+                                    }}
+                                    data-testid={`button-delete-research-${item.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                             {item.abstract && (
                               <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.abstract}</p>
                             )}
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {item.pdfUrl && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs cursor-pointer gap-1"
+                                  onClick={() => window.open(item.pdfUrl, '_blank', 'noopener,noreferrer')}
+                                  data-testid={`badge-pdf-research-${item.id}`}
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  PDF
+                                </Badge>
+                              )}
                               {item.tags && item.tags.length > 0 && item.tags.map((tag, idx) => (
                                 <Badge key={idx} variant="secondary" className="text-xs">
                                   <Tag className="w-3 h-3 mr-1" />
@@ -1883,46 +1942,397 @@ export default function Profile() {
                   data-testid="input-research-tags"
                 />
               </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'ملف PDF (اختياري)' : 'PDF file (optional)'}</Label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  ref={researchPdfInputRef}
+                  onChange={(e) => setResearchPdfFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  data-testid="input-research-pdf"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => researchPdfInputRef.current?.click()}
+                    data-testid="button-select-research-pdf"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    {lang === 'ar' ? 'اختيار ملف' : 'Select file'}
+                  </Button>
+                  {researchPdfFile && (
+                    <span className="text-sm text-muted-foreground truncate max-w-[150px]">
+                      {researchPdfFile.name}
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setShowAddResearchDialog(false);
                     setNewResearch({ title: '', abstract: '', tags: '' });
+                    setResearchPdfFile(null);
                   }} 
                   className="flex-1"
                 >
                   {tr.cancel}
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (newResearch.title.trim() && profileEmail) {
-                      const tags = newResearch.tags.split(',').map(t => t.trim()).filter(Boolean);
-                      const item: ProfileResearch = {
-                        id: crypto.randomUUID(),
-                        title: newResearch.title.trim(),
-                        abstract: newResearch.abstract.trim() || undefined,
-                        tags: tags.length > 0 ? tags : undefined,
-                        createdAt: Date.now()
-                      };
-                      const updated = [...research, item];
-                      setResearch(updated);
-                      saveResearch(profileEmail, updated);
-                      setShowAddResearchDialog(false);
-                      setNewResearch({ title: '', abstract: '', tags: '' });
-                      toast({
-                        title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
-                        description: lang === 'ar' ? 'تم إضافة البحث بنجاح' : 'Research added successfully'
-                      });
+                  onClick={async () => {
+                    if (!newResearch.title.trim() || !profileEmail) return;
+                    
+                    setIsUploadingResearchPdf(true);
+                    let pdfUrl: string | undefined;
+                    let pdfName: string | undefined;
+                    
+                    if (researchPdfFile) {
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', researchPdfFile);
+                        const res = await fetch('/api/materials/upload', { method: 'POST', body: fd });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}));
+                          toast({
+                            title: lang === 'ar' ? 'خطأ' : 'Error',
+                            description: data.error || (lang === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file'),
+                            variant: 'destructive'
+                          });
+                          setIsUploadingResearchPdf(false);
+                          return;
+                        }
+                        const data = await res.json();
+                        pdfUrl = data.url;
+                        pdfName = researchPdfFile.name;
+                      } catch {
+                        toast({
+                          title: lang === 'ar' ? 'خطأ' : 'Error',
+                          description: lang === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',
+                          variant: 'destructive'
+                        });
+                        setIsUploadingResearchPdf(false);
+                        return;
+                      }
                     }
+                    
+                    const tags = newResearch.tags.split(',').map(t => t.trim()).filter(Boolean);
+                    const item: ProfileResearch = {
+                      id: crypto.randomUUID(),
+                      title: newResearch.title.trim(),
+                      abstract: newResearch.abstract.trim() || undefined,
+                      tags: tags.length > 0 ? tags : undefined,
+                      pdfUrl,
+                      pdfName,
+                      createdAt: Date.now()
+                    };
+                    const updated = [...research, item];
+                    setResearch(updated);
+                    saveResearch(profileEmail, updated);
+                    setShowAddResearchDialog(false);
+                    setNewResearch({ title: '', abstract: '', tags: '' });
+                    setResearchPdfFile(null);
+                    setIsUploadingResearchPdf(false);
+                    toast({
+                      title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
+                      description: lang === 'ar' ? 'تم إضافة البحث بنجاح' : 'Research added successfully'
+                    });
                   }}
-                  disabled={!newResearch.title.trim()}
+                  disabled={!newResearch.title.trim() || isUploadingResearchPdf}
                   className="flex-1"
                   data-testid="button-save-research"
                 >
-                  {tr.save}
+                  {isUploadingResearchPdf ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : tr.save}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Research Dialog */}
+        <Dialog open={showEditResearchDialog} onOpenChange={(open) => {
+          setShowEditResearchDialog(open);
+          if (!open) {
+            setEditingResearch(null);
+            setEditResearchForm({ title: '', abstract: '', tags: '' });
+            setEditResearchPdfFile(null);
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'تعديل البحث' : 'Edit Research'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'عنوان البحث' : 'Research Title'}</Label>
+                <Input
+                  value={editResearchForm.title}
+                  onChange={(e) => setEditResearchForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'أدخل عنوان البحث...' : 'Enter research title...'}
+                  data-testid="input-edit-research-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'ملخص (اختياري)' : 'Abstract (optional)'}</Label>
+                <Textarea
+                  value={editResearchForm.abstract}
+                  onChange={(e) => setEditResearchForm(prev => ({ ...prev, abstract: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'ملخص مختصر للبحث...' : 'Brief summary of research...'}
+                  className="min-h-[80px] resize-none"
+                  data-testid="input-edit-research-abstract"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'الوسوم (مفصولة بفاصلة)' : 'Tags (comma-separated)'}</Label>
+                <Input
+                  value={editResearchForm.tags}
+                  onChange={(e) => setEditResearchForm(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'ذكاء اصطناعي, تعلم آلي...' : 'AI, Machine Learning...'}
+                  data-testid="input-edit-research-tags"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'ملف PDF' : 'PDF file'}</Label>
+                {editingResearch?.pdfUrl && !editResearchPdfFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="w-4 h-4" />
+                    <span className="truncate">{editingResearch.pdfName || 'PDF'}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (!editingResearch?.pdfUrl || !user?.email) return;
+                        try {
+                          const res = await fetch('/api/materials', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: editingResearch.pdfUrl })
+                          });
+                          if (res.ok) {
+                            const updated = research.map(r => 
+                              r.id === editingResearch.id 
+                                ? { ...r, pdfUrl: undefined, pdfName: undefined } 
+                                : r
+                            );
+                            setResearch(updated);
+                            saveResearch(user.email, updated);
+                            setEditingResearch({ ...editingResearch, pdfUrl: undefined, pdfName: undefined });
+                            toast({
+                              title: lang === 'ar' ? 'تم الحذف' : 'Removed',
+                              description: lang === 'ar' ? 'تم إزالة ملف PDF' : 'PDF file removed'
+                            });
+                          }
+                        } catch {
+                          toast({
+                            title: lang === 'ar' ? 'خطأ' : 'Error',
+                            description: lang === 'ar' ? 'فشل إزالة الملف' : 'Failed to remove file',
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                      className="text-destructive"
+                      data-testid="button-remove-research-pdf"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  ref={editResearchPdfInputRef}
+                  onChange={(e) => setEditResearchPdfFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  data-testid="input-edit-research-pdf"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => editResearchPdfInputRef.current?.click()}
+                    data-testid="button-select-edit-research-pdf"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    {editingResearch?.pdfUrl ? (lang === 'ar' ? 'استبدال ملف' : 'Replace file') : (lang === 'ar' ? 'اختيار ملف' : 'Select file')}
+                  </Button>
+                  {editResearchPdfFile && (
+                    <span className="text-sm text-muted-foreground truncate max-w-[150px]">
+                      {editResearchPdfFile.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowEditResearchDialog(false)} 
+                  className="flex-1"
+                  data-testid="button-cancel-edit-research"
+                >
+                  {tr.cancel}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!editingResearch || !editResearchForm.title.trim() || !user?.email) return;
+                    
+                    setIsUploadingResearchPdf(true);
+                    let pdfUrl = editingResearch.pdfUrl;
+                    let pdfName = editingResearch.pdfName;
+                    
+                    if (editResearchPdfFile) {
+                      try {
+                        if (editingResearch.pdfUrl) {
+                          await fetch('/api/materials', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: editingResearch.pdfUrl })
+                          });
+                        }
+                        
+                        const fd = new FormData();
+                        fd.append('file', editResearchPdfFile);
+                        const res = await fetch('/api/materials/upload', { method: 'POST', body: fd });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}));
+                          toast({
+                            title: lang === 'ar' ? 'خطأ' : 'Error',
+                            description: data.error || (lang === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file'),
+                            variant: 'destructive'
+                          });
+                          setIsUploadingResearchPdf(false);
+                          return;
+                        }
+                        const data = await res.json();
+                        pdfUrl = data.url;
+                        pdfName = editResearchPdfFile.name;
+                      } catch {
+                        toast({
+                          title: lang === 'ar' ? 'خطأ' : 'Error',
+                          description: lang === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',
+                          variant: 'destructive'
+                        });
+                        setIsUploadingResearchPdf(false);
+                        return;
+                      }
+                    }
+                    
+                    const tags = editResearchForm.tags.split(',').map(t => t.trim()).filter(Boolean);
+                    const updated = research.map(r => 
+                      r.id === editingResearch.id
+                        ? {
+                            ...r,
+                            title: editResearchForm.title.trim(),
+                            abstract: editResearchForm.abstract.trim() || undefined,
+                            tags: tags.length > 0 ? tags : undefined,
+                            pdfUrl,
+                            pdfName
+                          }
+                        : r
+                    );
+                    setResearch(updated);
+                    saveResearch(user.email, updated);
+                    setShowEditResearchDialog(false);
+                    setEditingResearch(null);
+                    setEditResearchForm({ title: '', abstract: '', tags: '' });
+                    setEditResearchPdfFile(null);
+                    setIsUploadingResearchPdf(false);
+                    toast({
+                      title: lang === 'ar' ? 'تم التحديث' : 'Updated',
+                      description: lang === 'ar' ? 'تم تعديل البحث بنجاح' : 'Research updated successfully'
+                    });
+                  }}
+                  disabled={!editResearchForm.title.trim() || isUploadingResearchPdf}
+                  className="flex-1"
+                  data-testid="button-save-edit-research"
+                >
+                  {isUploadingResearchPdf ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : tr.save}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Research Confirmation Dialog */}
+        <Dialog open={showDeleteResearchConfirm} onOpenChange={(open) => {
+          setShowDeleteResearchConfirm(open);
+          if (!open) {
+            setDeletingResearchId(null);
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mt-2">
+              {lang === 'ar' ? 'هل أنت متأكد من حذف هذا البحث؟ لا يمكن التراجع عن هذا الإجراء.' : 'Are you sure you want to delete this research? This action cannot be undone.'}
+            </p>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteResearchConfirm(false)}
+                className="flex-1"
+                data-testid="button-cancel-delete-research"
+              >
+                {tr.cancel}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!deletingResearchId || !user?.email) return;
+                  
+                  setIsDeletingResearch(true);
+                  const researchItem = research.find(r => r.id === deletingResearchId);
+                  
+                  if (researchItem?.pdfUrl) {
+                    try {
+                      const res = await fetch('/api/materials', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: researchItem.pdfUrl })
+                      });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        toast({
+                          title: lang === 'ar' ? 'خطأ' : 'Error',
+                          description: data.error || (lang === 'ar' ? 'فشل حذف الملف' : 'Failed to delete file'),
+                          variant: 'destructive'
+                        });
+                        setIsDeletingResearch(false);
+                        return;
+                      }
+                    } catch {
+                      toast({
+                        title: lang === 'ar' ? 'خطأ' : 'Error',
+                        description: lang === 'ar' ? 'فشل حذف الملف' : 'Failed to delete file',
+                        variant: 'destructive'
+                      });
+                      setIsDeletingResearch(false);
+                      return;
+                    }
+                  }
+                  
+                  const updated = research.filter(r => r.id !== deletingResearchId);
+                  setResearch(updated);
+                  saveResearch(user.email, updated);
+                  setShowDeleteResearchConfirm(false);
+                  setDeletingResearchId(null);
+                  setIsDeletingResearch(false);
+                  toast({
+                    title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
+                    description: lang === 'ar' ? 'تم حذف البحث بنجاح' : 'Research deleted successfully'
+                  });
+                }}
+                className="flex-1"
+                disabled={isDeletingResearch}
+                data-testid="button-confirm-delete-research"
+              >
+                {isDeletingResearch ? (lang === 'ar' ? 'جاري الحذف...' : 'Deleting...') : (lang === 'ar' ? 'حذف' : 'Delete')}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
