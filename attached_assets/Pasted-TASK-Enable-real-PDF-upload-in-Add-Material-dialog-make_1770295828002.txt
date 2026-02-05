@@ -1,0 +1,113 @@
+TASK: Enable real PDF upload in "Add Material" dialog + make uploaded PDF clickable/openable
+
+CONTEXT:
+- DAAM (React + TS + Tailwind + shadcn/ui + wouter)
+- Add Material Dialog موجود داخل تبويب "المواد" في صفحة الملف الشخصي.
+- حالياً "PDF" type لا يرفع ملف فعلي.
+- Required: user selects a PDF file, uploads it, material is saved, material item becomes clickable and opens the PDF in new tab.
+
+SCOPE (STRICT):
+- Minimal changes, no redesign.
+- Keep current dialog and list UI as-is (only add file input and upload flow).
+- Do NOT break existing material types (link, note).
+- Do NOT use localStorage for storing the PDF binary/base64 (too large / limits).
+- Implement upload to server (multer) storing file under /public/uploads/materials and return a URL like "/uploads/materials/<file>.pdf".
+- Ensure the URL opens in browser.
+
+STEP 1 — QUICK DIAGNOSIS (NO CHANGES YET):
+1) Locate the "Materials" tab code and Add Material dialog:
+   - Search for: "button-add-material", "showAddMaterialDialog", "إضافة مادة", "Add Material", "materials"
+2) Locate the data model used for materials (object shape stored in localStorage/state):
+   - Identify fields (title, type, url/link, createdAt, etc.)
+3) Locate where "Save/Submit" currently persists the material (likely localStorage or store).
+
+STEP 2 — IMPLEMENT UPLOAD ENDPOINT (SERVER) MINIMAL:
+A) Add a new POST endpoint:
+   POST /api/materials/upload
+   - Accept multipart/form-data with field name: "file"
+   - Accept only PDF: mimetype "application/pdf"
+   - Save to: public/uploads/materials
+   - Generate safe filename: `${Date.now()}-${random}.pdf` (avoid user filename injection)
+   - Return JSON: { ok: true, url: "/uploads/materials/<filename>.pdf", originalName: "<original>" }
+
+B) Ensure uploads directory exists:
+   - Create "public/uploads/materials" if missing at runtime.
+
+C) Ensure static serving works:
+   - Confirm server already serves "public" (or add static middleware):
+     app.use(express.static("public"))
+   - So "/uploads/materials/..." resolves.
+
+NOTE:
+- Use multer with diskStorage.
+- If project already has an uploads system (e.g. campaign-media), reuse the same pattern to keep consistency.
+
+Files to change (choose existing equivalents):
+- server/index.ts or server/app.ts or server/routes.ts (where other API routes live)
+- Add minimal code; do not restructure server.
+
+STEP 3 — UPDATE CLIENT DIALOG (MINIMAL):
+A) In Add Material Dialog:
+- When type === "pdf":
+  - Replace/disable the "link" input usage for PDF.
+  - Add a file input:
+    <input type="file" accept="application/pdf" />
+  - Store selected File in component state: pdfFile: File | null
+  - Show simple inline validation text (no redesign):
+    - if pdf selected: show filename
+    - if not selected and user clicks Save: show small error "اختر ملف PDF"
+
+B) On Save:
+- If type !== "pdf": keep existing behavior.
+- If type === "pdf":
+  1) Validate pdfFile exists.
+  2) Upload using fetch:
+     const fd = new FormData();
+     fd.append("file", pdfFile);
+     const res = await fetch("/api/materials/upload", { method:"POST", body: fd });
+  3) Read JSON and get `url`.
+  4) Save the material item using existing persistence but set:
+     - material.type = "pdf"
+     - material.url = returned url
+     - material.title = entered title
+     - optionally material.fileName = originalName (if model allows; if not, keep title only)
+  5) Close dialog on success (existing close behavior).
+  6) Reset local dialog state (title/type/link/pdfFile).
+
+Important:
+- Do not introduce new state management frameworks.
+- Use existing store/localStorage mechanism already used for materials list.
+
+STEP 4 — MAKE MATERIAL ITEM CLICKABLE (OPEN PDF):
+- In materials list rendering:
+  - For items where type === "pdf" and url exists:
+    - render the existing clickable area or add a minimal <a> wrapper:
+      <a href={url} target="_blank" rel="noreferrer">...</a>
+  - Keep current icons/labels.
+  - If there is already a click handler, ensure it opens:
+    window.open(url, "_blank", "noopener,noreferrer")
+
+STEP 5 — SECURITY / VALIDATION (MINIMAL):
+- Server rejects non-PDF.
+- Server limits size (set e.g. 10MB):
+  multer({ limits: { fileSize: 10 * 1024 * 1024 } })
+- Return clean error JSON on failure:
+  { ok:false, error:"PDF only" } or "File too large"
+- Client shows a minimal error line under buttons.
+
+ACCEPTANCE CHECKLIST (MUST PASS):
+1) Open profile > Materials > click "إضافة مادة" > choose type PDF.
+2) Select a PDF file -> click "حفظ".
+3) PDF uploads successfully and the dialog closes.
+4) New material appears in list.
+5) Clicking the material opens the PDF in a new tab.
+6) Uploading non-PDF is blocked (server + client).
+7) Existing types (link/note) still save and behave as before.
+8) Changes are minimal and confined to:
+   - server route(s)
+   - materials dialog + list rendering only
+   - no UI redesign
+
+DELIVERABLE:
+- Provide exact files modified and a short diff summary.
+- Confirm checklist results (pass/fail) and any known limitations.
