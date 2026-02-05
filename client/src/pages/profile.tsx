@@ -152,7 +152,11 @@ import {
   Library,
   FolderOpen,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  Link2,
+  StickyNote,
+  FlaskConical,
+  Tag
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -973,7 +977,140 @@ export default function Profile() {
             </div>
           )}
 
-          {/* Library View (Materials tab) */}
+          {/* Materials View */}
+          {activeView === 'materials' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-bold">{lang === 'ar' ? 'المواد الدراسية' : 'Study Materials'}</h2>
+                {isOwnProfile && (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddMaterialDialog(true)}
+                    className="gap-1.5"
+                    data-testid="button-add-material"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {lang === 'ar' ? 'إضافة مادة' : 'Add Material'}
+                  </Button>
+                )}
+              </div>
+              
+              {materials.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <FolderOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">
+                      {lang === 'ar' ? 'لا توجد مواد بعد' : 'No materials yet'}
+                    </p>
+                    {isOwnProfile && (
+                      <p className="text-sm text-muted-foreground/70 mt-2">
+                        {lang === 'ar' ? 'أضف موادك الدراسية لتنظيمها' : 'Add your study materials to organize them'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-3">
+                  {materials.map(item => (
+                    <Card key={item.id} className="bg-card/50 hover-elevate">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          {item.kind === 'pdf' && <FileText className="w-5 h-5 text-red-500" />}
+                          {item.kind === 'link' && <Link2 className="w-5 h-5 text-blue-500" />}
+                          {item.kind === 'note' && <StickyNote className="w-5 h-5 text-yellow-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{item.title}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {item.kind === 'pdf' ? 'PDF' : item.kind === 'link' ? (lang === 'ar' ? 'رابط' : 'Link') : (lang === 'ar' ? 'ملاحظة' : 'Note')}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(item.createdAt), 'dd MMM yyyy', { locale: lang === 'ar' ? ar : enUS })}
+                            </span>
+                          </div>
+                        </div>
+                        {item.url && (
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="p-2 hover-elevate rounded-lg">
+                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                          </a>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Research View */}
+          {activeView === 'research' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-bold">{lang === 'ar' ? 'البحوث الأكاديمية' : 'Academic Research'}</h2>
+                {isOwnProfile && (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddResearchDialog(true)}
+                    className="gap-1.5"
+                    data-testid="button-add-research"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {lang === 'ar' ? 'إضافة بحث' : 'Add Research'}
+                  </Button>
+                )}
+              </div>
+              
+              {research.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <FlaskConical className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">
+                      {lang === 'ar' ? 'لا توجد بحوث بعد' : 'No research yet'}
+                    </p>
+                    {isOwnProfile && (
+                      <p className="text-sm text-muted-foreground/70 mt-2">
+                        {lang === 'ar' ? 'أضف بحوثك الأكاديمية لعرضها' : 'Add your academic research to showcase them'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-3">
+                  {research.map(item => (
+                    <Card key={item.id} className="bg-card/50 hover-elevate">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-muted/50 mt-0.5">
+                            <FlaskConical className="w-5 h-5 text-purple-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium">{item.title}</h3>
+                            {item.abstract && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.abstract}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {item.tags && item.tags.length > 0 && item.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  <Tag className="w-3 h-3 mr-1" />
+                                  {tag}
+                                </Badge>
+                              ))}
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(item.createdAt), 'dd MMM yyyy', { locale: lang === 'ar' ? ar : enUS })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Library View (old - kept for backward compatibility) */}
           {activeView === 'library' && isOwnProfile && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1245,6 +1382,168 @@ export default function Profile() {
                   className="flex-1"
                 >
                   {tr.reportSubmit}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Material Dialog */}
+        <Dialog open={showAddMaterialDialog} onOpenChange={setShowAddMaterialDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'إضافة مادة جديدة' : 'Add New Material'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'عنوان المادة' : 'Material Title'}</Label>
+                <Input
+                  value={newMaterial.title}
+                  onChange={(e) => setNewMaterial(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'أدخل عنوان المادة...' : 'Enter material title...'}
+                  data-testid="input-material-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'نوع المادة' : 'Material Type'}</Label>
+                <Select value={newMaterial.kind} onValueChange={(v) => setNewMaterial(prev => ({ ...prev, kind: v as "pdf"|"link"|"note" }))}>
+                  <SelectTrigger data-testid="select-material-kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="link">{lang === 'ar' ? 'رابط' : 'Link'}</SelectItem>
+                    <SelectItem value="note">{lang === 'ar' ? 'ملاحظة' : 'Note'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newMaterial.kind !== 'note' && (
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'الرابط (اختياري)' : 'URL (optional)'}</Label>
+                  <Input
+                    value={newMaterial.url}
+                    onChange={(e) => setNewMaterial(prev => ({ ...prev, url: e.target.value }))}
+                    placeholder="https://..."
+                    data-testid="input-material-url"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAddMaterialDialog(false);
+                    setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                  }} 
+                  className="flex-1"
+                >
+                  {tr.cancel}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (newMaterial.title.trim() && profileEmail) {
+                      const item: ProfileMaterial = {
+                        id: crypto.randomUUID(),
+                        title: newMaterial.title.trim(),
+                        kind: newMaterial.kind,
+                        url: newMaterial.url.trim() || undefined,
+                        createdAt: Date.now()
+                      };
+                      const updated = [...materials, item];
+                      setMaterials(updated);
+                      saveMaterials(profileEmail, updated);
+                      setShowAddMaterialDialog(false);
+                      setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                      toast({
+                        title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
+                        description: lang === 'ar' ? 'تم إضافة المادة بنجاح' : 'Material added successfully'
+                      });
+                    }
+                  }}
+                  disabled={!newMaterial.title.trim()}
+                  className="flex-1"
+                  data-testid="button-save-material"
+                >
+                  {tr.save}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Research Dialog */}
+        <Dialog open={showAddResearchDialog} onOpenChange={setShowAddResearchDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'إضافة بحث جديد' : 'Add New Research'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'عنوان البحث' : 'Research Title'}</Label>
+                <Input
+                  value={newResearch.title}
+                  onChange={(e) => setNewResearch(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'أدخل عنوان البحث...' : 'Enter research title...'}
+                  data-testid="input-research-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'ملخص (اختياري)' : 'Abstract (optional)'}</Label>
+                <Textarea
+                  value={newResearch.abstract}
+                  onChange={(e) => setNewResearch(prev => ({ ...prev, abstract: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'ملخص مختصر للبحث...' : 'Brief summary of research...'}
+                  className="min-h-[80px] resize-none"
+                  data-testid="input-research-abstract"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'الوسوم (مفصولة بفاصلة)' : 'Tags (comma-separated)'}</Label>
+                <Input
+                  value={newResearch.tags}
+                  onChange={(e) => setNewResearch(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'ذكاء اصطناعي, تعلم آلي...' : 'AI, Machine Learning...'}
+                  data-testid="input-research-tags"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAddResearchDialog(false);
+                    setNewResearch({ title: '', abstract: '', tags: '' });
+                  }} 
+                  className="flex-1"
+                >
+                  {tr.cancel}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (newResearch.title.trim() && profileEmail) {
+                      const tags = newResearch.tags.split(',').map(t => t.trim()).filter(Boolean);
+                      const item: ProfileResearch = {
+                        id: crypto.randomUUID(),
+                        title: newResearch.title.trim(),
+                        abstract: newResearch.abstract.trim() || undefined,
+                        tags: tags.length > 0 ? tags : undefined,
+                        createdAt: Date.now()
+                      };
+                      const updated = [...research, item];
+                      setResearch(updated);
+                      saveResearch(profileEmail, updated);
+                      setShowAddResearchDialog(false);
+                      setNewResearch({ title: '', abstract: '', tags: '' });
+                      toast({
+                        title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
+                        description: lang === 'ar' ? 'تم إضافة البحث بنجاح' : 'Research added successfully'
+                      });
+                    }
+                  }}
+                  disabled={!newResearch.title.trim()}
+                  className="flex-1"
+                  data-testid="button-save-research"
+                >
+                  {tr.save}
                 </Button>
               </div>
             </div>
