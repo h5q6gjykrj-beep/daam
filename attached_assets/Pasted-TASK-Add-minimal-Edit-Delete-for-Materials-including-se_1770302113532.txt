@@ -1,0 +1,84 @@
+TASK: Add minimal Edit/Delete for Materials (including server-side PDF file delete)
+
+CONTEXT:
+- Materials feature exists in Profile > "المواد"
+- Add Material dialog supports PDF upload to /public/uploads/materials and saves material.url.
+- Materials are listed and clickable (PDF opens new tab).
+- Need: user can edit a material (title/type/link) and delete a material.
+- For PDF materials: deleting the material must also delete the PDF file from server storage.
+
+SCOPE (STRICT):
+- Minimal UI additions: small "..." menu OR two icon buttons (Edit/Delete) per material card/row.
+- Reuse existing Dialog component (shadcn) and existing form fields.
+- No redesign of layout, keep current styling conventions.
+- Keep bilingual messaging (Arabic/English) consistent with current i18n approach.
+- Do not break existing types (pdf/link/note).
+
+STEP 1 — DIAGNOSIS (NO CHANGES YET):
+1) Locate material model shape and storage mechanism:
+   - Where materials are stored (local state / useDaamStore / localStorage key)
+   - Identify fields: id, title, type, url/link, createdAt, etc.
+2) Locate list rendering component and where Add dialog lives.
+3) Confirm whether each material has a stable unique id.
+   - If not, add minimal id generation on create only (e.g. crypto.randomUUID()).
+
+STEP 2 — CLIENT: UI + STATE (MINIMAL)
+A) Add Edit/Delete controls per material item:
+- Add a compact control on each item (prefer: small ghost IconButtons on the right/left).
+- At minimum:
+  - "Edit" button opens an Edit Material dialog prefilled
+  - "Delete" button opens confirm dialog
+
+B) Edit Material dialog (reuse same form):
+- New state:
+  - showEditMaterialDialog: boolean
+  - editingMaterialId: string | null
+  - edit form fields populated from selected material
+- Behavior:
+  - Save updates material fields in same storage (no server call needed unless PDF is replaced)
+  - If type is PDF: editing should allow only title change (minimal). Do NOT implement PDF replacement unless easy.
+  - If type is link/note: allow editing title + url/text as currently used.
+- Close dialog + reset state after success.
+
+C) Delete behavior:
+- Confirm step (minimal):
+  - Native confirm() acceptable OR small confirm Dialog (preferred).
+- On confirm:
+  - If material.type !== "pdf": remove from materials list/storage.
+  - If material.type === "pdf" and material.url exists:
+    - Call server endpoint to delete file, then remove from list/storage.
+    - If server delete fails, show error and do NOT remove material (or remove with warning—choose safer: block remove).
+
+STEP 3 — SERVER: Delete PDF File Endpoint (MINIMAL)
+A) Add endpoint:
+  DELETE /api/materials
+  Body JSON: { url: "/uploads/materials/<filename>.pdf" }
+  Response: { ok: true } or { ok:false, error:"..." }
+
+Rules:
+- Only allow deleting files under "/uploads/materials/".
+- Derive absolute path using path.join(process.cwd(), "public", url) after strict validation.
+- Reject if url is missing, not starting with "/uploads/materials/", or contains "..".
+- Use fs.existsSync + fs.unlinkSync (or async) with try/catch.
+- Return clear JSON errors.
+
+(Alternative if you prefer REST path param)
+  DELETE /api/materials/file?url=...
+But JSON body is fine.
+
+STEP 4 — ACCEPTANCE CHECKLIST (MUST PASS):
+1) Add material (PDF/link/note) still works.
+2) Edit:
+   - Edit title for PDF updates list immediately and keeps URL unchanged.
+   - Edit title/url for Link updates list.
+   - Edit title/content for Note updates list.
+3) Delete:
+   - Deleting link/note removes it from list and storage.
+   - Deleting PDF removes from list AND deletes file from server (verify: opening old URL returns 404).
+4) Bilingual success/error messages are shown (Arabic/English).
+5) Changes remain minimal and localized (materials tab/list + server route only).
+
+DELIVERABLE:
+- List exact files changed (client + server).
+- Mention storage key impacted (if localStorage).
+- Confirm checklist results.

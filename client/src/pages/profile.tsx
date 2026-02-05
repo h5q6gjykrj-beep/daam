@@ -322,6 +322,12 @@ export default function Profile() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUploadError, setPdfUploadError] = useState<string>('');
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [showEditMaterialDialog, setShowEditMaterialDialog] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<ProfileMaterial | null>(null);
+  const [editMaterialForm, setEditMaterialForm] = useState<{title: string; url: string}>({title: '', url: ''});
+  const [showDeleteMaterialConfirm, setShowDeleteMaterialConfirm] = useState(false);
+  const [deletingMaterialId, setDeletingMaterialId] = useState<string | null>(null);
+  const [isDeletingMaterial, setIsDeletingMaterial] = useState(false);
   const [newResearch, setNewResearch] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
   const [editForm, setEditForm] = useState({
     name: '',
@@ -1048,6 +1054,35 @@ export default function Profile() {
                         {item.url && (
                           <ExternalLink className="w-4 h-4 text-muted-foreground" />
                         )}
+                        {isOwnProfile && (
+                          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setEditingMaterial(item);
+                                setEditMaterialForm({ title: item.title, url: item.url || '' });
+                                setShowEditMaterialDialog(true);
+                              }}
+                              data-testid={`button-edit-material-${item.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeletingMaterialId(item.id);
+                                setShowDeleteMaterialConfirm(true);
+                              }}
+                              data-testid={`button-delete-material-${item.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -1566,6 +1601,165 @@ export default function Profile() {
                   {isUploadingPdf ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : tr.save}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Material Dialog */}
+        <Dialog open={showEditMaterialDialog} onOpenChange={(open) => {
+          setShowEditMaterialDialog(open);
+          if (!open) {
+            setEditingMaterial(null);
+            setEditMaterialForm({ title: '', url: '' });
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'تعديل المادة' : 'Edit Material'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'العنوان' : 'Title'}</Label>
+                <Input
+                  value={editMaterialForm.title}
+                  onChange={(e) => setEditMaterialForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder={lang === 'ar' ? 'عنوان المادة...' : 'Material title...'}
+                  data-testid="input-edit-material-title"
+                />
+              </div>
+              {editingMaterial?.kind === 'link' && (
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'الرابط' : 'URL'}</Label>
+                  <Input
+                    value={editMaterialForm.url}
+                    onChange={(e) => setEditMaterialForm(prev => ({ ...prev, url: e.target.value }))}
+                    placeholder="https://..."
+                    data-testid="input-edit-material-url"
+                  />
+                </div>
+              )}
+              {editingMaterial?.kind === 'pdf' && (
+                <p className="text-sm text-muted-foreground">
+                  {lang === 'ar' ? 'ملف PDF لا يمكن تغييره، يمكنك تعديل العنوان فقط.' : 'PDF file cannot be changed, you can only edit the title.'}
+                </p>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditMaterialDialog(false)}
+                  className="flex-1"
+                  data-testid="button-cancel-edit-material"
+                >
+                  {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!editingMaterial || !user?.email) return;
+                    const updated = materials.map(m => 
+                      m.id === editingMaterial.id
+                        ? { ...m, title: editMaterialForm.title.trim(), url: editingMaterial.kind === 'link' ? editMaterialForm.url.trim() : m.url }
+                        : m
+                    );
+                    setMaterials(updated);
+                    saveMaterials(user.email, updated);
+                    setShowEditMaterialDialog(false);
+                    setEditingMaterial(null);
+                    setEditMaterialForm({ title: '', url: '' });
+                    toast({
+                      title: lang === 'ar' ? 'تم التحديث' : 'Updated',
+                      description: lang === 'ar' ? 'تم تعديل المادة بنجاح' : 'Material updated successfully'
+                    });
+                  }}
+                  disabled={!editMaterialForm.title.trim()}
+                  className="flex-1"
+                  data-testid="button-save-edit-material"
+                >
+                  {tr.save}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Material Confirmation Dialog */}
+        <Dialog open={showDeleteMaterialConfirm} onOpenChange={(open) => {
+          setShowDeleteMaterialConfirm(open);
+          if (!open) {
+            setDeletingMaterialId(null);
+            setIsDeletingMaterial(false);
+          }
+        }}>
+          <DialogContent className="max-w-xs">
+            <DialogHeader>
+              <DialogTitle>{lang === 'ar' ? 'حذف المادة' : 'Delete Material'}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mt-2">
+              {lang === 'ar' ? 'هل أنت متأكد من حذف هذه المادة؟ لا يمكن التراجع عن هذا الإجراء.' : 'Are you sure you want to delete this material? This action cannot be undone.'}
+            </p>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteMaterialConfirm(false)}
+                className="flex-1"
+                disabled={isDeletingMaterial}
+                data-testid="button-cancel-delete-material"
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!deletingMaterialId || !user?.email) return;
+                  const material = materials.find(m => m.id === deletingMaterialId);
+                  if (!material) return;
+                  
+                  setIsDeletingMaterial(true);
+                  
+                  if (material.kind === 'pdf' && material.url) {
+                    try {
+                      const res = await fetch('/api/materials', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: material.url })
+                      });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        toast({
+                          title: lang === 'ar' ? 'خطأ' : 'Error',
+                          description: data.error || (lang === 'ar' ? 'فشل حذف الملف' : 'Failed to delete file'),
+                          variant: 'destructive'
+                        });
+                        setIsDeletingMaterial(false);
+                        return;
+                      }
+                    } catch {
+                      toast({
+                        title: lang === 'ar' ? 'خطأ' : 'Error',
+                        description: lang === 'ar' ? 'فشل حذف الملف' : 'Failed to delete file',
+                        variant: 'destructive'
+                      });
+                      setIsDeletingMaterial(false);
+                      return;
+                    }
+                  }
+                  
+                  const updated = materials.filter(m => m.id !== deletingMaterialId);
+                  setMaterials(updated);
+                  saveMaterials(user.email, updated);
+                  setShowDeleteMaterialConfirm(false);
+                  setDeletingMaterialId(null);
+                  setIsDeletingMaterial(false);
+                  toast({
+                    title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
+                    description: lang === 'ar' ? 'تم حذف المادة بنجاح' : 'Material deleted successfully'
+                  });
+                }}
+                className="flex-1"
+                disabled={isDeletingMaterial}
+                data-testid="button-confirm-delete-material"
+              >
+                {isDeletingMaterial ? (lang === 'ar' ? 'جاري الحذف...' : 'Deleting...') : (lang === 'ar' ? 'حذف' : 'Delete')}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

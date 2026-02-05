@@ -86,5 +86,33 @@ export async function registerRoutes(
     });
   });
 
+  app.delete('/api/materials', (req, res) => {
+    const { url } = req.body;
+    
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Missing url' });
+    }
+    
+    if (!url.startsWith('/uploads/materials/') || url.includes('..')) {
+      return res.status(400).json({ ok: false, error: 'Invalid path' });
+    }
+    
+    const filename = path.basename(url);
+    if (!filename.endsWith('.pdf')) {
+      return res.status(400).json({ ok: false, error: 'Invalid file type' });
+    }
+    
+    const filePath = path.join(UPLOADS_DIR, filename);
+    
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to delete file' });
+    }
+  });
+
   return httpServer;
 }
