@@ -108,11 +108,14 @@ export function AcademicProfileShell({
         </div>
       </div>
 
-      {/* B) IDENTITY DOCK - Right-aligned in RTL, with overlapping avatar */}
+      {/* B) IDENTITY DOCK - Right-aligned in RTL, Left-aligned in LTR, with overlapping avatar */}
       <div className="relative z-10 mx-auto max-w-[1100px] px-4 md:px-6">
-        <div className={`flex ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
+        <div className="flex gap-4 md:gap-6">
           {/* Avatar - Overlapping the cover (half in, half out) */}
-          <div className={`relative -mt-12 md:-mt-14 ${isRTL ? 'ml-4 md:ml-6' : 'mr-4 md:mr-6'}`}>
+          {/* Position mirrors based on isRTL: right in RTL, left in LTR */}
+          <div 
+            className={`relative -mt-12 md:-mt-14 shrink-0 ${isRTL ? 'order-first' : 'order-first'}`}
+          >
             <Avatar 
               className="w-24 h-24 md:w-28 md:h-28 ring-4 ring-background shadow-xl" 
               data-testid="avatar-profile"
@@ -126,7 +129,7 @@ export function AcademicProfileShell({
             </Avatar>
           </div>
 
-          {/* Identity content - Right-aligned in RTL */}
+          {/* Identity content - Right-aligned in RTL, Left-aligned in LTR */}
           <div className={`flex-1 pt-3 ${isRTL ? 'text-right' : 'text-left'}`}>
             {/* Name */}
             <h1 
