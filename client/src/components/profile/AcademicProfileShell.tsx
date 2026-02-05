@@ -93,49 +93,14 @@ export function AcademicProfileShell({
             />
           )}
 
-          {/* Multi-layer overlay for seamless Design C blend */}
-          
-          {/* Layer 1: Vignette - subtle darkening at edges */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.15) 100%)'
-            }}
-          />
-          
-          {/* Layer 2: Bottom gradient blend - matches page background */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'linear-gradient(to top, var(--daam-page-bg) 0%, var(--daam-page-bg) 5%, transparent 50%)'
-            }}
-          />
-          
-          {/* Layer 3: Soft haze for readability */}
-          <div className="absolute inset-0 pointer-events-none bg-black/5 dark:bg-black/15" />
-          
-          {/* Layer 4: Subtle warm texture overlay */}
-          <div 
-            className="absolute inset-0 pointer-events-none opacity-30 dark:opacity-20"
-            style={{
-              background: 'linear-gradient(180deg, transparent 60%, rgba(139, 92, 246, 0.1) 100%)'
-            }}
-          />
-          
-          {/* Layer 5: Bottom blur zone for seamless transition */}
-          <div 
-            className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none backdrop-blur-[2px]"
-            style={{
-              background: 'linear-gradient(to top, var(--daam-page-bg), transparent)'
-            }}
-          />
+          {/* No overlay layers - cover image is 100% clear */}
 
-          {/* Owner edit button - top corner */}
+          {/* Owner edit button - styled with its own background only */}
           {isOwner && onEditClick && (
             <Button
               size="icon"
-              variant="outline"
-              className="absolute top-4 start-4 z-50 bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg"
+              variant="ghost"
+              className="absolute top-4 start-4 z-50 bg-black/30 border-none text-white hover:bg-black/50 shadow-lg"
               onClick={onEditClick}
               data-testid="button-edit-profile"
             >
