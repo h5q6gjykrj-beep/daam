@@ -1,0 +1,79 @@
+TASK: Fix "Note" material type — add textarea input + persist + display (minimal)
+
+CONTEXT:
+- Materials tab has Add Material dialog with type selector: pdf / link / note
+- PDF upload works, Link input works.
+- Note type currently has no input area to write content.
+- Requirement: When type == "note", show a textarea to write note content, save it with the material, and keep it visible as part of the material content.
+
+SCOPE (STRICT):
+- Minimal UI change: add only one textarea when note is selected.
+- Do NOT redesign layout.
+- Do NOT break PDF/link flows.
+- Keep bilingual messages consistent with existing i18n.
+
+STEP 1 — DIAGNOSIS (NO CHANGES YET):
+1) Locate Add Material Dialog component in profile materials tab.
+2) Identify current form state variables (title, type, link/pdfFile, etc.).
+3) Identify material object shape stored in store/localStorage and list renderer.
+
+STEP 2 — IMPLEMENT (MINIMAL):
+A) Add new state for note content:
+- const [noteText, setNoteText] = useState("");
+
+B) Conditional UI:
+- When selectedType === "note":
+  - Render a textarea below the type selector (or where link/pdf inputs appear).
+  - Use shadcn Textarea if available, otherwise native <textarea>.
+  - Add label in Arabic/English:
+    - AR: "نص الملاحظة"
+    - EN: "Note content"
+  - Placeholder:
+    - AR: "اكتب ملاحظتك هنا..."
+    - EN: "Write your note here..."
+  - Ensure RTL/LTR alignment follows existing patterns.
+
+C) Validation on Save:
+- If type === "note":
+  - Require title OR noteText (choose one rule):
+    - Preferred: require noteText non-empty (stronger)
+  - If empty -> show minimal inline error (AR/EN), do not close dialog.
+
+D) Persist data:
+- When saving a note material, store:
+  - material.type = "note"
+  - material.title = title
+  - material.note = noteText   (field name EXACT: "note")
+  - material.createdAt etc. unchanged
+  - Ensure id exists (do not change if already exists)
+- Reset state after success:
+  - setNoteText("")
+  - reset other fields
+  - close dialog
+
+E) Display in materials list:
+- For type === "note":
+  - Show a small preview (first 1–2 lines) under title (truncate).
+  - Add a "View" behavior:
+    Option 1 (minimal): clicking the card opens a Dialog showing full note text.
+    Option 2 (even more minimal): show full text inline (but may clutter).
+  - Preferred minimal clean UX:
+    - Add small "open" icon button to open a read-only Dialog:
+      Title + full note text in a scrollable area.
+
+F) Edit support (if you already implemented edit/delete):
+- In Edit dialog, when type === "note":
+  - Prefill textarea with material.note
+  - Save updates material.note
+
+STEP 3 — ACCEPTANCE CHECKLIST:
+- [ ] Selecting "ملاحظة / Note" shows a textarea immediately.
+- [ ] Writing text and saving creates a new material in list.
+- [ ] Note content persists after refresh (same persistence as other materials).
+- [ ] Note is readable (preview + open/read full text).
+- [ ] PDF upload and Link input still work unchanged.
+- [ ] No console errors introduced.
+
+DELIVERABLE:
+- List exact files changed (client only unless your material model is also validated server-side).
+- Provide short diff summary.

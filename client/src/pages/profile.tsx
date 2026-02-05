@@ -213,6 +213,7 @@ type ProfileMaterial = {
   title: string;
   kind: "pdf" | "link" | "note";
   url?: string;
+  note?: string;
   createdAt: number;
 };
 
@@ -318,16 +319,17 @@ export default function Profile() {
   const [research, setResearch] = useState<ProfileResearch[]>([]);
   const [showAddMaterialDialog, setShowAddMaterialDialog] = useState(false);
   const [showAddResearchDialog, setShowAddResearchDialog] = useState(false);
-  const [newMaterial, setNewMaterial] = useState<{title: string; kind: "pdf"|"link"|"note"; url: string}>({title: '', kind: 'pdf', url: ''});
+  const [newMaterial, setNewMaterial] = useState<{title: string; kind: "pdf"|"link"|"note"; url: string; note: string}>({title: '', kind: 'pdf', url: '', note: ''});
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUploadError, setPdfUploadError] = useState<string>('');
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [showEditMaterialDialog, setShowEditMaterialDialog] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<ProfileMaterial | null>(null);
-  const [editMaterialForm, setEditMaterialForm] = useState<{title: string; url: string}>({title: '', url: ''});
+  const [editMaterialForm, setEditMaterialForm] = useState<{title: string; url: string; note: string}>({title: '', url: '', note: ''});
   const [showDeleteMaterialConfirm, setShowDeleteMaterialConfirm] = useState(false);
   const [deletingMaterialId, setDeletingMaterialId] = useState<string | null>(null);
   const [isDeletingMaterial, setIsDeletingMaterial] = useState(false);
+  const [viewingNote, setViewingNote] = useState<ProfileMaterial | null>(null);
   const [newResearch, setNewResearch] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
   const [editForm, setEditForm] = useState({
     name: '',
@@ -1026,9 +1028,11 @@ export default function Profile() {
                   {materials.map(item => (
                     <Card 
                       key={item.id} 
-                      className={`bg-card/50 hover-elevate ${item.url ? 'cursor-pointer' : ''}`}
+                      className={`bg-card/50 hover-elevate ${item.url || item.kind === 'note' ? 'cursor-pointer' : ''}`}
                       onClick={() => {
-                        if (item.url) {
+                        if (item.kind === 'note') {
+                          setViewingNote(item);
+                        } else if (item.url) {
                           window.open(item.url, '_blank', 'noopener,noreferrer');
                         }
                       }}
@@ -1042,6 +1046,9 @@ export default function Profile() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium truncate">{item.title}</h3>
+                          {item.kind === 'note' && item.note && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{item.note}</p>
+                          )}
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs capitalize">
                               {item.kind === 'pdf' ? 'PDF' : item.kind === 'link' ? (lang === 'ar' ? 'رابط' : 'Link') : (lang === 'ar' ? 'ملاحظة' : 'Note')}
@@ -1054,6 +1061,9 @@ export default function Profile() {
                         {item.url && (
                           <ExternalLink className="w-4 h-4 text-muted-foreground" />
                         )}
+                        {item.kind === 'note' && (
+                          <BookOpen className="w-4 h-4 text-muted-foreground" />
+                        )}
                         {isOwnProfile && (
                           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             <Button
@@ -1061,7 +1071,7 @@ export default function Profile() {
                               variant="ghost"
                               onClick={() => {
                                 setEditingMaterial(item);
-                                setEditMaterialForm({ title: item.title, url: item.url || '' });
+                                setEditMaterialForm({ title: item.title, url: item.url || '', note: item.note || '' });
                                 setShowEditMaterialDialog(true);
                               }}
                               data-testid={`button-edit-material-${item.id}`}
@@ -1498,12 +1508,24 @@ export default function Profile() {
                   />
                 </div>
               )}
+              {newMaterial.kind === 'note' && (
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'نص الملاحظة' : 'Note content'}</Label>
+                  <Textarea
+                    value={newMaterial.note}
+                    onChange={(e) => setNewMaterial(prev => ({ ...prev, note: e.target.value }))}
+                    placeholder={lang === 'ar' ? 'اكتب ملاحظتك هنا...' : 'Write your note here...'}
+                    className="min-h-[100px] resize-none"
+                    data-testid="input-material-note"
+                  />
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setShowAddMaterialDialog(false);
-                    setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                    setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                     setPdfFile(null);
                     setPdfUploadError('');
                   }} 
@@ -1562,7 +1584,7 @@ export default function Profile() {
                         setMaterials(updated);
                         saveMaterials(profileEmail, updated);
                         setShowAddMaterialDialog(false);
-                        setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                        setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                         setPdfFile(null);
                         setPdfUploadError('');
                         toast({
@@ -1574,6 +1596,31 @@ export default function Profile() {
                       } finally {
                         setIsUploadingPdf(false);
                       }
+                    } else if (newMaterial.kind === 'note') {
+                      if (!newMaterial.note.trim()) {
+                        toast({
+                          title: lang === 'ar' ? 'خطأ' : 'Error',
+                          description: lang === 'ar' ? 'الرجاء كتابة نص الملاحظة' : 'Please write note content',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      const item: ProfileMaterial = {
+                        id: crypto.randomUUID(),
+                        title: newMaterial.title.trim(),
+                        kind: 'note',
+                        note: newMaterial.note.trim(),
+                        createdAt: Date.now()
+                      };
+                      const updated = [...materials, item];
+                      setMaterials(updated);
+                      saveMaterials(profileEmail, updated);
+                      setShowAddMaterialDialog(false);
+                      setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
+                      toast({
+                        title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
+                        description: lang === 'ar' ? 'تم إضافة الملاحظة بنجاح' : 'Note added successfully'
+                      });
                     } else {
                       const item: ProfileMaterial = {
                         id: crypto.randomUUID(),
@@ -1586,7 +1633,7 @@ export default function Profile() {
                       setMaterials(updated);
                       saveMaterials(profileEmail, updated);
                       setShowAddMaterialDialog(false);
-                      setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                      setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                       toast({
                         title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
                         description: lang === 'ar' ? 'تم إضافة المادة بنجاح' : 'Material added successfully'
@@ -1609,7 +1656,7 @@ export default function Profile() {
           setShowEditMaterialDialog(open);
           if (!open) {
             setEditingMaterial(null);
-            setEditMaterialForm({ title: '', url: '' });
+            setEditMaterialForm({ title: '', url: '', note: '' });
           }
         }}>
           <DialogContent className="max-w-sm">
@@ -1642,6 +1689,18 @@ export default function Profile() {
                   {lang === 'ar' ? 'ملف PDF لا يمكن تغييره، يمكنك تعديل العنوان فقط.' : 'PDF file cannot be changed, you can only edit the title.'}
                 </p>
               )}
+              {editingMaterial?.kind === 'note' && (
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'نص الملاحظة' : 'Note content'}</Label>
+                  <Textarea
+                    value={editMaterialForm.note}
+                    onChange={(e) => setEditMaterialForm(prev => ({ ...prev, note: e.target.value }))}
+                    placeholder={lang === 'ar' ? 'اكتب ملاحظتك هنا...' : 'Write your note here...'}
+                    className="min-h-[100px] resize-none"
+                    data-testid="input-edit-material-note"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
@@ -1656,14 +1715,19 @@ export default function Profile() {
                     if (!editingMaterial || !user?.email) return;
                     const updated = materials.map(m => 
                       m.id === editingMaterial.id
-                        ? { ...m, title: editMaterialForm.title.trim(), url: editingMaterial.kind === 'link' ? editMaterialForm.url.trim() : m.url }
+                        ? { 
+                            ...m, 
+                            title: editMaterialForm.title.trim(), 
+                            url: editingMaterial.kind === 'link' ? editMaterialForm.url.trim() : m.url,
+                            note: editingMaterial.kind === 'note' ? editMaterialForm.note.trim() : m.note
+                          }
                         : m
                     );
                     setMaterials(updated);
                     saveMaterials(user.email, updated);
                     setShowEditMaterialDialog(false);
                     setEditingMaterial(null);
-                    setEditMaterialForm({ title: '', url: '' });
+                    setEditMaterialForm({ title: '', url: '', note: '' });
                     toast({
                       title: lang === 'ar' ? 'تم التحديث' : 'Updated',
                       description: lang === 'ar' ? 'تم تعديل المادة بنجاح' : 'Material updated successfully'
@@ -1758,6 +1822,27 @@ export default function Profile() {
                 data-testid="button-confirm-delete-material"
               >
                 {isDeletingMaterial ? (lang === 'ar' ? 'جاري الحذف...' : 'Deleting...') : (lang === 'ar' ? 'حذف' : 'Delete')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Note Dialog */}
+        <Dialog open={!!viewingNote} onOpenChange={(open) => !open && setViewingNote(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{viewingNote?.title}</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4 max-h-[60vh] overflow-y-auto">
+              <p className="text-sm whitespace-pre-wrap">{viewingNote?.note}</p>
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setViewingNote(null)}
+                data-testid="button-close-view-note"
+              >
+                {lang === 'ar' ? 'إغلاق' : 'Close'}
               </Button>
             </div>
           </DialogContent>
