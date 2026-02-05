@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
@@ -26,13 +26,26 @@ const pdfUpload = multer({
   storage: pdfStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (file.mimetype === "application/pdf" && ext === ".pdf") {
       cb(null, true);
     } else {
       cb(new Error("PDF only"));
     }
   },
 });
+
+function isPdfMagicBytes(filePath: string): boolean {
+  try {
+    const buffer = Buffer.alloc(5);
+    const fd = fs.openSync(filePath, "r");
+    fs.readSync(fd, buffer, 0, 5, 0);
+    fs.closeSync(fd);
+    return buffer.toString("ascii", 0, 4) === "%PDF";
+  } catch {
+    return false;
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -51,11 +64,17 @@ export async function registerRoutes(
         if (err.code === "LIMIT_FILE_SIZE") {
           return res.status(400).json({ ok: false, error: "File too large (max 10MB)" });
         }
-        return res.status(500).json({ ok: false, error: err.message });
+        return res.status(400).json({ ok: false, error: "Upload failed" });
       }
 
       if (!req.file) {
         return res.status(400).json({ ok: false, error: "No file uploaded" });
+      }
+
+      const filePath = path.join(UPLOADS_DIR, req.file.filename);
+      if (!isPdfMagicBytes(filePath)) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ ok: false, error: "Invalid PDF file" });
       }
 
       const url = `/uploads/materials/${req.file.filename}`;

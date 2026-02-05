@@ -319,6 +319,9 @@ export default function Profile() {
   const [showAddMaterialDialog, setShowAddMaterialDialog] = useState(false);
   const [showAddResearchDialog, setShowAddResearchDialog] = useState(false);
   const [newMaterial, setNewMaterial] = useState<{title: string; kind: "pdf"|"link"|"note"; url: string}>({title: '', kind: 'pdf', url: ''});
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUploadError, setPdfUploadError] = useState<string>('');
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [newResearch, setNewResearch] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
   const [editForm, setEditForm] = useState({
     name: '',
@@ -1015,7 +1018,16 @@ export default function Profile() {
               ) : (
                 <div className="grid gap-3">
                   {materials.map(item => (
-                    <Card key={item.id} className="bg-card/50 hover-elevate">
+                    <Card 
+                      key={item.id} 
+                      className={`bg-card/50 hover-elevate ${item.url ? 'cursor-pointer' : ''}`}
+                      onClick={() => {
+                        if (item.url) {
+                          window.open(item.url, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                      data-testid={`material-${item.id}`}
+                    >
                       <CardContent className="p-4 flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-muted/50">
                           {item.kind === 'pdf' && <FileText className="w-5 h-5 text-red-500" />}
@@ -1034,9 +1046,7 @@ export default function Profile() {
                           </div>
                         </div>
                         {item.url && (
-                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="p-2 hover-elevate rounded-lg">
-                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                          </a>
+                          <ExternalLink className="w-4 h-4 text-muted-foreground" />
                         )}
                       </CardContent>
                     </Card>
@@ -1422,9 +1432,30 @@ export default function Profile() {
                   </SelectContent>
                 </Select>
               </div>
-              {newMaterial.kind !== 'note' && (
+              {newMaterial.kind === 'pdf' && (
                 <div className="space-y-2">
-                  <Label>{lang === 'ar' ? 'الرابط (اختياري)' : 'URL (optional)'}</Label>
+                  <Label>{lang === 'ar' ? 'ملف PDF' : 'PDF File'}</Label>
+                  <Input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setPdfFile(file);
+                      setPdfUploadError('');
+                    }}
+                    data-testid="input-material-pdf"
+                  />
+                  {pdfFile && (
+                    <p className="text-xs text-muted-foreground">{pdfFile.name}</p>
+                  )}
+                  {pdfUploadError && (
+                    <p className="text-xs text-destructive">{pdfUploadError}</p>
+                  )}
+                </div>
+              )}
+              {newMaterial.kind === 'link' && (
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'الرابط' : 'URL'}</Label>
                   <Input
                     value={newMaterial.url}
                     onChange={(e) => setNewMaterial(prev => ({ ...prev, url: e.target.value }))}
@@ -1439,14 +1470,77 @@ export default function Profile() {
                   onClick={() => {
                     setShowAddMaterialDialog(false);
                     setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                    setPdfFile(null);
+                    setPdfUploadError('');
                   }} 
                   className="flex-1"
                 >
                   {tr.cancel}
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (newMaterial.title.trim() && profileEmail) {
+                  onClick={async () => {
+                    if (!newMaterial.title.trim() || !profileEmail) return;
+                    
+                    if (newMaterial.kind === 'pdf') {
+                      if (!pdfFile) {
+                        setPdfUploadError(lang === 'ar' ? 'اختر ملف PDF' : 'Select a PDF file');
+                        return;
+                      }
+                      
+                      setIsUploadingPdf(true);
+                      setPdfUploadError('');
+                      
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', pdfFile);
+                        const res = await fetch('/api/materials/upload', {
+                          method: 'POST',
+                          body: fd
+                        });
+                        
+                        if (!res.ok) {
+                          try {
+                            const errData = await res.json();
+                            setPdfUploadError(errData.error || (lang === 'ar' ? 'فشل الرفع' : 'Upload failed'));
+                          } catch {
+                            setPdfUploadError(lang === 'ar' ? 'فشل الرفع' : 'Upload failed');
+                          }
+                          setIsUploadingPdf(false);
+                          return;
+                        }
+                        
+                        const data = await res.json();
+                        
+                        if (!data.ok) {
+                          setPdfUploadError(data.error || (lang === 'ar' ? 'فشل الرفع' : 'Upload failed'));
+                          setIsUploadingPdf(false);
+                          return;
+                        }
+                        
+                        const item: ProfileMaterial = {
+                          id: crypto.randomUUID(),
+                          title: newMaterial.title.trim(),
+                          kind: 'pdf',
+                          url: data.url,
+                          createdAt: Date.now()
+                        };
+                        const updated = [...materials, item];
+                        setMaterials(updated);
+                        saveMaterials(profileEmail, updated);
+                        setShowAddMaterialDialog(false);
+                        setNewMaterial({ title: '', kind: 'pdf', url: '' });
+                        setPdfFile(null);
+                        setPdfUploadError('');
+                        toast({
+                          title: lang === 'ar' ? 'تمت الإضافة' : 'Added',
+                          description: lang === 'ar' ? 'تم رفع المادة بنجاح' : 'Material uploaded successfully'
+                        });
+                      } catch (err) {
+                        setPdfUploadError(lang === 'ar' ? 'فشل الرفع' : 'Upload failed');
+                      } finally {
+                        setIsUploadingPdf(false);
+                      }
+                    } else {
                       const item: ProfileMaterial = {
                         id: crypto.randomUUID(),
                         title: newMaterial.title.trim(),
@@ -1465,11 +1559,11 @@ export default function Profile() {
                       });
                     }
                   }}
-                  disabled={!newMaterial.title.trim()}
+                  disabled={!newMaterial.title.trim() || isUploadingPdf}
                   className="flex-1"
                   data-testid="button-save-material"
                 >
-                  {tr.save}
+                  {isUploadingPdf ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : tr.save}
                 </Button>
               </div>
             </div>
