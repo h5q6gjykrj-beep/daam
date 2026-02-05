@@ -203,14 +203,71 @@ function saveCoverToStorage(userId: string, coverUrl: string | null): void {
   }
 }
 
+// Types for Materials and Research tabs
+type ProfileMaterial = {
+  id: string;
+  title: string;
+  kind: "pdf" | "link" | "note";
+  url?: string;
+  createdAt: number;
+};
+
+type ProfileResearch = {
+  id: string;
+  title: string;
+  abstract?: string;
+  tags?: string[];
+  createdAt: number;
+};
+
+// localStorage helpers for Materials
+function loadMaterials(email: string): ProfileMaterial[] {
+  try {
+    const key = `daam_profile_materials_v1::${email}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMaterials(email: string, items: ProfileMaterial[]): void {
+  try {
+    const key = `daam_profile_materials_v1::${email}`;
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    // Storage error, ignore
+  }
+}
+
+// localStorage helpers for Research
+function loadResearch(email: string): ProfileResearch[] {
+  try {
+    const key = `daam_profile_research_v1::${email}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveResearch(email: string, items: ProfileResearch[]): void {
+  try {
+    const key = `daam_profile_research_v1::${email}`;
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    // Storage error, ignore
+  }
+}
+
 // Feature flag for new Academic Shell UI
 const USE_ACADEMIC_SHELL = true;
 
 // Tab mapping between AcademicProfileShell and activeView
-const shellTabToActiveView: Record<ProfileTab, 'dashboard' | 'posts' | 'saved' | 'library' | 'interests'> = {
+const shellTabToActiveView: Record<ProfileTab, 'dashboard' | 'posts' | 'saved' | 'materials' | 'research'> = {
   posts: 'posts',
-  materials: 'library',
-  research: 'interests',
+  materials: 'materials',
+  research: 'research',
   activity: 'dashboard',
   saved: 'saved',
 };
@@ -218,8 +275,8 @@ const shellTabToActiveView: Record<ProfileTab, 'dashboard' | 'posts' | 'saved' |
 const activeViewToShellTab = (view: string): ProfileTab => {
   switch (view) {
     case 'posts': return 'posts';
-    case 'library': return 'materials';
-    case 'interests': return 'research';
+    case 'materials': return 'materials';
+    case 'research': return 'research';
     case 'dashboard': return 'activity';
     case 'saved': return 'saved';
     default: return 'activity';
@@ -245,12 +302,20 @@ export default function Profile() {
   const isOwnProfile = user?.email === profileEmail;
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'posts' | 'replies' | 'saved' | 'library' | 'interests' | 'private'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'posts' | 'replies' | 'saved' | 'library' | 'interests' | 'private' | 'materials' | 'research'>('dashboard');
   const [libraryFilter, setLibraryFilter] = useState<'saved' | 'files' | 'summaries'>('saved');
   const [isEditing, setIsEditing] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | ''>('');
   const [reportNote, setReportNote] = useState('');
+  
+  // Materials & Research state
+  const [materials, setMaterials] = useState<ProfileMaterial[]>([]);
+  const [research, setResearch] = useState<ProfileResearch[]>([]);
+  const [showAddMaterialDialog, setShowAddMaterialDialog] = useState(false);
+  const [showAddResearchDialog, setShowAddResearchDialog] = useState(false);
+  const [newMaterial, setNewMaterial] = useState<{title: string; kind: "pdf"|"link"|"note"; url: string}>({title: '', kind: 'pdf', url: ''});
+  const [newResearch, setNewResearch] = useState<{title: string; abstract: string; tags: string}>({title: '', abstract: '', tags: ''});
   const [editForm, setEditForm] = useState({
     name: '',
     major: '',
@@ -319,6 +384,14 @@ export default function Profile() {
       }
     }
   }, [user, getAccount]);
+
+  // Load materials and research from localStorage
+  useEffect(() => {
+    if (profileEmail) {
+      setMaterials(loadMaterials(profileEmail));
+      setResearch(loadResearch(profileEmail));
+    }
+  }, [profileEmail]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'avatar') => {
     const file = e.target.files?.[0];
