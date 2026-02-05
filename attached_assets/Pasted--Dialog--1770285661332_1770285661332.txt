@@ -1,0 +1,52 @@
+هدف المهمة:
+داخل ملف المستخدم، عند الضغط على “المتابعون” أو “يتابع” يظهر Dialog (قائمة أسماء).
+المطلوب: عند النقر على أي اسم داخل القائمة -> الانتقال مباشرة إلى صفحة ملف ذلك المستخدم (نفس التبويب) + إغلاق الـ Dialog بشكل صحيح.
+لا نريد فتح تبويب جديد.
+
+المتطلبات:
+1) فتح قائمة المتابعين/التابعين يبقى كما هو.
+2) عناصر القائمة (كل صف مستخدم) يجب أن تكون قابلة للنقر بالكامل (row clickable).
+3) عند النقر:
+   - navigate إلى /profile?user=<id أو username أو email حسب نظامكم>
+   - ثم إغلاق dialog (onOpenChange(false)) بعد تنفيذ التنقل.
+4) منع أي تعارض مع onClick خارج الديالوج (click outside) أو event bubbling:
+   - داخل عنصر المستخدم استخدم e.preventDefault() عند الحاجة
+   - واستخدم e.stopPropagation() داخل الأزرار/العناصر الداخلية (مثل زر خيارات/… إن وُجد) حتى لا يغلق الديالوج قبل التنقل.
+5) لا تكسر:
+   - Dialog overlay/escape close
+   - scroll داخل القائمة
+   - RTL/LTR
+
+خطة تنفيذ دقيقة:
+A) تحديد مكان الكود:
+- ابحث عن Followers/Following dialog component في:
+  client/src/pages/profile.tsx
+  أو أي component مثل:
+  client/src/components/profile/*Followers*
+  client/src/components/profile/*Following*
+  أو Dialog يُعرض عند الضغط على المتابعين.
+
+B) اجعل كل صف مستخدم عنصر قابل للنقر:
+- Wrap row بـ <button type="button"> أو <div role="button" tabIndex=0>
+- أضف onClick(rowUser) => handleNavigate(rowUser)
+
+C) implement handleNavigate:
+- أغلق dialog بعد تنفيذ navigation
+- استخدم نفس router المستعمل في المشروع:
+  - إن كان wouter: const [, setLocation] = useLocation(); setLocation(`/profile/${id}` أو `/profile?u=${id}`)
+  - أو react-router: useNavigate()
+
+D) تأكد من تمرير “هوية المستخدم المقصود”:
+- إذا عندكم user.id: استخدمه
+- وإلا username/email: استخدم الموجود
+- لا تستخدم displayName لأنه غير ثابت
+
+E) حالة “أنا ضغطت على اسمي”:
+- لو المستخدم ضغط على نفسه: فقط أغلق dialog بدون تنقل (اختياري) أو تنقل لنفس الصفحة (بدون ضرر)
+
+معايير القبول:
+- الضغط على المتابعين يفتح قائمة.
+- الضغط على أي مستخدم ينقل لملفه فورًا ويغلق القائمة.
+- لا يحدث “إغلاق فقط بدون تنقل”.
+- لا يحدث “تجمد” أو “double click”.
+- يعمل في RTL و LTR وعلى الموبايل والكمبيوتر.
