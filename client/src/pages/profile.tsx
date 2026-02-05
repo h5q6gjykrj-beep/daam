@@ -1229,8 +1229,9 @@ export default function Profile() {
                       className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                       data-testid={`follower-${followerEmail}`}
                       onClick={() => {
-                        setShowFollowersDialog(false);
-                        requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followerEmail)}`));
+                        const targetPath = `/profile/${encodeURIComponent(followerEmail)}`;
+                        navigate(targetPath);
+                        queueMicrotask(() => setShowFollowersDialog(false));
                       }}
                     >
                       <Avatar className="w-10 h-10 border border-border">
@@ -1278,8 +1279,9 @@ export default function Profile() {
                       className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                       data-testid={`following-${followingEmail}`}
                       onClick={() => {
-                        setShowFollowingDialog(false);
-                        requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followingEmail)}`));
+                        const targetPath = `/profile/${encodeURIComponent(followingEmail)}`;
+                        navigate(targetPath);
+                        queueMicrotask(() => setShowFollowingDialog(false));
                       }}
                     >
                       <Avatar className="w-10 h-10 border border-border">
@@ -2890,8 +2892,9 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                     data-testid={`follower-${followerEmail}`}
                     onClick={() => {
-                      setShowFollowersDialog(false);
-                      requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followerEmail)}`));
+                      const targetPath = `/profile/${encodeURIComponent(followerEmail)}`;
+                      navigate(targetPath);
+                      queueMicrotask(() => setShowFollowersDialog(false));
                     }}
                   >
                     <Avatar className="w-10 h-10 border border-border">
@@ -2939,8 +2942,9 @@ export default function Profile() {
                     className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
                     data-testid={`following-${followingEmail}`}
                     onClick={() => {
-                      setShowFollowingDialog(false);
-                      requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followingEmail)}`));
+                      const targetPath = `/profile/${encodeURIComponent(followingEmail)}`;
+                      navigate(targetPath);
+                      queueMicrotask(() => setShowFollowingDialog(false));
                     }}
                   >
                     <Avatar className="w-10 h-10 border border-border">
