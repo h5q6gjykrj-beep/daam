@@ -1,0 +1,67 @@
+TASK (Step 1 فقط): Diagnose click/navigation failure on Profile page (layers + handlers). لا تغيّر UI الآن.
+
+الهدف النهائي من Step 1:
+A) معرفة لماذا لا يمكن النقر على: (Followers/Following) + Tabs + Posts
+B) استخراج خريطة الطبقات (stacking contexts) وتحديد “أي عنصر يغطي فوق الأزرار” أو يمنع pointer events
+C) تحديد أين يوجد منطق فتح dialogs والتنقل (navigate) ولماذا لا يُستدعى
+
+الصفحات/الملفات المستهدفة:
+1) client/src/pages/profile.tsx
+2) client/src/components/profile/AcademicProfileShell.tsx
+3) أي Dialog خاص بالمتابعين/يتابع (ابحث عنه): FollowersDialog / FollowingDialog / ProfileFollowers* / followers dialog
+4) أي مكوّن Posts داخل profile (ابحث عن PostCard / InFeedPostCard / ProfilePosts*)
+
+مطلوب منك تنفيذ “تشخيص منهجي” بالترتيب:
+
+1) Confirm reproduction + تحديد العنصر غير القابل للنقر
+- افتح /profile
+- جرّب النقر على:
+  (a) رقم المتابعين / النص “متابع”
+  (b) رقم “يتابع” / النص
+  (c) Tabs (Posts/Materials/Research/Activity/Saved)
+  (d) أي بطاقة منشور داخل Posts
+- اكتب نتيجة كل واحدة: هل يحصل hover؟ هل يتغير cursor؟ هل يحدث أي console log؟
+
+2) Inspect: تحديد الـ topmost element الذي يلتقط النقر
+- باستخدام DevTools:
+  - افتح Elements
+  - استخدم أداة اختيار العنصر (picker) واضغط فوق زر “متابع”
+  - سجّل: ما هو العنصر الذي يتم اختياره؟ (tag + className + file/component إن أمكن)
+- كرر نفس الاختبار فوق:
+  - Tabs
+  - Post card
+- النتيجة المطلوبة: قائمة بالعناصر “المغطيّة” التي تظهر بدل الزر الحقيقي.
+
+3) Analyze stacking contexts / overlays
+- داخل AcademicProfileShell.tsx + profile.tsx:
+  - ابحث عن أي عناصر فيها: position (absolute/relative/fixed), z-index, transform, filter, opacity, backdrop-blur, isolation, overflow-hidden
+  - ابحث عن عناصر تغطي مساحة كبيرة: inset-0, w-screen, h-full, min-h, -mx-[50vw]
+- لكل عنصر مشتبه:
+  - اكتب: (المكان في الملف + سبب الاشتباه + هل يغطي فوق منطقة الأزرار؟)
+
+4) Pointer-events diagnosis (السبب الأكثر شيوعًا)
+- افحص هل يوجد عنصر overlay له:
+  - pointer-events: auto (الافتراضي) وهو شفاف
+- أو العكس: هل الزر نفسه صار pointer-events-none أو داخل wrapper يمنع النقر؟
+- اعمل تجربة “بدون تغيير ملفات” عبر DevTools:
+  - على العنصر المشتبه: اضف style="pointer-events:none" مؤقتًا في DevTools
+  - جرّب النقر مرة أخرى على المتابعين/tabs/posts
+- سجّل: هل رجع النقر يشتغل؟ نعم/لا. هذا مهم جدًا لتأكيد السبب.
+
+5) Validate handlers existence (منطق النقر)
+- ابحث في profile.tsx:
+  - أين يتم render لرقم المتابعين/يتابع؟ هل هو Button/Link؟ ما هو onClick؟
+  - أين يتم التحكم في showFollowersDialog / showFollowingDialog؟
+- ابحث عن navigate(`/profile/...`) أو useLocation من wouter
+- تأكد هل onClick فعلاً يصل للعنصر القابل للنقر أم أنه موجود لكن غير قابل للوصول بسبب overlay.
+
+6) Deliverable (مخرجات Step 1 فقط)
+أعطني تقرير مختصر لكنه دقيق:
+- (1) Root cause hypothesis: عنصر/طبقة X تغطي فوق Y (مع دليل من DevTools picker)
+- (2) “Layer map” مبسطة: من الخلف للأمام مع z-index/pointer-events لكل طبقة رئيسية
+- (3) أين يوجد منطق النقر/التنقل (files + function names)
+- (4) اقتراح Fix واحد فقط (بدون تطبيقه الآن) مع خيارين:
+    Fix A: تعديل z-index/stacking context
+    Fix B: pointer-events-none على overlay
+    Fix C: نقل overlay داخل header فقط بدل يغطي content
+مهم: لا تطبّق أي إصلاح في هذه المهمة. فقط تشخيص وتقرير واضح.
