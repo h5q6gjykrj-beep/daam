@@ -1,0 +1,60 @@
+TASK (Step 1): Diagnose why clicking a follower row closes dialog but does NOT navigate on desktop (works on mobile)
+
+الهدف:
+- تحديد هل المشكلة: onClick لا يُطلق؟ أم يُغلق فقط؟ أم navigate لا يعمل؟ أم URL يتغير ولكن الصفحة لا تفتح المستخدم؟
+- ثم إعطاء root cause واضح قبل أي إصلاح.
+
+الملفات المتوقعة:
+- client/src/pages/profile.tsx (Followers/Following dialogs + navigate)
+- أي مكوّن FollowersDialog/FollowingDialog داخل نفس الملف
+
+خطوات التشخيص (بالترتيب):
+
+1) Confirm route + router
+- تأكد أي router مستخدم للتنقل في المشروع داخل profile.tsx:
+  - wouter: useLocation()
+  - react-router: useNavigate()
+- اكتب سطر واحد في التقرير: "Router = ___"
+
+2) Instrument click path (مؤقت)
+داخل زر صف المستخدم في Followers/Following dialog:
+- أضف logs مؤقتة (تُزال بعد الإصلاح):
+  console.log("[FOLLOWERS] row click", { email, path });
+  قبل setShowFollowersDialog(false)
+- وبعدها مباشرة:
+  console.log("[FOLLOWERS] about to navigate");
+- وداخل callback نفسه:
+  console.log("[FOLLOWERS] navigate fired");
+
+3) Verify what happens on desktop vs mobile
+- على اللابتوب:
+  - هل يظهر log "[FOLLOWERS] row click"؟
+  - هل يظهر "[FOLLOWERS] navigate fired"؟
+  - هل يتغير URL في العنوان؟
+- على الهاتف:
+  - نفس الشيء (على الأقل لاحظ تغيّر URL)
+
+4) Check whether closing the dialog kills navigation
+حالياً الكود (حسب ما ذكر سابقاً) يغلق ثم يعمل navigate داخل requestAnimationFrame.
+- جرّب مؤقتاً (للتشخيص فقط) تبديل الترتيب داخل onClick:
+  a) navigate(path) أولاً
+  b) ثم setShowFollowersDialog(false)
+- لا تتركه نهائي، فقط لمعرفة هل المشكلة من ترتيب الإغلاق.
+
+5) Check encode + route param
+- اطبع path الفعلي الذي نحاول الذهاب له، مثال:
+  const path = `/profile/${encodeURIComponent(email)}`
+- وتأكد أن Route في App.tsx يقبل ذلك:
+  <Route path="/profile/:email?" component={Profile} />
+- تحقق: هل profile.tsx يتعامل مع email param بعد decode؟ هل يبحث عن المستخدم بوجود "%40" أم "@"
+
+6) Check pointer / outside interaction (Radix Dialog)
+إذا كان log يظهر "row click" لكن navigate لا:
+- افحص هل يوجد onPointerDownOutside / onInteractOutside في DialogContent يغلق قبل اكتمال click.
+- جرّب تغيير listener من onClick إلى onPointerDown على صف المستخدم (تشخيصي):
+  onPointerDown={(e)=>{...}} مع e.preventDefault() و e.stopPropagation()
+
+Deliverable (مخرجات Step 1):
+- جدول نتائج اللابتوب/الهاتف: (row click log؟ navigate log؟ URL يتغير؟)
+- root cause مختصر (1 جملة)
+- Fix proposal واحد واضح (بدون تطبيق كبير)
