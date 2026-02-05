@@ -827,6 +827,9 @@ export default function Profile() {
               navigate(`/messages?to=${encodeURIComponent(profileEmail)}`);
             }
           }}
+          onPostsClick={() => setActiveView('posts')}
+          onFollowersClick={() => setShowFollowersDialog(true)}
+          onFollowingClick={() => setShowFollowingDialog(true)}
           activeTab={activeViewToShellTab(activeView)}
           onTabChange={(tab) => setActiveView(shellTabToActiveView[tab])}
         >

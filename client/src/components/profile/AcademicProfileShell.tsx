@@ -18,6 +18,9 @@ interface AcademicProfileShellProps {
   onEditClick?: () => void;
   onFollowClick?: () => void;
   onMessageClick?: () => void;
+  onPostsClick?: () => void;
+  onFollowersClick?: () => void;
+  onFollowingClick?: () => void;
   activeTab: ProfileTab;
   onTabChange: (tab: ProfileTab) => void;
   children: ReactNode;
@@ -44,6 +47,9 @@ export function AcademicProfileShell({
   onEditClick,
   onFollowClick,
   onMessageClick,
+  onPostsClick,
+  onFollowersClick,
+  onFollowingClick,
   activeTab,
   onTabChange,
   children,
@@ -150,20 +156,38 @@ export function AcademicProfileShell({
 
             {/* Stats row - Right-aligned in RTL */}
             <div className={`flex items-center gap-4 md:gap-6 mt-4 text-sm ${isRTL ? 'justify-start' : 'justify-start'}`} data-testid="stats-row">
-              <div className="flex flex-col items-center">
-                <span className="font-semibold text-foreground">{stats.posts}</span>
-                <span className="text-xs text-muted-foreground">{isRTL ? "منشور" : "Posts"}</span>
-              </div>
+              <button
+                type="button"
+                onClick={onPostsClick}
+                className="group flex flex-col items-center cursor-pointer focus:outline-none"
+                aria-label={isRTL ? "عرض المنشورات" : "View posts"}
+                data-testid="stats-posts"
+              >
+                <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{stats.posts}</span>
+                <span className="text-xs text-muted-foreground group-hover:underline underline-offset-4">{isRTL ? "منشور" : "Posts"}</span>
+              </button>
               <div className="w-px h-6 bg-border/50" />
-              <div className="flex flex-col items-center">
-                <span className="font-semibold text-foreground">{stats.followers}</span>
-                <span className="text-xs text-muted-foreground">{isRTL ? "متابع" : "Followers"}</span>
-              </div>
+              <button
+                type="button"
+                onClick={onFollowersClick}
+                className="group flex flex-col items-center cursor-pointer focus:outline-none"
+                aria-label={isRTL ? "عرض المتابعين" : "View followers"}
+                data-testid="stats-followers"
+              >
+                <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{stats.followers}</span>
+                <span className="text-xs text-muted-foreground group-hover:underline underline-offset-4">{isRTL ? "متابع" : "Followers"}</span>
+              </button>
               <div className="w-px h-6 bg-border/50" />
-              <div className="flex flex-col items-center">
-                <span className="font-semibold text-foreground">{stats.following}</span>
-                <span className="text-xs text-muted-foreground">{isRTL ? "يتابع" : "Following"}</span>
-              </div>
+              <button
+                type="button"
+                onClick={onFollowingClick}
+                className="group flex flex-col items-center cursor-pointer focus:outline-none"
+                aria-label={isRTL ? "عرض من يتابع" : "View following"}
+                data-testid="stats-following"
+              >
+                <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{stats.following}</span>
+                <span className="text-xs text-muted-foreground group-hover:underline underline-offset-4">{isRTL ? "يتابع" : "Following"}</span>
+              </button>
             </div>
 
             {/* Action buttons for visitors - Right-aligned in RTL */}
