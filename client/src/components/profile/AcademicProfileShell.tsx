@@ -57,21 +57,10 @@ export function AcademicProfileShell({
 
   return (
     <div 
-      className="min-h-screen" 
+      className="min-h-full" 
       dir={isRTL ? "rtl" : "ltr"}
-      style={{
-        background: 'var(--daam-page-bg, hsl(var(--background)))'
-      }}
     >
-      {/* Custom CSS for page background */}
-      <style>{`
-        :root {
-          --daam-page-bg: #F8F9FC;
-        }
-        .dark {
-          --daam-page-bg: #0B1020;
-        }
-      `}</style>
+      {/* Background inherited from parent (LayoutShell bg-background) - no custom colors */}
 
       {/* A) HEADER - Full-bleed cover, clean image without overlays */}
       <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
@@ -85,12 +74,7 @@ export function AcademicProfileShell({
               data-testid="img-profile-cover"
             />
           ) : (
-            <div 
-              className="absolute inset-0 w-full h-full"
-              style={{
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(139, 92, 246, 0.3) 50%, rgba(99, 102, 241, 0.2) 100%)'
-              }}
-            />
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-primary/40 via-primary/30 to-primary/20" />
           )}
 
           {/* Owner edit button - styled with its own background only */}
