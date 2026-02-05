@@ -1,0 +1,86 @@
+هدف المهمة
+دمج AcademicProfileShell داخل صفحة profile.tsx بشكل تجريبي وآمن (Feature Flag) بدون حذف/كسر التصميم الحالي أو الديالوجات/الوظائف الحالية.
+
+الملفات المستهدفة
+1) client/src/pages/profile.tsx
+2) (اختياري إذا احتجنا أنواع) client/src/components/profile/AcademicProfileShell.tsx
+
+مبدأ الأمان (مهم جداً)
+- لا تحذف أي JSX قديم الآن.
+- لا تغيّر منطق التبويبات/الـviews/الدوال الحالية (renderPostCard وغيرها).
+- فقط لفّ (wrap) المحتوى القديم داخل الـShell الجديد عند تفعيل الفلاج.
+- كل Dialogs الحالية (Report/Followers/Following/AvatarPreview/Edit…الخ) يجب أن تبقى كما هي وتستمر بالعمل.
+
+الخطوة 1: إضافة feature flag بسيط
+داخل profile.tsx أضف في أعلى المكوّن (قريب من state):
+const USE_ACADEMIC_SHELL = true;  // نخليه true للتجربة، لاحقاً نقدر نخليه false
+
+الخطوة 2: استيراد المكوّن الجديد
+في أعلى profile.tsx:
+import { AcademicProfileShell } from "@/components/profile/AcademicProfileShell";
+
+(إن كان التصدير default بدلاً من named، عدّل الاستيراد حسب الملف الفعلي)
+
+الخطوة 3: تحضير بيانات الـShell من نفس بيانات الصفحة الحالية
+لا تخترع بيانات جديدة.
+استخرج من نفس المتغيرات الحالية:
+- coverUrl: رابط صورة الغلاف (أو undefined)
+- avatarUrl: رابط صورة البروفايل (أو undefined)
+- displayName: اسم المستخدم الحالي
+- subtitleLine1: التخصص + الجامعة (أو سطر مختصر مشابه)
+- subtitleLine2: المستوى/الدفعة (إن موجود)
+- bio: النبذة الحالية
+- stats: { posts, followers, following } من نفس الأرقام الحالية
+- isOwner: من نفس شرط (هل هذا المستخدم هو مالك الملف؟)
+- isRTL: من نفس منطق اللغة/dir (العربي true)
+
+ملاحظة: لو ما عندك postsCount جاهز، احسبه من قائمة المنشورات الموجودة حالياً (length) أو من نفس المكان الذي يعرض "منشور".
+نفس الشي followers/following من نفس المصدر الذي يعرض الأرقام.
+
+الخطوة 4: ربط أزرار الـShell بدون كسر النظام الحالي
+- onEditClick: افتح نفس Dialog/النافذة الموحدة للتحرير التي تم بناؤها (Unified Edit Profile Dialog). لا تنشئ Dialog جديد.
+- onFollowClick: استدعِ نفس دالة المتابعة الحالية (إن موجودة).
+- onMessageClick: نفس منطق الرسائل الحالي (إن موجود).
+
+الخطوة 5: ربط تبويبات الـShell مع activeView الحالي
+هدفنا: تبويبات الـShell تكون “واجهة” فقط، والمنطق يبقى هو نفسه.
+خرائط التبويب:
+- "posts"  => نفس activeView = "posts"
+- "materials" => مؤقتاً اربطه على activeView = "library" أو "materials" إن كانت موجودة. (لا تنشئ backend جديد)
+- "research" => مؤقتاً اربطه على activeView = "interests" أو view موجود مناسب. (لاحقاً نبني research فعلي)
+- "activity" => activeView = "dashboard"
+- "saved" => activeView = "saved"
+
+إذا كان AcademicProfileShell يستخدم enum ProfileTab، أنشئ mapping بسيط داخل profile.tsx:
+- shellTab -> activeView
+- activeView -> shellTab
+بدون تغيير نظام activeView الأصلي.
+
+الخطوة 6: لفّ واجهة الصفحة داخل Shell عند تفعيل الفلاج
+في return:
+- إذا USE_ACADEMIC_SHELL = true:
+  استخدم:
+  <AcademicProfileShell ...props>
+     (ضع هنا منطقة المحتوى الحالية فقط: تبويبات/قوائم/كروت — لكن بدون هيدر الغلاف القديم وبدون شريط التبويبات القديم)
+  </AcademicProfileShell>
+
+- إذا USE_ACADEMIC_SHELL = false:
+  ارجع التصميم القديم كما هو بالكامل.
+
+مهم:
+- عندما نستخدم Shell الجديد: لا تكرر شريط التبويبات القديم (Navigation Pills) لأن Shell لديه Tab Bar.
+- لا تكرر قسم الغلاف/الهيدر القديم (Cover/Header) لأن Shell لديه Header.
+
+الخطوة 7: الديالوجات تبقى خارج الشرط أو داخل بشكل آمن
+تأكد أن Dialogs في أسفل return ما تختفي.
+إذا كانت حالياً داخل JSX القديم، انقلها بحيث تبقى تعمل في الحالتين (Shell أو Old).
+والأهم: لا تغيّر المنطق الداخلي لها.
+
+التحقق النهائي (Acceptance Checklist)
+1) الصفحة تعمل مع USE_ACADEMIC_SHELL=true بدون أخطاء.
+2) التبديل بين التبويبات في Shell يغير activeView فعلاً ويعرض نفس المحتوى الحالي.
+3) زر القلم في Shell يفتح نفس نافذة التحرير الموحدة (ولا يغلق عند الضغط داخلها).
+4) المتابع/يتابع/منشورات تظهر في Shell بأرقام صحيحة.
+5) عند USE_ACADEMIC_SHELL=false يرجع التصميم القديم كما كان 100%.
+
+لا تنفّذ أي تغييرات تصميم إضافية الآن (ألوان/خطوط) خارج نطاق الدمج. المطلوب دمج آمن فقط.

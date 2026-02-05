@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute, Link } from "wouter";
 import { useDaamStore, type ReportReason, ADMIN_EMAILS } from "@/hooks/use-daam-store";
+import { AcademicProfileShell, type ProfileTab } from "@/components/profile/AcademicProfileShell";
 
 const GOVERNORATES = {
   ar: [
@@ -201,6 +202,29 @@ function saveCoverToStorage(userId: string, coverUrl: string | null): void {
     // Storage error, ignore
   }
 }
+
+// Feature flag for new Academic Shell UI
+const USE_ACADEMIC_SHELL = true;
+
+// Tab mapping between AcademicProfileShell and activeView
+const shellTabToActiveView: Record<ProfileTab, 'dashboard' | 'posts' | 'saved' | 'library' | 'interests'> = {
+  posts: 'posts',
+  materials: 'library',
+  research: 'interests',
+  activity: 'dashboard',
+  saved: 'saved',
+};
+
+const activeViewToShellTab = (view: string): ProfileTab => {
+  switch (view) {
+    case 'posts': return 'posts';
+    case 'library': return 'materials';
+    case 'interests': return 'research';
+    case 'dashboard': return 'activity';
+    case 'saved': return 'saved';
+    default: return 'activity';
+  }
+};
 
 export default function Profile() {
   const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
@@ -653,6 +677,837 @@ export default function Profile() {
   const LIGHT_BG = '#F4F5FB';
   const profileBg = isDarkMode ? DARK_BG : LIGHT_BG;
 
+  // Prepare data for AcademicProfileShell
+  const shellDisplayName = profile?.name || profileEmail.split('@')[0];
+  const shellSubtitleLine1 = profile?.major 
+    ? `${profile.major}${profile.level ? ` (${profile.level})` : ''}${profile.university ? ` – ${profile.university}` : ''}`
+    : undefined;
+  const shellStats = {
+    posts: userPosts.length,
+    followers: profile?.followers?.length || 0,
+    following: profile?.following?.length || 0,
+  };
+
+  // Handler for opening the unified edit dialog from Shell
+  const handleShellEditClick = () => {
+    setEditTab('info');
+    setShowUnifiedEditDialog(true);
+    setEditForm({
+      name: profile?.name || '',
+      major: profile?.major || '',
+      university: profile?.university || '',
+      level: profile?.level || '',
+      bio: profile?.bio || '',
+      interests: profile?.interests || [],
+      showFavorites: profile?.showFavorites !== false,
+      showInterests: profile?.showInterests !== false
+    });
+    const account = user?.email ? getAccount(user.email) : undefined;
+    setPrivateEditForm({
+      phone: account?.phone || '',
+      governorate: account?.region?.governorate || '',
+      wilayat: account?.region?.wilayat || ''
+    });
+    setPrivateEditErrors({});
+    setTempCover(null);
+    setTempAvatar(null);
+  };
+
+  // USE_ACADEMIC_SHELL: New Shell Layout
+  if (USE_ACADEMIC_SHELL) {
+    return (
+      <div data-testid="profile-page" key={profileEmail ?? "me"}>
+        {/* Hidden file inputs for edit dialog */}
+        <input
+          ref={coverInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e, 'cover')}
+          className="hidden"
+        />
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e, 'avatar')}
+          className="hidden"
+        />
+
+        <AcademicProfileShell
+          coverUrl={coverImage}
+          avatarUrl={profile?.avatarUrl}
+          displayName={shellDisplayName}
+          subtitleLine1={shellSubtitleLine1}
+          bio={profile?.bio}
+          stats={shellStats}
+          isOwner={isOwnProfile}
+          isRTL={isRTL}
+          onEditClick={handleShellEditClick}
+          onFollowClick={() => toggleFollow(profileEmail)}
+          onMessageClick={() => {
+            const dmCheck = canSendDM(profileEmail);
+            if (dmCheck.allowed) {
+              navigate(`/messages?to=${encodeURIComponent(profileEmail)}`);
+            }
+          }}
+          activeTab={activeViewToShellTab(activeView)}
+          onTabChange={(tab) => setActiveView(shellTabToActiveView[tab])}
+        >
+          {/* Render content based on activeView */}
+          {activeView === 'dashboard' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              {/* Activity Card */}
+              <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+                <CardHeader className="p-6 pb-4">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                    {tr.activity}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 pt-0 space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                      <p className="text-2xl font-semibold">{userPosts.length}</p>
+                      <p className="text-xs text-muted-foreground">{tr.posts}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                      <p className="text-2xl font-semibold">{likedPosts.length}</p>
+                      <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'إعجاب' : 'Likes'}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50 dark:bg-white/5">
+                      <p className="text-2xl font-semibold">{userReplies.length}</p>
+                      <p className="text-xs text-muted-foreground">{tr.replies}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Posts Preview Card */}
+              <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+                <CardHeader className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                      {tr.posts}
+                    </CardTitle>
+                    {userPosts.length > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setActiveView('posts')}
+                        className="gap-1 text-xs"
+                      >
+                        {tr.viewAll}
+                        <ChevronRight className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {userPosts.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">{tr.noPosts}</p>
+                    </div>
+                  ) : (
+                    userPosts.slice(0, 2).map(post => renderPostCard(post, true))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Saved Preview Card */}
+              <Card className="bg-gradient-to-b from-white/5 to-white/[0.02] dark:from-white/5 dark:to-white/[0.02] border border-white/10 dark:border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 rounded-2xl">
+                <CardHeader className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Bookmark className="w-4 h-4 text-muted-foreground" />
+                      {tr.saved}
+                    </CardTitle>
+                    {savedPosts.length > 0 && canViewFavorites && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setActiveView('saved')}
+                        className="gap-1 text-xs"
+                      >
+                        {tr.viewAll}
+                        <ChevronRight className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {!canViewFavorites && !isOwnProfile ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Lock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">{tr.private}</p>
+                    </div>
+                  ) : savedPosts.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Bookmark className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">{tr.noSavedPosts}</p>
+                    </div>
+                  ) : (
+                    savedPosts.slice(0, 2).map(post => renderPostCard(post, true))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Posts View */}
+          {activeView === 'posts' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">{tr.posts}</h2>
+              {userPosts.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{tr.noPosts}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {userPosts.map(post => renderPostCard(post))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Saved View */}
+          {activeView === 'saved' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">{tr.saved}</h2>
+              {!canViewFavorites && !isOwnProfile ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <Lock className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{tr.private}</p>
+                  </CardContent>
+                </Card>
+              ) : savedPosts.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <Bookmark className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{tr.noSavedPosts}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {savedPosts.map(post => renderPostCard(post))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Library View (Materials tab) */}
+          {activeView === 'library' && isOwnProfile && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge 
+                  variant={libraryFilter === 'saved' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('saved')}
+                >
+                  {lang === 'ar' ? 'المحفوظات' : 'Saved'}
+                </Badge>
+                <Badge 
+                  variant={libraryFilter === 'files' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('files')}
+                >
+                  {lang === 'ar' ? 'الملفات' : 'Files'}
+                </Badge>
+                <Badge 
+                  variant={libraryFilter === 'summaries' ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setLibraryFilter('summaries')}
+                >
+                  {lang === 'ar' ? 'الملخصات' : 'Summaries'}
+                </Badge>
+              </div>
+              
+              {libraryFilter === 'saved' && (
+                savedPosts.length === 0 ? (
+                  <Card className="bg-card/50">
+                    <CardContent className="text-center py-12">
+                      <Bookmark className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">{tr.noSavedPosts}</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {savedPosts.map(post => renderPostCard(post))}
+                  </div>
+                )
+              )}
+              
+              {libraryFilter === 'files' && (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{lang === 'ar' ? 'لا توجد ملفات بعد' : 'No files yet'}</p>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {libraryFilter === 'summaries' && (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{lang === 'ar' ? 'لا توجد ملخصات بعد' : 'No summaries yet'}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Interests View (Research tab) */}
+          {activeView === 'interests' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">{lang === 'ar' ? 'الاهتمامات' : 'Interests'}</h2>
+              {!canViewInterests && !isOwnProfile ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <Lock className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{tr.private}</p>
+                  </CardContent>
+                </Card>
+              ) : (profile?.interests?.length || 0) === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="text-center py-12">
+                    <Hash className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">{lang === 'ar' ? 'لا توجد اهتمامات بعد' : 'No interests yet'}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {profile?.interests?.map((interest, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-sm">
+                      {interest}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </AcademicProfileShell>
+
+        {/* Followers Dialog */}
+        <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {lang === 'ar' ? 'المتابعون' : 'Followers'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2">
+              {(profile?.followers?.length || 0) === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {lang === 'ar' ? 'لا يوجد متابعون بعد' : 'No followers yet'}
+                </p>
+              ) : (
+                profile?.followers?.map((followerEmail) => {
+                  const followerProfile = getProfile(followerEmail);
+                  return (
+                    <button
+                      type="button"
+                      key={followerEmail}
+                      className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
+                      data-testid={`follower-${followerEmail}`}
+                      onClick={() => {
+                        setShowFollowersDialog(false);
+                        requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followerEmail)}`));
+                      }}
+                    >
+                      <Avatar className="w-10 h-10 border border-border">
+                        <AvatarImage src={followerProfile?.avatarUrl} />
+                        <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                          {(followerProfile?.name || followerEmail.split('@')[0]).substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">
+                          {followerProfile?.name || followerEmail.split('@')[0]}
+                        </p>
+                        {followerProfile?.major && (
+                          <p className="text-xs text-muted-foreground truncate">{followerProfile.major}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Following Dialog */}
+        <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {lang === 'ar' ? 'يتابع' : 'Following'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2">
+              {(profile?.following?.length || 0) === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {lang === 'ar' ? 'لا يتابع أحد بعد' : 'Not following anyone yet'}
+                </p>
+              ) : (
+                profile?.following?.map((followingEmail) => {
+                  const followingProfile = getProfile(followingEmail);
+                  return (
+                    <button
+                      type="button"
+                      key={followingEmail}
+                      className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate transition-colors w-full text-left"
+                      data-testid={`following-${followingEmail}`}
+                      onClick={() => {
+                        setShowFollowingDialog(false);
+                        requestAnimationFrame(() => navigate(`/profile/${encodeURIComponent(followingEmail)}`));
+                      }}
+                    >
+                      <Avatar className="w-10 h-10 border border-border">
+                        <AvatarImage src={followingProfile?.avatarUrl} />
+                        <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                          {(followingProfile?.name || followingEmail.split('@')[0]).substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">
+                          {followingProfile?.name || followingEmail.split('@')[0]}
+                        </p>
+                        {followingProfile?.major && (
+                          <p className="text-xs text-muted-foreground truncate">{followingProfile.major}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Avatar Preview Dialog */}
+        <Dialog open={showAvatarPreview} onOpenChange={setShowAvatarPreview}>
+          <DialogContent 
+            className="max-w-md p-0 border-0 bg-transparent shadow-none"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <div className="relative flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <Avatar className="w-64 h-64 md:w-80 md:h-80 ring-4 ring-white/20">
+                {profile?.avatarUrl ? (
+                  <AvatarImage src={profile.avatarUrl} />
+                ) : null}
+                <AvatarFallback className="text-6xl md:text-7xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                  {getInitials(profileEmail)}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute -top-2 -right-2 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background"
+                onClick={() => setShowAvatarPreview(false)}
+                data-testid="button-close-avatar-preview"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Report User Dialog */}
+        <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Flag className="w-5 h-5 text-amber-500" />
+                {tr.reportUser}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{tr.reportReason}</Label>
+                <Select value={reportReason} onValueChange={(val) => setReportReason(val as ReportReason)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={tr.selectReason} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="spam">{lang === 'ar' ? 'سبام / إزعاج' : 'Spam'}</SelectItem>
+                    <SelectItem value="harassment">{lang === 'ar' ? 'تحرش / مضايقة' : 'Harassment'}</SelectItem>
+                    <SelectItem value="inappropriate">{lang === 'ar' ? 'محتوى غير لائق' : 'Inappropriate'}</SelectItem>
+                    <SelectItem value="misinformation">{lang === 'ar' ? 'معلومات مضللة' : 'Misinformation'}</SelectItem>
+                    <SelectItem value="other">{lang === 'ar' ? 'سبب آخر' : 'Other'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{tr.reportNote}</Label>
+                <Textarea
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                  placeholder={lang === 'ar' ? 'صف المشكلة...' : 'Describe the problem...'}
+                  className="min-h-[80px] resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setReportModalOpen(false)} className="flex-1">
+                  {tr.cancel}
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (reportReason && user?.email) {
+                      submitReport('user', profileEmail, profile?.name || profileEmail, reportReason as ReportReason, reportNote || undefined);
+                      toast({ title: tr.reportSuccess, description: tr.reportSuccessDesc });
+                      setReportModalOpen(false);
+                      setReportReason('');
+                      setReportNote('');
+                    }
+                  }}
+                  disabled={!reportReason}
+                  className="flex-1"
+                >
+                  {tr.reportSubmit}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Unified Edit Profile Dialog */}
+        <Dialog open={showUnifiedEditDialog} onOpenChange={setShowUnifiedEditDialog}>
+          <DialogContent 
+            className="max-w-md max-h-[85vh] overflow-y-auto"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>{tr.editProfile}</DialogTitle>
+            </DialogHeader>
+
+            {/* Tab Navigation */}
+            <div className="flex gap-1 mt-4 p-1 bg-muted rounded-lg">
+              {(['cover', 'avatar', 'info', 'account'] as const).map((tab) => (
+                <Button
+                  key={tab}
+                  variant={editTab === tab ? 'default' : 'ghost'}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setEditTab(tab)}
+                  data-testid={`tab-edit-${tab}`}
+                >
+                  {tab === 'cover' && (lang === 'ar' ? 'الغلاف' : 'Cover')}
+                  {tab === 'avatar' && (lang === 'ar' ? 'الصورة' : 'Photo')}
+                  {tab === 'info' && (lang === 'ar' ? 'المعلومات' : 'Info')}
+                  {tab === 'account' && (lang === 'ar' ? 'الحساب' : 'Account')}
+                </Button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="mt-4">
+              {/* Cover Tab */}
+              {editTab === 'cover' && (
+                <div className="space-y-4">
+                  <div className="relative aspect-[3/1] rounded-lg overflow-hidden bg-muted">
+                    {(tempCover || storedCover || profile?.coverUrl) ? (
+                      <img 
+                        src={tempCover || storedCover || profile?.coverUrl} 
+                        alt="Cover preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-zinc-700 via-zinc-800 to-zinc-900 flex items-center justify-center">
+                        <ImageIcon className="w-8 h-8 text-zinc-500" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => coverInputRef.current?.click()}
+                      className="flex-1 gap-1.5"
+                      data-testid="button-upload-cover"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      {lang === 'ar' ? 'رفع غلاف' : 'Upload Cover'}
+                    </Button>
+                    {(tempCover || storedCover || profile?.coverUrl) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          handleRemoveCover();
+                          setTempCover(null);
+                        }}
+                        className="gap-1.5 text-destructive hover:text-destructive"
+                        data-testid="button-remove-cover-dialog"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {lang === 'ar' ? 'إزالة' : 'Remove'}
+                      </Button>
+                    )}
+                  </div>
+                  {tempCover && (
+                    <Button
+                      onClick={() => {
+                        handleSaveCover();
+                      }}
+                      className="w-full gap-1.5"
+                      data-testid="button-save-cover-dialog"
+                    >
+                      <Check className="w-4 h-4" />
+                      {lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Avatar Tab */}
+              {editTab === 'avatar' && (
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <div className="relative">
+                      <Avatar className="w-28 h-28 ring-2 ring-border">
+                        {(tempAvatar || profile?.avatarUrl) ? (
+                          <AvatarImage src={tempAvatar || profile?.avatarUrl} />
+                        ) : null}
+                        <AvatarFallback className="text-3xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                          {getInitials(profileEmail)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="w-full gap-1.5"
+                    data-testid="button-upload-avatar"
+                  >
+                    <Camera className="w-4 h-4" />
+                    {lang === 'ar' ? 'رفع صورة' : 'Upload Photo'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Info Tab */}
+              {editTab === 'info' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>{tr.name}</Label>
+                    <Input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder={tr.name}
+                      data-testid="input-edit-name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label>{tr.major}</Label>
+                      <Input
+                        value={editForm.major}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, major: e.target.value }))}
+                        placeholder={tr.major}
+                        data-testid="input-edit-major"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{tr.level}</Label>
+                      <Input
+                        value={editForm.level}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, level: e.target.value }))}
+                        placeholder={tr.level}
+                        data-testid="input-edit-level"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{tr.university}</Label>
+                    <Input
+                      value={editForm.university}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, university: e.target.value }))}
+                      placeholder={tr.university}
+                      data-testid="input-edit-university"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{tr.bio}</Label>
+                    <Textarea
+                      value={editForm.bio}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                      placeholder={tr.bio}
+                      className="min-h-[80px] resize-none"
+                      data-testid="input-edit-bio"
+                    />
+                  </div>
+                  
+                  {/* Privacy toggles */}
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{tr.showFavorites}</span>
+                      <Button
+                        size="sm"
+                        variant={editForm.showFavorites ? 'default' : 'outline'}
+                        onClick={() => setEditForm(prev => ({ ...prev, showFavorites: !prev.showFavorites }))}
+                        data-testid="toggle-favorites-dialog"
+                      >
+                        {editForm.showFavorites ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{tr.showInterests}</span>
+                      <Button
+                        size="sm"
+                        variant={editForm.showInterests ? 'default' : 'outline'}
+                        onClick={() => setEditForm(prev => ({ ...prev, showInterests: !prev.showInterests }))}
+                        data-testid="toggle-interests-dialog"
+                      >
+                        {editForm.showInterests ? (lang === 'ar' ? 'عام' : 'Public') : (lang === 'ar' ? 'خاص' : 'Private')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Account Tab */}
+              {editTab === 'account' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Mail className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                      </p>
+                      <p className="font-medium text-sm">{user?.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>{tr.phoneLabel}</Label>
+                    <Input
+                      type="tel"
+                      value={privateEditForm.phone}
+                      onChange={(e) => { 
+                        setPrivateEditForm(prev => ({ ...prev, phone: e.target.value })); 
+                        setPrivateEditErrors(prev => ({ ...prev, phone: '' }));
+                      }}
+                      placeholder={lang === 'ar' ? 'أدخل رقم الهاتف' : 'Enter phone number'}
+                      className={privateEditErrors.phone ? 'border-destructive' : ''}
+                      dir="ltr"
+                      data-testid="input-account-phone"
+                    />
+                    {privateEditErrors.phone && <p className="text-sm text-destructive">{privateEditErrors.phone}</p>}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>{tr.governorateLabel}</Label>
+                      <Select 
+                        value={privateEditForm.governorate} 
+                        onValueChange={(val) => { 
+                          setPrivateEditForm(prev => ({ ...prev, governorate: val, wilayat: '' }));
+                          setPrivateEditErrors(prev => ({ ...prev, governorate: '' }));
+                        }}
+                      >
+                        <SelectTrigger className={privateEditErrors.governorate ? 'border-destructive' : ''} data-testid="select-account-governorate">
+                          <SelectValue placeholder={tr.selectGovernorate} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {governorates.map((gov) => (
+                            <SelectItem key={gov.value} value={gov.value}>{gov.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {privateEditErrors.governorate && <p className="text-sm text-destructive">{privateEditErrors.governorate}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{tr.wilayatLabel}</Label>
+                      <Select 
+                        value={privateEditForm.wilayat} 
+                        onValueChange={(val) => { 
+                          setPrivateEditForm(prev => ({ ...prev, wilayat: val }));
+                          setPrivateEditErrors(prev => ({ ...prev, wilayat: '' }));
+                        }}
+                        disabled={!privateEditForm.governorate}
+                      >
+                        <SelectTrigger className={privateEditErrors.wilayat ? 'border-destructive' : ''} data-testid="select-account-wilayat">
+                          <SelectValue placeholder={tr.selectWilayat} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {wilayatOptions.map((wil, idx) => (
+                            <SelectItem key={idx} value={wil.en}>{lang === 'ar' ? wil.ar : wil.en}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {privateEditErrors.wilayat && <p className="text-sm text-destructive">{privateEditErrors.wilayat}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Dialog Actions */}
+            <div className="flex gap-2 pt-4 border-t mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowUnifiedEditDialog(false);
+                  setTempCover(null);
+                  setTempAvatar(null);
+                  setPrivateEditErrors({});
+                }}
+                className="flex-1"
+                data-testid="button-cancel-edit-dialog"
+              >
+                {tr.cancel}
+              </Button>
+              <Button
+                onClick={() => {
+                  handleSaveProfile();
+                  if (user?.email) {
+                    const existingAccount = getAccount(user.email);
+                    const updates: { phone?: string; region?: { governorate: string; wilayat: string } } = {};
+                    if (privateEditForm.phone && privateEditForm.phone.trim()) {
+                      updates.phone = privateEditForm.phone;
+                    } else if (existingAccount?.phone) {
+                      updates.phone = existingAccount.phone;
+                    }
+                    if (privateEditForm.governorate && privateEditForm.wilayat) {
+                      updates.region = {
+                        governorate: privateEditForm.governorate,
+                        wilayat: privateEditForm.wilayat
+                      };
+                    } else if (existingAccount?.region) {
+                      updates.region = existingAccount.region;
+                    }
+                    if (Object.keys(updates).length > 0) {
+                      updateAccount(user.email, updates);
+                    }
+                  }
+                  setShowUnifiedEditDialog(false);
+                  setPrivateEditErrors({});
+                }}
+                className="flex-1"
+                data-testid="button-save-edit-dialog"
+              >
+                <Check className="w-4 h-4 me-1.5" />
+                {tr.save}
+              </Button>
+            </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // OLD LAYOUT (when USE_ACADEMIC_SHELL = false)
   return (
     <div 
       className="min-h-screen pb-8" 
