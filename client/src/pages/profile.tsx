@@ -1059,7 +1059,6 @@ export default function Profile() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-8 w-8"
                               onClick={() => {
                                 setEditingMaterial(item);
                                 setEditMaterialForm({ title: item.title, url: item.url || '' });
@@ -1072,7 +1071,7 @@ export default function Profile() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              className="text-destructive"
                               onClick={() => {
                                 setDeletingMaterialId(item.id);
                                 setShowDeleteMaterialConfirm(true);
