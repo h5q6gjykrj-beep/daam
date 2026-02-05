@@ -1,0 +1,62 @@
+هدف المهمة: إنشاء واجهة UI جديدة لصفحة الملف الشخصي (Profile) باسم "AcademicProfileShell" بدون تغيير المنطق الحالي أو حذف أي أدوات/تبويبات موجودة.
+
+الملفات:
+1) أنشئ ملف جديد: client/src/components/profile/AcademicProfileShell.tsx
+2) لا تعدّل المنطق داخل profile.tsx الآن، فقط سنستورد هذا الملف لاحقاً.
+
+المطلوب داخل AcademicProfileShell:
+- Component يستقبل props جاهزة فقط (بدون جلب بيانات، بدون localStorage، بدون useEffect):
+  props المقترحة:
+  - coverUrl?: string
+  - avatarUrl?: string
+  - displayName: string
+  - subtitleLine1?: string (مثال: "علوم الحاسوب – UTAS")
+  - subtitleLine2?: string (مثال: "المستوى 10 • مبتكر")
+  - bio?: string
+  - stats: { posts: number; followers: number; following: number }
+  - isOwner: boolean
+  - onEditClick?: () => void
+  - onFollowClick?: () => void
+  - onMessageClick?: () => void
+  - activeTab: "posts"|"materials"|"research"|"activity"|"saved"
+  - onTabChange: (tab) => void
+  - children: ReactNode (لعرض محتوى التبويب الحالي)
+
+تصميم UI المطلوب (Dark + Light):
+A) Header غلاف بعرض كامل (full-bleed) داخل الصفحة:
+   - ارتفاع ~260px موبايل، ~320px ديسكتوب
+   - إن كانت coverUrl موجودة: اعرض صورة cover كـ background
+   - ضع عليها Overlay احترافي يدمج الغلاف مع لون الخلفية:
+     overlay متعدد الطبقات:
+       1) from-transparent at top → to-background at bottom (تدرج قوي)
+       2) blur خفيف أسفل الغلاف (backdrop-blur) + vignette بسيط
+   - لو لا يوجد coverUrl: استخدم gradient متوافق مع الثيم.
+
+B) Identity Center فوق الغلاف:
+   - الصورة الشخصية دائرية (96px موبايل / 112px ديسكتوب) ومثبتة أعلى منتصف الغلاف (top-center)
+   - الاسم تحتها بحجم متزن (ليس ضخم): text-2xl md:text-3xl font-bold
+   - سطرين معلومات + bio مختصر (max-w)
+   - خط رفيع divider قبل stats
+
+C) Stats row (منشور | متابع | يتابع):
+   - صف واحد متوازن + separator خط رفيع فوقه
+
+D) أزرار:
+   - للزائر: "متابعة" و "رسالة"
+   - للمالك: زر واحد فقط (أيقونة قلم) صغير في زاوية الهيدر يفتح onEditClick
+   - لا تضع أزرار تعديل متعددة داخل الصفحة.
+
+E) Tab bar تحت الهوية:
+   - 5 تبويبات: المنشورات، المواد، البحوث، النشاط، المحفوظات
+   - تصميم Tabs خفيف مثل segmented control (pill)
+   - يدعم RTL
+
+F) محتوى التبويب:
+   - اعرض children أسفل التبويبات داخل container max-w-6xl مع padding مناسب.
+
+شروط:
+- استخدم Tailwind + shadcn/ui إن احتجت (Button/Separator)
+- احترم dark/light عبر classes: bg-background, text-foreground, border-border
+- لا تكسر RTL
+- لا تستورد شيء من profile.tsx
+- اكتب الكود نظيف وقابل لإعادة الاستخدام
