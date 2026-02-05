@@ -73,93 +73,87 @@ export function AcademicProfileShell({
         }
       `}</style>
 
-      {/* A) HEADER - Full-bleed cover using w-screen technique */}
+      {/* A) HEADER - Full-bleed cover, clean image without overlays */}
       <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
-        <div className="relative h-[280px] md:h-[340px] overflow-hidden">
-          {/* Cover image or gradient fallback */}
+        <div className="relative h-[220px] md:h-[280px] overflow-hidden">
+          {/* Cover image or gradient fallback - NO overlays */}
           {coverUrl ? (
             <img
               src={coverUrl}
               alt="Cover"
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
               data-testid="img-profile-cover"
             />
           ) : (
             <div 
               className="absolute inset-0 w-full h-full"
               style={{
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 50%, var(--daam-page-bg) 100%)'
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(139, 92, 246, 0.3) 50%, rgba(99, 102, 241, 0.2) 100%)'
               }}
             />
           )}
-
-          {/* No overlay layers - cover image is 100% clear */}
 
           {/* Owner edit button - styled with its own background only */}
           {isOwner && onEditClick && (
             <Button
               size="icon"
               variant="ghost"
-              className="absolute top-4 start-4 z-50 bg-black/30 border-none text-white hover:bg-black/50 shadow-lg"
+              className="absolute top-4 end-4 z-50 bg-black/30 border-none text-white hover:bg-black/50 shadow-lg"
               onClick={onEditClick}
               data-testid="button-edit-profile"
             >
               <Pencil className="w-4 h-4" />
             </Button>
           )}
-
-          {/* Identity section positioned inside cover (Design C style) */}
-          <div className="absolute bottom-6 left-0 right-0 z-20">
-            <div className="mx-auto max-w-[1100px] px-4 md:px-6">
-              <div className="flex flex-col items-center text-center">
-                {/* Avatar with soft ring */}
-                <Avatar 
-                  className="w-20 h-20 md:w-24 md:h-24 ring-2 ring-white/30 shadow-2xl" 
-                  data-testid="avatar-profile"
-                >
-                  {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt={displayName} />
-                  ) : null}
-                  <AvatarFallback className="text-xl md:text-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-
-                {/* Name - sized per Design C spec */}
-                <h1 
-                  className="mt-3 text-2xl md:text-3xl font-semibold text-white drop-shadow-lg" 
-                  data-testid="text-profile-name"
-                >
-                  {displayName}
-                </h1>
-
-                {/* Subtitle lines */}
-                {subtitleLine1 && (
-                  <p 
-                    className="mt-1 text-xs md:text-sm text-white/80 drop-shadow" 
-                    data-testid="text-profile-subtitle1"
-                  >
-                    {subtitleLine1}
-                  </p>
-                )}
-                {subtitleLine2 && (
-                  <p 
-                    className="text-xs text-white/60" 
-                    data-testid="text-profile-subtitle2"
-                  >
-                    {subtitleLine2}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* B) IDENTITY CONTINUATION - bio, separator, stats, actions */}
-      <div className="relative z-10 -mt-2">
-        <div className="mx-auto max-w-[1100px] px-4 md:px-6">
-          <div className="flex flex-col items-center text-center">
+      {/* B) IDENTITY DOCK - Right-aligned in RTL, with overlapping avatar */}
+      <div className="relative z-10 mx-auto max-w-[1100px] px-4 md:px-6">
+        <div className={`flex ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
+          {/* Avatar - Overlapping the cover (half in, half out) */}
+          <div className={`relative -mt-12 md:-mt-14 ${isRTL ? 'ml-4 md:ml-6' : 'mr-4 md:mr-6'}`}>
+            <Avatar 
+              className="w-24 h-24 md:w-28 md:h-28 ring-4 ring-background shadow-xl" 
+              data-testid="avatar-profile"
+            >
+              {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={displayName} />
+              ) : null}
+              <AvatarFallback className="text-xl md:text-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+
+          {/* Identity content - Right-aligned in RTL */}
+          <div className={`flex-1 pt-3 ${isRTL ? 'text-right' : 'text-left'}`}>
+            {/* Name */}
+            <h1 
+              className="text-2xl md:text-3xl font-semibold text-foreground" 
+              data-testid="text-profile-name"
+            >
+              {displayName}
+            </h1>
+
+            {/* Subtitle lines */}
+            {subtitleLine1 && (
+              <p 
+                className="mt-1 text-xs md:text-sm text-muted-foreground" 
+                data-testid="text-profile-subtitle1"
+              >
+                {subtitleLine1}
+              </p>
+            )}
+            {subtitleLine2 && (
+              <p 
+                className="text-xs text-muted-foreground/70" 
+                data-testid="text-profile-subtitle2"
+              >
+                {subtitleLine2}
+              </p>
+            )}
+
             {/* Bio */}
             {bio && (
               <p className="mt-2 text-sm text-muted-foreground max-w-md" data-testid="text-profile-bio">
@@ -167,11 +161,8 @@ export function AcademicProfileShell({
               </p>
             )}
 
-            {/* Thin separator line before stats (Design C) */}
-            <div className="my-4 w-full max-w-xs h-px bg-border/50" />
-
-            {/* C) STATS ROW */}
-            <div className="flex items-center gap-6 text-sm" data-testid="stats-row">
+            {/* Stats row - Right-aligned in RTL */}
+            <div className={`flex items-center gap-4 md:gap-6 mt-4 text-sm ${isRTL ? 'justify-start' : 'justify-start'}`} data-testid="stats-row">
               <div className="flex flex-col items-center">
                 <span className="font-semibold text-foreground">{stats.posts}</span>
                 <span className="text-xs text-muted-foreground">{isRTL ? "منشور" : "Posts"}</span>
@@ -188,9 +179,9 @@ export function AcademicProfileShell({
               </div>
             </div>
 
-            {/* D) ACTION BUTTONS */}
+            {/* Action buttons for visitors - Right-aligned in RTL */}
             {!isOwner && (
-              <div className="flex gap-3 mt-4" data-testid="action-buttons">
+              <div className={`flex gap-3 mt-4 ${isRTL ? 'justify-start' : 'justify-start'}`} data-testid="action-buttons">
                 {onFollowClick && (
                   <Button onClick={onFollowClick} className="gap-1.5" data-testid="button-follow">
                     <UserPlus className="w-4 h-4" />
@@ -209,11 +200,11 @@ export function AcademicProfileShell({
         </div>
       </div>
 
-      {/* E) TAB BAR */}
+      {/* C) TAB BAR - Starts from right in RTL */}
       <div className="mt-6 border-b border-border/50">
         <div className="mx-auto max-w-[1100px] px-4 md:px-6">
           <div 
-            className="flex items-center gap-1 overflow-x-auto pb-px scrollbar-hide"
+            className={`flex items-center gap-1 overflow-x-auto pb-px scrollbar-hide ${isRTL ? 'justify-start' : 'justify-start'}`}
             role="tablist"
             data-testid="profile-tabs"
           >
@@ -239,7 +230,7 @@ export function AcademicProfileShell({
         </div>
       </div>
 
-      {/* F) TAB CONTENT */}
+      {/* D) TAB CONTENT */}
       <div className="mx-auto max-w-[1100px] px-4 md:px-6 py-6" data-testid="profile-content">
         {children}
       </div>
