@@ -136,14 +136,24 @@ const DialogContent = React.forwardRef<
                 className="fixed inset-0 bg-black/80 will-change-[opacity]"
               />
             </DialogPrimitive.Overlay>
-            <DialogPrimitive.Content ref={ref} forceMount {...props} className="contents">
+            <DialogPrimitive.Content
+              ref={ref}
+              forceMount
+              {...props}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+              onPointerDownOutside={(e) => {
+                const target = e.target as HTMLElement
+                if (target?.closest?.('[data-radix-select-content]')) {
+                  e.preventDefault()
+                }
+              }}
+            >
               <motion.div
                 initial="hidden"
                 animate="visible"
                 exit="hidden"
                 variants={contentVariants}
                 transition={{ duration, ease: ANIMATION_EASE }}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
               >
                 <div
                   className={cn(
