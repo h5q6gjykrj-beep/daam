@@ -1508,14 +1508,18 @@ export default function Feed() {
                       )}
 
                       {post.imageUrl && (
-                        <div className="mt-3 aspect-square overflow-hidden rounded-xl bg-muted">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAttachment({ url: post.imageUrl!, name: 'post-image.png', type: 'image', size: 0 } as Attachment); }}
+                          className="w-full mt-3 aspect-square overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                          data-testid={`button-post-image-${post.id}`}
+                        >
                           <img 
                             src={post.imageUrl} 
                             alt="" 
                             className="w-full h-full object-cover object-center"
                             loading="lazy"
                           />
-                        </div>
+                        </button>
                       )}
 
                       {post.attachments && post.attachments.length > 0 && (
