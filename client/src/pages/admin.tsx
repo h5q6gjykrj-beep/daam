@@ -505,6 +505,7 @@ export default function Admin() {
     hidden: lang === 'ar' ? 'مخفي' : 'Hidden',
     deleted: lang === 'ar' ? 'محذوف' : 'Deleted',
     open: lang === 'ar' ? 'مفتوح' : 'Open',
+    newReports: lang === 'ar' ? 'جديدة' : 'New',
     in_review: lang === 'ar' ? 'قيد المراجعة' : 'In Review',
     resolved: lang === 'ar' ? 'تم الحل' : 'Resolved',
     dismissed: lang === 'ar' ? 'مرفوض' : 'Dismissed',
@@ -1356,7 +1357,10 @@ export default function Admin() {
       .filter(r => {
         const matchesSearch = r.targetTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.reason.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+        const matchesStatus = statusFilter === 'all'
+          || (statusFilter === 'new'
+            ? (r.status === 'open' && new Date(r.createdAt) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+            : r.status === statusFilter);
         const matchesPriority = priorityFilter === 'all' || (r.priority || 'low') === priorityFilter;
         return matchesSearch && matchesStatus && matchesPriority;
       })
@@ -1889,6 +1893,7 @@ export default function Admin() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{tr.all}</SelectItem>
+              <SelectItem value="new">{tr.newReports}</SelectItem>
               <SelectItem value="open">{tr.open}</SelectItem>
               <SelectItem value="in_review">{tr.in_review}</SelectItem>
               <SelectItem value="resolved">{tr.resolved}</SelectItem>
