@@ -1238,10 +1238,10 @@ export default function Feed() {
                 onClick={() => navigate(`/post/${post.id}`)}
               >
                 <CardContent className="p-4">
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 items-start">
                     <Link 
                       href={`/profile/${encodeURIComponent(post.authorEmail)}`}
-                      className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="flex-shrink-0 self-start cursor-pointer hover:opacity-80 transition-opacity"
                       data-testid={`link-avatar-${post.id}`}
                       onClick={(e) => e.stopPropagation()}
                     >
