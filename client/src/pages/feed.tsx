@@ -1323,7 +1323,7 @@ export default function Feed() {
                           <DropdownMenuContent align={isRTL ? "start" : "end"}>
                             {canEditPost(post) && (
                               <DropdownMenuItem 
-                                onClick={() => startEditPost(post)}
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEditPost(post); }}
                                 data-testid={`button-edit-${post.id}`}
                               >
                                 <Pencil className="w-4 h-4 me-2" />
@@ -1423,7 +1423,7 @@ export default function Feed() {
                       </div>
 
                       {editingPostId === post.id ? (
-                        <div className="mt-3 space-y-3">
+                        <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
                           <Textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
