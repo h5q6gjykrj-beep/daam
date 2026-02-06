@@ -199,6 +199,7 @@ interface Report {
   targetId: string;
   targetTitle: string;
   reason: string;
+  note?: string;
   reporter: string;
   reporterEmail: string;
   status: ReportStatus;
@@ -247,6 +248,21 @@ const initialReports: Report[] = [
 
 // Helper to compute priority from reason
 const DEMO_REPORTS_KEY = 'daam_admin_demo_reports_v1';
+
+const getReasonLabel = (reason: string, lang: string): string => {
+  const labels: Record<string, { ar: string; en: string }> = {
+    spam: { ar: 'محتوى مزعج', en: 'Spam' },
+    harassment: { ar: 'تحرش', en: 'Harassment' },
+    hate: { ar: 'خطاب كراهية', en: 'Hate Speech' },
+    hate_speech: { ar: 'خطاب كراهية', en: 'Hate Speech' },
+    impersonation: { ar: 'انتحال شخصية', en: 'Impersonation' },
+    inappropriate: { ar: 'محتوى غير لائق', en: 'Inappropriate' },
+    other: { ar: 'أخرى', en: 'Other' },
+  };
+  const entry = labels[reason.toLowerCase()];
+  if (entry) return lang === 'ar' ? entry.ar : entry.en;
+  return reason;
+};
 
 const computePriority = (reason: string): ReportPriority => {
   const lowerReason = reason.toLowerCase();
@@ -371,6 +387,7 @@ export default function Admin() {
       targetId: r.targetId,
       targetTitle: r.targetTitle,
       reason: r.reason,
+      note: (r as any).note,
       reporter: r.reporter,
       reporterEmail: r.reporterEmail,
       status: r.status,
@@ -1970,7 +1987,7 @@ export default function Admin() {
                       </Badge>
                     </td>
                     <td className="p-3">{getPriorityBadge(r.priority || 'low')}</td>
-                    <td className="p-3 text-muted-foreground max-w-xs truncate">{r.reason}</td>
+                    <td className="p-3 text-muted-foreground max-w-xs truncate">{getReasonLabel(r.reason, lang)}</td>
                     <td className="p-3">{getStatusBadge(r.status, 'report')}</td>
                     <td className="p-3 text-muted-foreground">{r.createdAt}</td>
                     <td className="p-3">
@@ -5646,8 +5663,14 @@ export default function Admin() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{tr.reason}</p>
-                    <p className="font-medium p-3 bg-white/5 rounded-lg">{selectedItem.reason}</p>
+                    <p className="font-medium p-3 bg-white/5 rounded-lg">{getReasonLabel(selectedItem.reason, lang)}</p>
                   </div>
+                  {selectedItem.note && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">{lang === 'ar' ? 'الملاحظة' : 'Note'}</p>
+                      <p className="font-medium p-3 bg-white/5 rounded-lg">{selectedItem.note}</p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">{tr.type}</p>
