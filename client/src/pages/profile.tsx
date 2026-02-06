@@ -4073,6 +4073,25 @@ export default function Profile() {
             {/* Account Tab */}
             {editTab === 'account' && (
               <div className="space-y-4">
+                <div className="pb-2 border-b">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCpForm({ current: '', newPw: '', confirm: '' });
+                      setCpErrors({});
+                      setCpShowCurrent(false);
+                      setCpShowNew(false);
+                      setCpShowConfirm(false);
+                      setCpSubmitted(false);
+                      setShowChangePasswordDialog(true);
+                    }}
+                    className="w-full gap-2"
+                    data-testid="button-change-password"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
+                  </Button>
+                </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
@@ -4145,25 +4164,6 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCpForm({ current: '', newPw: '', confirm: '' });
-                      setCpErrors({});
-                      setCpShowCurrent(false);
-                      setCpShowNew(false);
-                      setCpShowConfirm(false);
-                      setCpSubmitted(false);
-                      setShowChangePasswordDialog(true);
-                    }}
-                    className="w-full gap-2"
-                    data-testid="button-change-password"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
-                  </Button>
-                </div>
               </div>
             )}
           </div>
