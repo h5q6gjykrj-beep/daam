@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, ArrowRight, Heart, MessageSquare, Bookmark, FileText,
-  ExternalLink, Pencil, Shield, Flag, Send, X
+  ExternalLink, Pencil, Shield, Flag, Send, X, MoreVertical, Trash2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
@@ -21,7 +22,7 @@ import type { LocalReply, Attachment } from "@shared/schema";
 export default function PostPage() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord } = useDaamStore();
+  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, canCurrentUser, addAuditEvent } = useDaamStore();
   const { toast } = useToast();
   const isRTL = lang === 'ar';
 
@@ -86,6 +87,39 @@ export default function PostPage() {
     return moderators.some(m => m.email.toLowerCase() === emailLower && m.isActive);
   };
   const isStaff = (email: string) => isAdmin(email) || isModerator(email);
+  const isCurrentUserAdmin = user ? isAdmin(user.email) : false;
+
+  const canDeleteReply = (reply: LocalReply) => {
+    if (user?.email === reply.authorEmail) return true;
+    if (isCurrentUserAdmin) return true;
+    return canCurrentUser('mod.comments.delete');
+  };
+
+  const handleDeleteReply = (postId: string, replyId: string, reply: LocalReply) => {
+    if (!canDeleteReply(reply)) {
+      toast({
+        title: lang === 'ar' ? 'غير مصرح' : 'Unauthorized',
+        description: lang === 'ar' ? 'غير مصرح لك بهذا الإجراء' : 'You are not authorized for this action',
+        variant: 'destructive'
+      });
+      return;
+    }
+    const isModeratingOthersReply = user?.email !== reply.authorEmail;
+    if (isModeratingOthersReply && user?.email) {
+      addAuditEvent({
+        action: 'reply.delete',
+        targetType: 'reply',
+        targetId: replyId,
+        byEmail: user.email,
+        meta: { postId, authorEmail: reply.authorEmail }
+      });
+    }
+    deleteReply(postId, replyId);
+    toast({
+      title: lang === 'ar' ? 'تم الحذف' : 'Deleted',
+      description: lang === 'ar' ? 'تم حذف الرد' : 'Reply deleted'
+    });
+  };
 
   const isLiked = () => post?.likedBy?.includes(user?.email || '') || false;
   const isSaved = () => post?.savedBy?.includes(user?.email || '') || false;
@@ -431,6 +465,29 @@ export default function PostPage() {
                                   locale: lang === 'ar' ? ar : enUS
                                 })}
                               </span>
+                              {canDeleteReply(reply) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      className="ms-auto text-muted-foreground hover:text-foreground transition-colors"
+                                      data-testid={`button-reply-menu-${reply.id}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <MoreVertical className="w-3 h-3" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align={isRTL ? "start" : "end"}>
+                                    <DropdownMenuItem
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteReply(post.id, reply.id, reply); }}
+                                      className="text-destructive focus:text-destructive"
+                                      data-testid={`button-delete-reply-${reply.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3 me-2" />
+                                      {lang === 'ar' ? 'حذف الرد' : 'Delete Reply'}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
                             </div>
                             <p className="text-sm mt-1">{reply.content}</p>
                           </div>

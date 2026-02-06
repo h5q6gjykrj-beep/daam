@@ -1,0 +1,45 @@
+مهمة: تعديل محدود وصارم — إضافة "حذف الرد" في صفحة تفاصيل المنشور
+
+المشكلة:
+صفحة client/src/pages/post.tsx تعرض الردود بدون أي أدوات (⋯) للحذف/التعديل، بينما الحذف موجود في store (deleteReply) ومطبق في feed.tsx. المطلوب تمكين حذف الرد من صفحة تفاصيل المنشور.
+
+النطاق المسموح (STRICT):
+- ملف واحد فقط: client/src/pages/post.tsx
+- التعديل يكون فقط في:
+  1) imports اللازمة
+  2) إضافة دوال محلية (canDeleteReply + handleDeleteReply) داخل post.tsx
+  3) تعديل JSX لعنصر reply لإظهار DropdownMenu (⋯) مع خيار "حذف الرد"
+
+الممنوع:
+- تعديل أي ملف آخر (ممنوع لمس feed.tsx أو use-daam-store.tsx أو dropdown-menu.tsx)
+- refactor أو إعادة ترتيب كبيرة
+- تغيير أي سلوك آخر في صفحة post غير متعلق بالردود
+
+التنفيذ المطلوب (بشكل محدد):
+1) داخل post.tsx:
+   - استخرج من useDaamStore (إن لم يكن موجودًا) ما يلزم للحذف فقط:
+     deleteReply, canCurrentUser, addAuditEvent (إن كان نظام audit مستخدم في المشروع), user
+   - استخرج/استخدم isCurrentUserAdmin (إن كان موجود في post.tsx أو استخدم نفس المنطق الموجود في feed.tsx)
+   - استخدم toast الحالي (الموجود في المشروع) لرسائل النجاح/الرفض
+   - أضف الدالتين كما في feed.tsx لكن داخل post.tsx:
+     A) canDeleteReply(reply: LocalReply)
+     B) handleDeleteReply(postId: string, replyId: string, reply: LocalReply)
+   - IMPORTANT: استخدم نفس النصوص/الترجمة الموجودة في post.tsx (tr.*) إن كانت متوفرة.
+     إذا لم يوجد tr.deleteReply داخل post.tsx، استخدم نص ثنائي مباشرة:
+     Arabic: "حذف الرد"
+     English: "Delete reply"
+
+2) تعديل JSX في مقطع reply (الموجود لديك سطر 400–444):
+   - في السطر الذي يحتوي: <div className="flex items-center gap-2"> (سطر الاسم/الوقت)
+   - أضف في نهاية هذا السطر (قبل إغلاق div) DropdownMenu مثل feed.tsx:
+     - Trigger: زر (⋯) MoreVertical بحجم صغير
+     - Item واحد فقط: "حذف الرد" يظهر فقط إذا canDeleteReply(reply) true
+     - onClick للـ Item: يجب أن يستقبل event ويعمل:
+       e.preventDefault(); e.stopPropagation(); ثم handleDeleteReply(post.id, reply.id, reply)
+     - أيضًا Trigger button يعمل e.stopPropagation() احتياطيًا
+
+3) لا تضف "تعديل الرد" الآن (هذه مهمة Sprint 1.1 التالية). فقط "حذف الرد".
+
+المخرجات:
+- أعطني المقاطع المعدلة فقط من post.tsx (imports + الدوال الجديدة + JSX reply المعدل)
+- سطرين فقط تلخص ماذا تغير
