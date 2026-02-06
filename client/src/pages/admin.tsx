@@ -246,6 +246,8 @@ const initialReports: Report[] = [
 ];
 
 // Helper to compute priority from reason
+const DEMO_REPORTS_KEY = 'daam_admin_demo_reports_v1';
+
 const computePriority = (reason: string): ReportPriority => {
   const lowerReason = reason.toLowerCase();
   if (lowerReason.includes('harassment') || lowerReason.includes('hate') || lowerReason.includes('impersonation')) {
@@ -338,7 +340,20 @@ export default function Admin() {
   const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
   const [comments, setComments] = useState<AdminComment[]>(initialComments);
   const [files, setFiles] = useState<AdminFile[]>(initialFiles);
-  const [localDemoReports, setLocalDemoReports] = useState<Report[]>(initialReports);
+  const [localDemoReports, setLocalDemoReports] = useState<Report[]>(() => {
+    try {
+      const stored = localStorage.getItem(DEMO_REPORTS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return initialReports;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(DEMO_REPORTS_KEY, JSON.stringify(localDemoReports));
+  }, [localDemoReports]);
   
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [reasonModalAction, setReasonModalAction] = useState<{ reportId: string; targetStatus: ReportStatus } | null>(null);
