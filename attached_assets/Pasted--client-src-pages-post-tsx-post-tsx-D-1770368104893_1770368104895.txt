@@ -1,0 +1,58 @@
+مهمة: تعديل محدود وصارم — تمكين "تعديل الرد" في client/src/pages/post.tsx
+
+المشكلة:
+post.tsx يحتوي DropdownMenu لحذف الرد فقط، ولا يوجد state أو دوال لتعديل الرد. كذلك زر (⋯) يظهر فقط عند canDeleteReply مما يمنع ظهور خيار "تعديل" لمن يملك صلاحية التعديل فقط.
+
+النطاق المسموح (STRICT):
+- ملف واحد فقط: client/src/pages/post.tsx
+- التعديل محصور في:
+  1) imports اللازمة
+  2) إضافة state (editingReplyId, editReplyContent)
+  3) إضافة الدوال (canEditReply, startEditReply, cancelEditReply, saveEditReply)
+  4) تعديل JSX لعنصر reply فقط (DropdownMenu + عرض محتوى الرد)
+
+الممنوع:
+- تعديل أي ملف آخر
+- refactor أو إعادة هيكلة كبيرة
+- تغيير سلوك غير متعلق بالردود
+
+التنفيذ المطلوب (دقيق):
+1) imports:
+   - تأكد من استيراد Input و Button و Pencil (إذا غير موجودة) + editReply من useDaamStore
+   - لا تضف أي imports غير ضرورية
+
+2) state داخل post.tsx (قريب من بقية useState):
+   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+   const [editReplyContent, setEditReplyContent] = useState("");
+
+3) أضف الدوال داخل post.tsx (بنفس منطق feed.tsx):
+   - canEditReply(reply): author أو moderator
+   - startEditReply(reply): setEditingReplyId(reply.id) + setEditReplyContent(reply.content)
+   - cancelEditReply(): reset
+   - saveEditReply(postId): يستدعي editReply(postId, editingReplyId, editReplyContent) + toast نجاح + reset
+
+4) JSX — داخل reply item:
+   A) عدّل شرط ظهور DropdownMenu:
+      بدل: {canDeleteReply(reply) && ( ... )}
+      إلى: {(canEditReply(reply) || canDeleteReply(reply)) && ( ... )}
+
+   B) داخل DropdownMenuContent:
+      - أضف DropdownMenuItem "تعديل" قبل "حذف الرد"
+      - يظهر فقط إذا canEditReply(reply)
+      - onClick يجب أن يستقبل event ويطبق:
+        e.preventDefault(); e.stopPropagation(); startEditReply(reply);
+
+   C) استبدل عرض محتوى الرد:
+      بدل: <p className="text-sm mt-1">{reply.content}</p>
+      إلى شرط:
+      إذا editingReplyId === reply.id:
+        - اعرض Input value=editReplyContent
+        - onChange يحدّث editReplyContent
+        - أزرار حفظ/إلغاء (Button)
+        - ضع stopPropagation على wrapper وعلى الأزرار وعلى Input (احتياطي)
+      وإلا:
+        - اعرض <p> كما هو
+
+مخرجاتك:
+- أعد فقط المقاطع المعدلة من post.tsx (imports + state + الدوال + JSX reply)
+- سطرين يوضحان: (أضفت تحرير الرد + عدلت شرط إظهار القائمة)

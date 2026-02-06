@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,7 +23,7 @@ import type { LocalReply, Attachment } from "@shared/schema";
 export default function PostPage() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, canCurrentUser, addAuditEvent } = useDaamStore();
+  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, editReply, canCurrentUser, addAuditEvent } = useDaamStore();
   const { toast } = useToast();
   const isRTL = lang === 'ar';
 
@@ -35,6 +36,8 @@ export default function PostPage() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | ''>('');
   const [reportNote, setReportNote] = useState('');
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyContent, setEditReplyContent] = useState("");
 
   const currentUserMuted = user ? isUserMuted(user.email) : false;
   const currentUserMuteRecord = user ? getMuteRecord(user.email) : null;
@@ -88,6 +91,31 @@ export default function PostPage() {
   };
   const isStaff = (email: string) => isAdmin(email) || isModerator(email);
   const isCurrentUserAdmin = user ? isAdmin(user.email) : false;
+
+  const canEditReply = (reply: LocalReply) => {
+    return user?.email === reply.authorEmail || user?.isModerator;
+  };
+
+  const startEditReply = (reply: LocalReply) => {
+    setEditingReplyId(reply.id);
+    setEditReplyContent(reply.content);
+  };
+
+  const cancelEditReply = () => {
+    setEditingReplyId(null);
+    setEditReplyContent("");
+  };
+
+  const saveEditReply = (postId: string) => {
+    if (!editingReplyId || !editReplyContent.trim()) return;
+    editReply(postId, editingReplyId, editReplyContent);
+    setEditingReplyId(null);
+    setEditReplyContent("");
+    toast({
+      title: lang === 'ar' ? 'تم التعديل' : 'Updated',
+      description: lang === 'ar' ? 'تم تعديل الرد بنجاح' : 'Reply updated successfully'
+    });
+  };
 
   const canDeleteReply = (reply: LocalReply) => {
     if (user?.email === reply.authorEmail) return true;
@@ -465,7 +493,7 @@ export default function PostPage() {
                                   locale: lang === 'ar' ? ar : enUS
                                 })}
                               </span>
-                              {canDeleteReply(reply) && (
+                              {(canEditReply(reply) || canDeleteReply(reply)) && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
@@ -477,19 +505,63 @@ export default function PostPage() {
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align={isRTL ? "start" : "end"}>
-                                    <DropdownMenuItem
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteReply(post.id, reply.id, reply); }}
-                                      className="text-destructive focus:text-destructive"
-                                      data-testid={`button-delete-reply-${reply.id}`}
-                                    >
-                                      <Trash2 className="w-3 h-3 me-2" />
-                                      {lang === 'ar' ? 'حذف الرد' : 'Delete Reply'}
-                                    </DropdownMenuItem>
+                                    {canEditReply(reply) && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEditReply(reply); }}
+                                        data-testid={`button-edit-reply-${reply.id}`}
+                                      >
+                                        <Pencil className="w-3 h-3 me-2" />
+                                        {lang === 'ar' ? 'تعديل' : 'Edit'}
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canDeleteReply(reply) && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteReply(post.id, reply.id, reply); }}
+                                        className="text-destructive focus:text-destructive"
+                                        data-testid={`button-delete-reply-${reply.id}`}
+                                      >
+                                        <Trash2 className="w-3 h-3 me-2" />
+                                        {lang === 'ar' ? 'حذف الرد' : 'Delete Reply'}
+                                      </DropdownMenuItem>
+                                    )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               )}
                             </div>
-                            <p className="text-sm mt-1">{reply.content}</p>
+                            {editingReplyId === reply.id ? (
+                              <div className="space-y-2 mt-1" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  value={editReplyContent}
+                                  onChange={(e) => setEditReplyContent(e.target.value)}
+                                  className="text-sm h-8 bg-background"
+                                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); saveEditReply(post.id); } }}
+                                  autoFocus
+                                  data-testid={`input-edit-reply-${reply.id}`}
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => { e.stopPropagation(); saveEditReply(post.id); }}
+                                    disabled={!editReplyContent.trim()}
+                                    className="h-6 text-xs px-2"
+                                    data-testid={`button-save-reply-${reply.id}`}
+                                  >
+                                    {lang === 'ar' ? 'حفظ' : 'Save'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => { e.stopPropagation(); cancelEditReply(); }}
+                                    className="h-6 text-xs px-2"
+                                    data-testid={`button-cancel-edit-reply-${reply.id}`}
+                                  >
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm mt-1">{reply.content}</p>
+                            )}
                           </div>
                         </div>
                       </CardContent>
