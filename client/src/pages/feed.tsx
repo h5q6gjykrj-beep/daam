@@ -858,10 +858,6 @@ export default function Feed() {
         if (authorAccount?.banned) {
           return false;
         }
-        // Filter out posts from demo/test accounts
-        if (authorAccount?.isDemo) {
-          return false;
-        }
         return true;
       });
     }
