@@ -157,7 +157,10 @@ import {
   StickyNote,
   FlaskConical,
   Tag,
-  Upload
+  Upload,
+  KeyRound,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -378,6 +381,13 @@ export default function Profile() {
   
   const [showUnifiedEditDialog, setShowUnifiedEditDialog] = useState(false);
   const [editTab, setEditTab] = useState<'cover' | 'avatar' | 'info' | 'account'>('info');
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [cpForm, setCpForm] = useState({ current: '', newPw: '', confirm: '' });
+  const [cpErrors, setCpErrors] = useState<Record<string, string>>({});
+  const [cpShowCurrent, setCpShowCurrent] = useState(false);
+  const [cpShowNew, setCpShowNew] = useState(false);
+  const [cpShowConfirm, setCpShowConfirm] = useState(false);
+  const [cpSubmitted, setCpSubmitted] = useState(false);
   
   useEffect(() => {
     if (profileEmail) {
@@ -4134,6 +4144,26 @@ export default function Profile() {
                     {privateEditErrors.wilayat && <p className="text-sm text-destructive">{privateEditErrors.wilayat}</p>}
                   </div>
                 </div>
+
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCpForm({ current: '', newPw: '', confirm: '' });
+                      setCpErrors({});
+                      setCpShowCurrent(false);
+                      setCpShowNew(false);
+                      setCpShowConfirm(false);
+                      setCpSubmitted(false);
+                      setShowChangePasswordDialog(true);
+                    }}
+                    className="w-full gap-2"
+                    data-testid="button-change-password"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -4187,6 +4217,164 @@ export default function Profile() {
             </Button>
           </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showChangePasswordDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowChangePasswordDialog(false);
+          setCpSubmitted(false);
+        }
+      }}>
+        <DialogContent
+          className="sm:max-w-md"
+          data-testid="dialog-change-password"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {cpSubmitted ? (
+            <div className="py-6 text-center space-y-3">
+              <Check className="w-10 h-10 mx-auto text-primary" />
+              <p className="text-sm text-muted-foreground">
+                {lang === 'ar'
+                  ? 'سيتم تفعيل تغيير كلمة المرور عند ربط نظام المصادقة النهائي.'
+                  : 'Password change will be enabled once authentication is fully wired.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowChangePasswordDialog(false);
+                  setCpSubmitted(false);
+                }}
+                data-testid="button-close-change-password"
+              >
+                {lang === 'ar' ? 'حسناً' : 'OK'}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'كلمة المرور الحالية' : 'Current Password'}</Label>
+                <div className="relative">
+                  <Input
+                    type={cpShowCurrent ? 'text' : 'password'}
+                    value={cpForm.current}
+                    onChange={(e) => {
+                      setCpForm(prev => ({ ...prev, current: e.target.value }));
+                      setCpErrors(prev => ({ ...prev, current: '' }));
+                    }}
+                    dir="ltr"
+                    data-testid="input-current-password"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    onClick={() => setCpShowCurrent(!cpShowCurrent)}
+                    tabIndex={-1}
+                  >
+                    {cpShowCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                {cpErrors.current && <p className="text-sm text-destructive">{cpErrors.current}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}</Label>
+                <div className="relative">
+                  <Input
+                    type={cpShowNew ? 'text' : 'password'}
+                    value={cpForm.newPw}
+                    onChange={(e) => {
+                      setCpForm(prev => ({ ...prev, newPw: e.target.value }));
+                      setCpErrors(prev => ({ ...prev, newPw: '', confirm: '' }));
+                    }}
+                    dir="ltr"
+                    data-testid="input-new-password"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    onClick={() => setCpShowNew(!cpShowNew)}
+                    tabIndex={-1}
+                  >
+                    {cpShowNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                {cpErrors.newPw && <p className="text-sm text-destructive">{cpErrors.newPw}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>{lang === 'ar' ? 'تأكيد كلمة المرور الجديدة' : 'Confirm New Password'}</Label>
+                <div className="relative">
+                  <Input
+                    type={cpShowConfirm ? 'text' : 'password'}
+                    value={cpForm.confirm}
+                    onChange={(e) => {
+                      setCpForm(prev => ({ ...prev, confirm: e.target.value }));
+                      setCpErrors(prev => ({ ...prev, confirm: '' }));
+                    }}
+                    dir="ltr"
+                    data-testid="input-confirm-password"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    onClick={() => setCpShowConfirm(!cpShowConfirm)}
+                    tabIndex={-1}
+                  >
+                    {cpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                {cpErrors.confirm && <p className="text-sm text-destructive">{cpErrors.confirm}</p>}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowChangePasswordDialog(false)}
+                  className="flex-1"
+                >
+                  {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    const errors: Record<string, string> = {};
+                    if (!cpForm.current.trim()) {
+                      errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
+                    }
+                    if (cpForm.newPw.length < 8) {
+                      errors.newPw = lang === 'ar' ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters';
+                    }
+                    if (cpForm.newPw !== cpForm.confirm) {
+                      errors.confirm = lang === 'ar' ? 'كلمات المرور غير متطابقة' : 'Passwords do not match';
+                    }
+                    if (Object.keys(errors).length > 0) {
+                      setCpErrors(errors);
+                      return;
+                    }
+                    setCpSubmitted(true);
+                  }}
+                  className="flex-1"
+                  data-testid="button-submit-change-password"
+                >
+                  {lang === 'ar' ? 'تغيير' : 'Change'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
