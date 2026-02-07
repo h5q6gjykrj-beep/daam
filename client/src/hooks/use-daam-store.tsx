@@ -484,11 +484,26 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Failed to parse profiles for user", e);
       }
-      const isMod = storedUser.toLowerCase() === MODERATOR_EMAIL.toLowerCase();
-      const userAccount = parsedAccounts[storedUser];
+      const userLower = storedUser.toLowerCase();
+      const userAccount = parsedAccounts[userLower] || parsedAccounts[storedUser];
+      let isMod = userLower === MODERATOR_EMAIL.toLowerCase();
+      if (!isMod && !userAccount) {
+        try {
+          const rawAuth = localStorage.getItem(LS_AUTH);
+          if (rawAuth) {
+            const parsedAuth: LocalAuthUser[] = JSON.parse(rawAuth);
+            const authUser = parsedAuth.find(a => a.email.toLowerCase() === userLower);
+            if (authUser && authUser.role === 'moderator') {
+              isMod = true;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to check auth users for session restore", e);
+        }
+      }
       setUser({ 
         email: storedUser, 
-        isAdmin: ADMIN_EMAILS.includes(storedUser.toLowerCase()),
+        isAdmin: ADMIN_EMAILS.includes(userLower),
         isModerator: isMod,
         profile: parsedProfiles[storedUser],
         account: userAccount
@@ -612,6 +627,35 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       }
     });
     
+    if (!updatedAccounts[MODERATOR_EMAIL]) {
+      updatedAccounts[MODERATOR_EMAIL] = {
+        email: MODERATOR_EMAIL,
+        passwordHash: simpleHash('Demo123!'),
+        phone: '',
+        region: { governorate: 'muscat', wilayat: 'muscat' },
+        role: 'student' as const,
+        verified: true,
+        rememberMe: false,
+        createdAt: new Date().toISOString(),
+        isDemo: true
+      };
+      hasNewData = true;
+    }
+    if (!updatedProfiles[MODERATOR_EMAIL]) {
+      updatedProfiles[MODERATOR_EMAIL] = {
+        name: 'المشرف العام',
+        major: '',
+        university: '',
+        level: '',
+        bio: 'مشرف المنصة',
+        followers: [],
+        following: [],
+        showFavorites: true,
+        showInterests: true
+      };
+      hasNewData = true;
+    }
+    
     if (hasNewData) {
       setProfiles(updatedProfiles);
       setAccounts(updatedAccounts);
@@ -720,13 +764,33 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   // Actions
   
-  // Full login with password (for registered users)
+  // Full login with password (for registered users and admin-created moderators)
   const login = (email: string, password: string, rememberMe: boolean = false) => {
     const emailLower = email.toLowerCase();
     const account = accounts[emailLower];
     
     if (!account) {
-      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+      const authUser = authUsers.find(a => a.email.toLowerCase() === emailLower);
+      
+      if (!authUser) {
+        throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+      }
+      
+      if (authUser.passwordHash !== password) {
+        throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
+      }
+      
+      const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+      const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
+      
+      localStorage.setItem(KEYS.USER, email);
+      setUser({
+        email,
+        isAdmin: isAdminEmail,
+        isModerator: isMod,
+        profile: profiles[email]
+      });
+      return;
     }
     
     if (!account.verified) {

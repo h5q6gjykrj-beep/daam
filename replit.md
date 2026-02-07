@@ -31,7 +31,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Persistence
 - **Primary Storage**: localStorage for all user data, posts, preferences, and administrative configurations. Key items include user accounts, posts, language preferences, moderation records (reports, mutes, bans, audit logs), official content pages, and UI configuration settings.
-- **Authentication**: University email domain restriction, localStorage-based session persistence, password-based login.
+- **Authentication**: University email domain restriction, localStorage-based session persistence, password-based login. Admin-created moderator accounts (stored in `daam_auth_users_v1`) can also log in via a fallback path in the `login()` function that checks `authUsers` when no regular account is found. The built-in admin/moderator (w.qq89@hotmail.com) is auto-seeded into `accounts` on first load.
 
 ### Key Features
 - **Social Feed**: Discussion arena with post creation, replies, and reporting.
