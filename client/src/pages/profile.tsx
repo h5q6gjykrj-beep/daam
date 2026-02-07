@@ -879,6 +879,7 @@ export default function Profile() {
           isOwner={isOwnProfile}
           isRTL={isRTL}
           onEditClick={handleShellEditClick}
+          isFollowing={isFollowing(profileEmail)}
           onFollowClick={() => toggleFollow(profileEmail)}
           onMessageClick={() => {
             const dmCheck = canSendDM(profileEmail);

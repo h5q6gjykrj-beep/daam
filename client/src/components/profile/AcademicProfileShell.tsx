@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Pencil, UserPlus, MessageCircle } from "lucide-react";
+import { Pencil, UserPlus, UserCheck, MessageCircle } from "lucide-react";
 
 export type ProfileTab = "posts" | "materials" | "research" | "activity" | "saved";
 
@@ -16,6 +16,7 @@ interface AcademicProfileShellProps {
   isOwner: boolean;
   isRTL?: boolean;
   onEditClick?: () => void;
+  isFollowing?: boolean;
   onFollowClick?: () => void;
   onMessageClick?: () => void;
   onPostsClick?: () => void;
@@ -46,6 +47,7 @@ export function AcademicProfileShell({
   isOwner,
   isRTL = false,
   onEditClick,
+  isFollowing = false,
   onFollowClick,
   onMessageClick,
   onPostsClick,
@@ -203,9 +205,23 @@ export function AcademicProfileShell({
             {!isOwner && (
               <div className={`flex gap-3 mt-4 ${isRTL ? 'justify-start' : 'justify-start'}`} data-testid="action-buttons">
                 {onFollowClick && (
-                  <Button onClick={onFollowClick} className="gap-1.5" data-testid="button-follow">
-                    <UserPlus className="w-4 h-4" />
-                    <span>{isRTL ? "متابعة" : "Follow"}</span>
+                  <Button
+                    variant={isFollowing ? "outline" : "default"}
+                    onClick={onFollowClick}
+                    className="gap-1.5"
+                    data-testid="button-follow"
+                  >
+                    {isFollowing ? (
+                      <>
+                        <UserCheck className="w-4 h-4" />
+                        <span>{isRTL ? "إلغاء المتابعة" : "Unfollow"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>{isRTL ? "متابعة" : "Follow"}</span>
+                      </>
+                    )}
                   </Button>
                 )}
                 {onMessageClick && (
