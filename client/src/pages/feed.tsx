@@ -659,7 +659,7 @@ export default function Feed() {
                     <DropdownMenuContent align="end">
                       {canEditReply(reply) && (
                         <DropdownMenuItem 
-                          onClick={() => startEditReply(reply)}
+                          onClick={(e) => { e.stopPropagation(); startEditReply(reply); }}
                           data-testid={`button-edit-reply-${reply.id}`}
                         >
                           <Pencil className="w-3 h-3 me-2" />
@@ -668,7 +668,7 @@ export default function Feed() {
                       )}
                       {canDeleteReply(reply) && (
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteReply(postId, reply.id, reply)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteReply(postId, reply.id, reply); }}
                           className="text-destructive focus:text-destructive"
                           data-testid={`button-delete-reply-${reply.id}`}
                         >
@@ -678,7 +678,7 @@ export default function Feed() {
                       )}
                       {user?.email !== reply.authorEmail && (
                         <DropdownMenuItem 
-                          onClick={() => openReportModal('comment', reply.id, reply.content.substring(0, 50))}
+                          onClick={(e) => { e.stopPropagation(); openReportModal('comment', reply.id, reply.content.substring(0, 50)); }}
                           className="text-amber-500 focus:text-amber-500"
                           data-testid={`button-report-comment-${reply.id}`}
                         >
@@ -690,7 +690,7 @@ export default function Feed() {
                       {user?.email !== reply.authorEmail && canCurrentUser('mod.users.mute') && (
                         isUserMuted(reply.authorEmail) ? (
                           <DropdownMenuItem 
-                            onClick={() => handleUnmuteUser(reply.authorEmail)}
+                            onClick={(e) => { e.stopPropagation(); handleUnmuteUser(reply.authorEmail); }}
                             className="text-green-500 focus:text-green-500"
                             data-testid={`button-unmute-reply-user-${reply.id}`}
                           >
@@ -699,7 +699,7 @@ export default function Feed() {
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem 
-                            onClick={() => openMuteModal(reply.authorEmail, getDisplayName(reply.authorEmail))}
+                            onClick={(e) => { e.stopPropagation(); openMuteModal(reply.authorEmail, getDisplayName(reply.authorEmail)); }}
                             className="text-orange-500 focus:text-orange-500"
                             data-testid={`button-mute-reply-user-${reply.id}`}
                           >
@@ -712,7 +712,7 @@ export default function Feed() {
                       {user?.email !== reply.authorEmail && canCurrentUser('mod.users.ban') && (
                         isUserBanned(reply.authorEmail).banned ? (
                           <DropdownMenuItem 
-                            onClick={() => handleUnbanUser(reply.authorEmail)}
+                            onClick={(e) => { e.stopPropagation(); handleUnbanUser(reply.authorEmail); }}
                             className="text-green-500 focus:text-green-500"
                             data-testid={`button-unban-reply-user-${reply.id}`}
                           >
@@ -721,7 +721,7 @@ export default function Feed() {
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem 
-                            onClick={() => openBanModal(reply.authorEmail, getDisplayName(reply.authorEmail))}
+                            onClick={(e) => { e.stopPropagation(); openBanModal(reply.authorEmail, getDisplayName(reply.authorEmail)); }}
                             className="text-destructive focus:text-destructive"
                             data-testid={`button-ban-reply-user-${reply.id}`}
                           >
@@ -853,9 +853,8 @@ export default function Feed() {
         if (hiddenPostIds.includes(post.id)) {
           return false;
         }
-        const authorAccount = getAccount(post.authorEmail);
-        // Filter out posts from banned users
-        if (authorAccount?.banned) {
+        const banStatus = isUserBanned(post.authorEmail);
+        if (banStatus.banned) {
           return false;
         }
         return true;
@@ -887,7 +886,7 @@ export default function Feed() {
     // 'top' filter is handled by sorting, not filtering
 
     return result;
-  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPostIds, getAccount]);
+  }, [posts, selectedType, filterParam, subjectParam, today, sixtyMinutesAgo, isCurrentUserStaff, hiddenPostIds, isUserBanned]);
 
   const sortedPosts = useMemo(() => {
     let result = [...filteredPosts];
@@ -1328,7 +1327,7 @@ export default function Feed() {
                             )}
                             {canHidePost() && !isPostHidden(post.id) && (
                               <DropdownMenuItem 
-                                onClick={() => handleHidePost(post.id)}
+                                onClick={(e) => { e.stopPropagation(); handleHidePost(post.id); }}
                                 data-testid={`button-hide-${post.id}`}
                               >
                                 <EyeOff className="w-4 h-4 me-2" />
@@ -1337,7 +1336,7 @@ export default function Feed() {
                             )}
                             {canDeletePost(post) && (
                               <DropdownMenuItem 
-                                onClick={() => handleDeletePost(post.id, post)}
+                                onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id, post); }}
                                 className="text-destructive focus:text-destructive"
                                 data-testid={`button-delete-${post.id}`}
                               >
@@ -1347,7 +1346,7 @@ export default function Feed() {
                             )}
                             {user?.email !== post.authorEmail && (
                               <DropdownMenuItem 
-                                onClick={() => openReportModal('post', post.id, post.content.substring(0, 50))}
+                                onClick={(e) => { e.stopPropagation(); openReportModal('post', post.id, post.content.substring(0, 50)); }}
                                 className="text-amber-500 focus:text-amber-500"
                                 data-testid={`button-report-post-${post.id}`}
                               >
@@ -1359,7 +1358,7 @@ export default function Feed() {
                             {user?.email !== post.authorEmail && canCurrentUser('mod.users.mute') && (
                               isUserMuted(post.authorEmail) ? (
                                 <DropdownMenuItem 
-                                  onClick={() => handleUnmuteUser(post.authorEmail)}
+                                  onClick={(e) => { e.stopPropagation(); handleUnmuteUser(post.authorEmail); }}
                                   className="text-green-500 focus:text-green-500"
                                   data-testid={`button-unmute-user-${post.authorEmail}`}
                                 >
@@ -1368,7 +1367,7 @@ export default function Feed() {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem 
-                                  onClick={() => openMuteModal(post.authorEmail, getDisplayName(post.authorEmail))}
+                                  onClick={(e) => { e.stopPropagation(); openMuteModal(post.authorEmail, getDisplayName(post.authorEmail)); }}
                                   className="text-orange-500 focus:text-orange-500"
                                   data-testid={`button-mute-user-${post.authorEmail}`}
                                 >
@@ -1381,7 +1380,7 @@ export default function Feed() {
                             {user?.email !== post.authorEmail && canCurrentUser('mod.users.ban') && (
                               isUserBanned(post.authorEmail).banned ? (
                                 <DropdownMenuItem 
-                                  onClick={() => handleUnbanUser(post.authorEmail)}
+                                  onClick={(e) => { e.stopPropagation(); handleUnbanUser(post.authorEmail); }}
                                   className="text-green-500 focus:text-green-500"
                                   data-testid={`button-unban-user-${post.authorEmail}`}
                                 >
@@ -1390,7 +1389,7 @@ export default function Feed() {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem 
-                                  onClick={() => openBanModal(post.authorEmail, getDisplayName(post.authorEmail))}
+                                  onClick={(e) => { e.stopPropagation(); openBanModal(post.authorEmail, getDisplayName(post.authorEmail)); }}
                                   className="text-destructive focus:text-destructive"
                                   data-testid={`button-ban-user-${post.authorEmail}`}
                                 >
