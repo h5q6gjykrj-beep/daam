@@ -1,0 +1,47 @@
+Locate Only — DAAM (Moderation: Mute/Ban not applying)
+Target: Moderator clicks "Mute user" or "Ban user" from the post menu, but nothing happens.
+
+Constraints:
+- NO edits.
+- NO solutions.
+- Return only A) paths B) 2–4 key snippets with line numbers C) call links D) state/handlers E) storage/types.
+
+What to locate:
+
+1) UI Entry point (where the menu items are rendered):
+- Find the exact component/page that renders the post actions menu containing:
+  - "كتم المستخدم" (mute)
+  - "حظر المستخدم" (ban)
+- Provide the JSX for those menu items including onClick handlers and any permission gating.
+
+2) Handlers:
+- Locate the functions called by those menu items (e.g., handleMuteUser / handleBanUser).
+- Confirm what arguments they receive (target user email/id, duration, reason, etc).
+- If they open dialogs, locate the dialog open state + confirm button handler.
+
+3) Store actions:
+- Locate the store methods that perform mute/ban (e.g., muteUser, banUser, user.mute, user.ban).
+- Provide snippets where they update state and where they persist to localStorage.
+- Identify storage keys (e.g., daam_mutes_v1, daam_bans_v1, audit log keys).
+
+4) Permission / RBAC:
+- Locate the permission checks that decide whether the action is allowed:
+  - mod.users.mute / mod.users.ban (or similar)
+- Provide the snippet that gates the menu items AND the snippet that gates the actual store action (if any).
+- Confirm the current logged-in role detection used there.
+
+5) Effect application:
+- Locate where muted/banned status is enforced:
+  - UI: disabling posting/commenting
+  - Feed: hiding content
+  - Any toast/error shown when blocked
+- Provide the enforcement snippet lines.
+
+Deliverables:
+A) Files list (paths)
+B) 2–4 primary snippets with line numbers (menu items, handler(s), store write/persist, permission check)
+C) Call links (Menu click -> handler -> store action -> persistence -> enforcement)
+D) State variables involved (where stored)
+E) Storage keys + types touched
+
+No diagnosis. No patch. Locate-only.
