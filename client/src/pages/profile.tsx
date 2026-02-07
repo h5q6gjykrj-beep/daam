@@ -366,6 +366,30 @@ export default function Profile() {
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
+  const [avatarDragY, setAvatarDragY] = useState(0);
+  const [avatarDragging, setAvatarDragging] = useState(false);
+  const dragStartYRef = useRef<number | null>(null);
+
+  const handleAvatarPointerDown = (e: React.PointerEvent) => {
+    dragStartYRef.current = e.clientY;
+    setAvatarDragging(true);
+    setAvatarDragY(0);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const handleAvatarPointerMove = (e: React.PointerEvent) => {
+    if (!avatarDragging || dragStartYRef.current === null) return;
+    const delta = e.clientY - dragStartYRef.current;
+    if (delta > 0) setAvatarDragY(Math.min(delta, 260));
+  };
+  const handleAvatarPointerUp = () => {
+    if (avatarDragY >= 120) {
+      setShowAvatarPreview(false);
+    }
+    setAvatarDragY(0);
+    setAvatarDragging(false);
+    dragStartYRef.current = null;
+  };
+
   const [isEditingPrivate, setIsEditingPrivate] = useState(false);
   const [privateEditForm, setPrivateEditForm] = useState({
     phone: '',
@@ -1437,7 +1461,19 @@ export default function Profile() {
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
           >
-            <div className="relative flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="relative flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={handleAvatarPointerDown}
+              onPointerMove={handleAvatarPointerMove}
+              onPointerUp={handleAvatarPointerUp}
+              onPointerCancel={handleAvatarPointerUp}
+              style={{
+                transform: `translateY(${avatarDragY}px)`,
+                opacity: avatarDragY > 0 ? Math.max(1 - avatarDragY / 300, 0.3) : 1,
+                transition: avatarDragging ? 'none' : 'transform 150ms ease, opacity 150ms ease',
+              }}
+            >
               <Avatar className="w-64 h-64 md:w-80 md:h-80 ring-4 ring-white/20">
                 {profile?.avatarUrl ? (
                   <AvatarImage src={profile.avatarUrl} />
@@ -3942,7 +3978,18 @@ export default function Profile() {
       {/* Avatar Preview Dialog */}
       <Dialog open={showAvatarPreview} onOpenChange={setShowAvatarPreview}>
         <DialogContent className="max-w-sm md:max-w-md p-0 bg-transparent border-none shadow-none [&>button]:hidden">
-          <div className="relative flex items-center justify-center">
+          <div
+            className="relative flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none"
+            onPointerDown={handleAvatarPointerDown}
+            onPointerMove={handleAvatarPointerMove}
+            onPointerUp={handleAvatarPointerUp}
+            onPointerCancel={handleAvatarPointerUp}
+            style={{
+              transform: `translateY(${avatarDragY}px)`,
+              opacity: avatarDragY > 0 ? Math.max(1 - avatarDragY / 300, 0.3) : 1,
+              transition: avatarDragging ? 'none' : 'transform 150ms ease, opacity 150ms ease',
+            }}
+          >
             <button
               onClick={() => setShowAvatarPreview(false)}
               className="absolute -top-10 right-0 md:-right-10 p-2 rounded-full bg-background/80 hover-elevate text-foreground transition-colors z-10"
