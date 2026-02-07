@@ -865,6 +865,7 @@ export default function Profile() {
           onPostsClick={() => setActiveView('posts')}
           onFollowersClick={() => setShowFollowersDialog(true)}
           onFollowingClick={() => setShowFollowingDialog(true)}
+          onAvatarClick={() => setShowAvatarPreview(true)}
           activeTab={activeViewToShellTab(activeView)}
           onTabChange={(tab) => setActiveView(shellTabToActiveView[tab])}
         >

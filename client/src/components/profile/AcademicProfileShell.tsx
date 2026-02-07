@@ -21,6 +21,7 @@ interface AcademicProfileShellProps {
   onPostsClick?: () => void;
   onFollowersClick?: () => void;
   onFollowingClick?: () => void;
+  onAvatarClick?: () => void;
   activeTab: ProfileTab;
   onTabChange: (tab: ProfileTab) => void;
   children: ReactNode;
@@ -50,6 +51,7 @@ export function AcademicProfileShell({
   onPostsClick,
   onFollowersClick,
   onFollowingClick,
+  onAvatarClick,
   activeTab,
   onTabChange,
   children,
@@ -106,17 +108,24 @@ export function AcademicProfileShell({
           <div 
             className={`relative -mt-12 md:-mt-14 shrink-0 ${isRTL ? 'order-first' : 'order-first'}`}
           >
-            <Avatar 
-              className="w-24 h-24 md:w-28 md:h-28 ring-4 ring-background shadow-xl" 
-              data-testid="avatar-profile"
+            <button
+              type="button"
+              onClick={() => onAvatarClick?.()}
+              className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:opacity-90 transition-opacity"
+              data-testid="button-avatar-preview"
             >
-              {avatarUrl ? (
-                <AvatarImage src={avatarUrl} alt={displayName} />
-              ) : null}
-              <AvatarFallback className="text-xl md:text-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+              <Avatar 
+                className="w-24 h-24 md:w-28 md:h-28 ring-4 ring-background shadow-xl" 
+                data-testid="avatar-profile"
+              >
+                {avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={displayName} />
+                ) : null}
+                <AvatarFallback className="text-xl md:text-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </button>
           </div>
 
           {/* Identity content - Right-aligned in RTL, Left-aligned in LTR */}
