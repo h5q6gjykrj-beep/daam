@@ -153,6 +153,7 @@ import {
   FolderOpen,
   BookOpen,
   ArrowLeft,
+  ArrowRight,
   Link2,
   StickyNote,
   FlaskConical,
@@ -849,10 +850,22 @@ export default function Profile() {
     setTempAvatar(null);
   };
 
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate('/feed');
+    }
+  };
+
   // USE_ACADEMIC_SHELL: New Shell Layout
   if (USE_ACADEMIC_SHELL) {
     return (
       <div data-testid="profile-page" key={profileEmail ?? "me"}>
+        <Button variant="ghost" size="sm" onClick={goBack} className="mb-3" data-testid="button-back">
+          {isRTL ? <ArrowRight className="w-4 h-4 mr-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+          {isRTL ? 'رجوع' : 'Back'}
+        </Button>
         {/* Hidden file inputs for edit dialog */}
         <input
           ref={coverInputRef}
