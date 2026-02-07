@@ -319,7 +319,7 @@ export default function Landing() {
             transition={{ duration: 0.6 }}
             className="text-center max-w-3xl mx-auto"
           >
-            <h1 className={`text-4xl md:text-5xl lg:text-6xl font-bold mb-6 gradient-text ${isRTL ? "leading-[1.45] inline-block pb-2 [font-family:'IBM_Plex_Sans_Arabic',var(--font-ar)]" : 'leading-tight'}`}>
+            <h1 data-testid="hero-title" className={`text-4xl md:text-5xl lg:text-6xl font-bold mb-6 gradient-text ${isRTL ? "leading-[1.65] inline-block pb-2 py-[0.06em] [text-wrap:balance] [font-family:'IBM_Plex_Sans_Arabic',var(--font-ar)]" : 'leading-tight'}`}>
               {tr.heroTitle}
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8">
