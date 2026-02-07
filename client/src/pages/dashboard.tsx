@@ -379,7 +379,7 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold">{tr.hotTopics}</h2>
             </div>
             
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {hotTopics.map((topic, index) => {
                 return (
                   <motion.button
@@ -388,10 +388,10 @@ export default function Dashboard() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2, delay: 0.4 + index * 0.05 }}
                     onClick={() => setLocation(`/feed?subject=${topic}`)}
-                    className={`px-4 py-2 rounded-full border text-sm font-medium transition-all hover:scale-105 ${getCollegeColor(topic)}`}
+                    className={`w-full flex items-center justify-start px-4 py-2 rounded-full border text-sm font-medium transition-all hover:scale-105 ${getCollegeColor(topic)}`}
                     data-testid={`hot-topic-${topic}`}
                   >
-                    <Hash className="w-3.5 h-3.5 inline-block mr-1 rtl:ml-1 rtl:mr-0" />
+                    <Hash className="w-3.5 h-3.5 mr-1 rtl:ml-1 rtl:mr-0" />
                     {getCollegeLabel(topic, lang)}
                   </motion.button>
                 );

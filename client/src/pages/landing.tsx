@@ -137,7 +137,8 @@ export default function Landing() {
 
   const subjectCounts = posts.reduce((acc, post) => {
     if (post.subject) {
-      acc[post.subject] = (acc[post.subject] || 0) + 1;
+      acc[post.subject] = (acc[post.subject] || 0) +
+        (post.likedBy?.length || 0) + (post.replies?.length || 0) + 1;
     }
     return acc;
   }, {} as Record<string, number>);
@@ -458,7 +459,7 @@ export default function Landing() {
         <section className="py-12 bg-card/30">
           <div className="container mx-auto px-4">
             <h2 className="text-2xl font-bold mb-6 text-center">{tr.hotTopics}</h2>
-            <div className="flex flex-wrap justify-center gap-3 max-w-3xl mx-auto">
+            <div className="flex flex-col gap-2 max-w-3xl mx-auto">
               {hotTopics.map((topic, index) => {
                 return (
                   <motion.div
@@ -466,12 +467,13 @@ export default function Landing() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.05 }}
+                    className="w-full"
                   >
                     <Button
                       variant="outline"
                       size="lg"
                       onClick={() => setLocation('/login')}
-                      className={`border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-base ${getCollegeColor(topic)}`}
+                      className={`w-full justify-start border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-base ${getCollegeColor(topic)}`}
                       data-testid={`button-topic-${topic}`}
                     >
                       #{getCollegeLabel(topic, lang)}
