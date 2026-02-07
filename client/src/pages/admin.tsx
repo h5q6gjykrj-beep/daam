@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, SimpleDialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { 
@@ -1961,66 +1962,89 @@ export default function Admin() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.target}</th>
-                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.type}</th>
-                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.priority}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.reason}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.status}</th>
+                <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.priority}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.date}</th>
                 <th className={`p-3 font-medium text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{tr.actions}</th>
               </tr>
             </thead>
             <tbody>
               {filteredReports.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">{tr.noData}</td></tr>
               ) : (
                 filteredReports.map(r => (
-                  <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-3 font-medium max-w-xs truncate">
-                      {r.targetTitle}
-                      {r.targetAction === 'hidden' && (
-                        <Badge variant="outline" className="ms-2 text-xs bg-gray-500/20 text-gray-400">{tr.hidden}</Badge>
-                      )}
+                  <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors" data-testid={`row-report-${r.id}`}>
+                    <td className="p-3 max-w-xs">
+                      <div className="font-medium line-clamp-2">{r.targetTitle}</div>
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {r.targetType === 'post' ? tr.targetTypePost : r.targetType === 'comment' ? tr.targetTypeComment : tr.targetTypeUser}
+                        </Badge>
+                        {r.targetAction === 'hidden' && (
+                          <Badge variant="outline" className="text-xs bg-gray-500/20 text-gray-400">{tr.hidden}</Badge>
+                        )}
+                      </div>
                     </td>
-                    <td className="p-3">
-                      <Badge variant="outline" className="text-xs">
-                        {r.targetType === 'post' ? tr.targetTypePost : r.targetType === 'comment' ? tr.targetTypeComment : tr.targetTypeUser}
-                      </Badge>
+                    <td className="p-3 max-w-xs">
+                      <span className="text-muted-foreground line-clamp-2" title={getReasonLabel(r.reason, lang)}>{getReasonLabel(r.reason, lang)}</span>
                     </td>
-                    <td className="p-3">{getPriorityBadge(r.priority || 'low')}</td>
-                    <td className="p-3 text-muted-foreground max-w-xs truncate">{getReasonLabel(r.reason, lang)}</td>
                     <td className="p-3">{getStatusBadge(r.status, 'report')}</td>
-                    <td className="p-3 text-muted-foreground">{r.createdAt}</td>
+                    <td className="p-3">{getPriorityBadge(r.priority || 'low')}</td>
                     <td className="p-3">
-                      <div className="flex gap-1 flex-wrap">
-                        <Button size="sm" variant="ghost" onClick={() => openDetailModal(r, 'report')} data-testid={`button-view-report-${r.id}`}>
+                      <div className="text-muted-foreground text-xs leading-relaxed">
+                        <div>{r.createdAt.includes('T') ? r.createdAt.split('T')[0] : r.createdAt}</div>
+                        <div className="text-muted-foreground/60">{r.createdAt.includes('T') ? r.createdAt.split('T')[1]?.substring(0, 5) : '00:00'}</div>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => openDetailModal(r, 'report')} data-testid={`button-view-report-${r.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {(r.status === 'open' || r.status === 'in_review') && (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'resolve')} className="text-green-400" data-testid={`button-resolve-report-${r.id}`}>
-                              <CheckCircle className="w-4 h-4" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" data-testid={`button-report-actions-${r.id}`}>
+                              <MoreHorizontal className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'dismiss')} className="text-gray-400" data-testid={`button-dismiss-report-${r.id}`}>
-                              <XCircle className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                        {(r.status === 'resolved' || r.status === 'dismissed') && (
-                          <Button size="sm" variant="ghost" onClick={() => handleReportAction(r.id, 'reopen')} className="text-amber-400" data-testid={`button-reopen-report-${r.id}`}>
-                            <AlertTriangle className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {/* Quick Actions */}
-                        {(r.targetType === 'post' || r.targetType === 'comment') && !r.targetAction && (
-                          <Button size="sm" variant="ghost" onClick={() => handleHideTarget(r.id)} className="text-purple-400" data-testid={`button-hide-target-${r.id}`} title={tr.hideTarget}>
-                            <EyeOff className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {(r.targetType === 'user' || r.authorEmail) && !r.userAction && (
-                          <Button size="sm" variant="ghost" onClick={() => handleSuspendUser(r.id)} className="text-orange-400" data-testid={`button-suspend-user-${r.id}`} title={tr.suspendUser}>
-                            <Ban className="w-4 h-4" />
-                          </Button>
-                        )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {(r.status === 'open' || r.status === 'in_review') && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleReportAction(r.id, 'resolve')} className="text-green-400 focus:text-green-400" data-testid={`button-resolve-report-${r.id}`}>
+                                  <CheckCircle className="w-4 h-4 me-2" />
+                                  {tr.resolve}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportAction(r.id, 'dismiss')} className="text-muted-foreground" data-testid={`button-dismiss-report-${r.id}`}>
+                                  <XCircle className="w-4 h-4 me-2" />
+                                  {tr.dismiss}
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {(r.status === 'resolved' || r.status === 'dismissed') && (
+                              <DropdownMenuItem onClick={() => handleReportAction(r.id, 'reopen')} className="text-amber-400 focus:text-amber-400" data-testid={`button-reopen-report-${r.id}`}>
+                                <AlertTriangle className="w-4 h-4 me-2" />
+                                {tr.reopen}
+                              </DropdownMenuItem>
+                            )}
+                            {((r.status === 'open' || r.status === 'in_review' || r.status === 'resolved' || r.status === 'dismissed') &&
+                              ((r.targetType === 'post' || r.targetType === 'comment') && !r.targetAction || (r.targetType === 'user' || r.authorEmail) && !r.userAction)) && (
+                              <DropdownMenuSeparator />
+                            )}
+                            {(r.targetType === 'post' || r.targetType === 'comment') && !r.targetAction && (
+                              <DropdownMenuItem onClick={() => handleHideTarget(r.id)} className="text-purple-400 focus:text-purple-400" data-testid={`button-hide-target-${r.id}`}>
+                                <EyeOff className="w-4 h-4 me-2" />
+                                {tr.hideTarget}
+                              </DropdownMenuItem>
+                            )}
+                            {(r.targetType === 'user' || r.authorEmail) && !r.userAction && (
+                              <DropdownMenuItem onClick={() => handleSuspendUser(r.id)} className="text-orange-400 focus:text-orange-400" data-testid={`button-suspend-user-${r.id}`}>
+                                <Ban className="w-4 h-4 me-2" />
+                                {tr.suspendUser}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </td>
                   </tr>
