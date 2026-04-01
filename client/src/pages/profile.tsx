@@ -296,7 +296,7 @@ const activeViewToShellTab = (view: string): ProfileTab => {
 };
 
 export default function Profile() {
-  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM, changePassword } = useDaamStore();
+  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
   const [, navigate] = useLocation();
   
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -2767,8 +2767,8 @@ export default function Profile() {
                 <Check className="w-10 h-10 mx-auto text-primary" />
                 <p className="text-sm text-muted-foreground">
                   {lang === 'ar'
-                    ? 'تم تغيير كلمة المرور بنجاح.'
-                    : 'Password changed successfully.'}
+                    ? 'سيتم تفعيل تغيير كلمة المرور عند ربط نظام المصادقة النهائي.'
+                    : 'Password change will be enabled once authentication is fully wired.'}
                 </p>
                 <Button
                   variant="outline"
@@ -2873,7 +2873,7 @@ export default function Profile() {
                     {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
                   <Button
-                    onClick={async () => {
+                    onClick={() => {
                       const errors: Record<string, string> = {};
                       if (!cpForm.current.trim()) {
                         errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
@@ -2888,12 +2888,7 @@ export default function Profile() {
                         setCpErrors(errors);
                         return;
                       }
-                      try {
-                        await changePassword(user!.email, cpForm.current, cpForm.newPw);
-                        setCpSubmitted(true);
-                      } catch (err: any) {
-                        setCpErrors({ current: err.message });
-                      }
+                      setCpSubmitted(true);
                     }}
                     className="flex-1"
                     data-testid="button-submit-change-password"
@@ -4594,7 +4589,7 @@ export default function Profile() {
                   {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
                 <Button
-                  onClick={async () => {
+                  onClick={() => {
                     const errors: Record<string, string> = {};
                     if (!cpForm.current.trim()) {
                       errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
@@ -4609,12 +4604,7 @@ export default function Profile() {
                       setCpErrors(errors);
                       return;
                     }
-                    try {
-                      changePassword(user!.email, cpForm.current, cpForm.newPw);
-                      setCpSubmitted(true);
-                    } catch (err: any) {
-                      setCpErrors({ current: err.message });
-                    }
+                    setCpSubmitted(true);
                   }}
                   className="flex-1"
                   data-testid="button-submit-change-password"

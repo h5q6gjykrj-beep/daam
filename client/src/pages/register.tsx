@@ -171,7 +171,7 @@ export default function Register() {
     mustAgreeToTerms: lang === 'ar' ? 'يجب الموافقة على الشروط والأحكام' : 'You must agree to the Terms & Conditions',
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     const newErrors: Record<string, string> = {};
@@ -212,7 +212,7 @@ export default function Register() {
     }
     
     try {
-      await register(formData);
+      register(formData);
       toast({
         title: lang === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration Successful!',
         description: lang === 'ar' ? 'يمكنك الآن تسجيل الدخول' : 'You can now login',
