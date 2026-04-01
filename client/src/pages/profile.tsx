@@ -296,7 +296,7 @@ const activeViewToShellTab = (view: string): ProfileTab => {
 };
 
 export default function Profile() {
-  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
+  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM, changePassword } = useDaamStore();
   const [, navigate] = useLocation();
   
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -2767,8 +2767,8 @@ export default function Profile() {
                 <Check className="w-10 h-10 mx-auto text-primary" />
                 <p className="text-sm text-muted-foreground">
                   {lang === 'ar'
-                    ? 'سيتم تفعيل تغيير كلمة المرور عند ربط نظام المصادقة النهائي.'
-                    : 'Password change will be enabled once authentication is fully wired.'}
+                    ? 'تم تغيير كلمة المرور بنجاح.'
+                    : 'Password changed successfully.'}
                 </p>
                 <Button
                   variant="outline"
@@ -2888,7 +2888,12 @@ export default function Profile() {
                         setCpErrors(errors);
                         return;
                       }
-                      setCpSubmitted(true);
+                      try {
+                        changePassword(user!.email, cpForm.current, cpForm.newPw);
+                        setCpSubmitted(true);
+                      } catch (err: any) {
+                        setCpErrors({ current: err.message });
+                      }
                     }}
                     className="flex-1"
                     data-testid="button-submit-change-password"
@@ -4604,7 +4609,12 @@ export default function Profile() {
                       setCpErrors(errors);
                       return;
                     }
-                    setCpSubmitted(true);
+                    try {
+                      changePassword(user!.email, cpForm.current, cpForm.newPw);
+                      setCpSubmitted(true);
+                    } catch (err: any) {
+                      setCpErrors({ current: err.message });
+                    }
                   }}
                   className="flex-1"
                   data-testid="button-submit-change-password"

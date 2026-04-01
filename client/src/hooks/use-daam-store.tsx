@@ -305,6 +305,7 @@ interface DaamStoreContextType {
   logout: () => void;
   register: (data: RegistrationData) => PendingVerification;
   resetPassword: (email: string, newPassword: string) => void;
+  changePassword: (email: string, currentPassword: string, newPassword: string) => void;
   verifyEmail: (token: string) => boolean;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
@@ -899,6 +900,29 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return verification;
   };
   
+  // Change password for any authenticated user (requires current password)
+  const changePassword = (email: string, currentPassword: string, newPassword: string) => {
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+
+    if (!account) {
+      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+    }
+
+    if (account.passwordHash !== simpleHash(currentPassword)) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
+    }
+
+    if (newPassword.length < 8) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters');
+    }
+
+    const updatedAccount = { ...account, passwordHash: simpleHash(newPassword) };
+    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+  };
+
   // Reset password for admin/moderator accounts
   const resetPassword = (email: string, newPassword: string) => {
     const emailLower = email.toLowerCase();
@@ -1944,6 +1968,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     logout,
     register,
     resetPassword,
+    changePassword,
     verifyEmail,
     createPost,
     deletePost,
