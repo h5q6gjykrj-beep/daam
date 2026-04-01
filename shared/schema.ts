@@ -1,4 +1,4 @@
-import { pgTable, text, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -6,6 +6,23 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
+});
+
+// Auth accounts table - stores passwords and account data in PostgreSQL
+export const authAccounts = pgTable("auth_accounts", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  phone: text("phone").notNull().default(""),
+  governorate: text("governorate").notNull().default(""),
+  wilayat: text("wilayat").notNull().default(""),
+  role: text("role").notNull().default("student"),
+  verified: boolean("verified").notNull().default(true),
+  banned: boolean("banned").notNull().default(false),
+  bannedReason: text("banned_reason"),
+  isDemo: boolean("is_demo").notNull().default(false),
+  allowDM: text("allow_dm").notNull().default("everyone"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

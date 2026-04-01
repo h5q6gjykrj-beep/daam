@@ -300,12 +300,12 @@ interface DaamStoreContextType {
   pendingVerification: PendingVerification | null;
   isLoading: boolean;
   t: typeof DICTIONARY.en;
-  login: (email: string, password: string, rememberMe?: boolean) => void;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   loginSimple: (email: string) => void;
-  logout: () => void;
-  register: (data: RegistrationData) => PendingVerification;
-  resetPassword: (email: string, newPassword: string) => void;
-  changePassword: (email: string, currentPassword: string, newPassword: string) => void;
+  logout: () => Promise<void>;
+  register: (data: RegistrationData) => Promise<void>;
+  resetPassword: (email: string, newPassword: string) => Promise<void>;
+  changePassword: (email: string, currentPassword: string, newPassword: string) => Promise<void>;
   verifyEmail: (token: string) => boolean;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
@@ -414,6 +414,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   // Initialize from localStorage
   useEffect(() => {
+    async function init() {
     const storedUser = localStorage.getItem(KEYS.USER);
     const storedLang = localStorage.getItem(KEYS.LANG) as Language;
     const storedPosts = localStorage.getItem(KEYS.POSTS);
@@ -478,37 +479,68 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (storedUser) {
-      let parsedProfiles: Record<string, UserProfile> = {};
-      try {
-        parsedProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
-      } catch (e) {
-        console.error("Failed to parse profiles for user", e);
+    // Restore auth session from server
+    try {
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      const meData = await meRes.json();
+      if (meData.ok && meData.account) {
+        const acc = meData.account;
+        const emailLower = acc.email.toLowerCase();
+        const userAccount: UserAccount = {
+          email: acc.email,
+          passwordHash: '',
+          phone: acc.phone || '',
+          region: { governorate: acc.governorate || '', wilayat: acc.wilayat || '' },
+          role: acc.role || 'student',
+          verified: acc.verified ?? true,
+          banned: acc.banned ?? false,
+          bannedReason: acc.bannedReason ?? undefined,
+          isDemo: acc.isDemo ?? false,
+          allowDM: (acc.allowDM as any) ?? 'everyone',
+          createdAt: typeof acc.createdAt === 'string' ? acc.createdAt : new Date().toISOString(),
+        };
+        const latestAccounts = { ...updatedAccounts, [emailLower]: userAccount };
+        setAccounts(latestAccounts);
+        localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(latestAccounts));
+        localStorage.setItem(KEYS.USER, acc.email);
+        let parsedProfilesForUser: Record<string, UserProfile> = {};
+        try { parsedProfilesForUser = storedProfiles ? JSON.parse(storedProfiles) : {}; } catch (_e) {}
+        setUser({
+          email: acc.email,
+          isAdmin: ADMIN_EMAILS.includes(emailLower),
+          isModerator: acc.role === 'moderator',
+          profile: parsedProfilesForUser[acc.email] || parsedProfilesForUser[emailLower],
+          account: userAccount,
+        });
       }
-      const userLower = storedUser.toLowerCase();
-      const userAccount = parsedAccounts[userLower] || parsedAccounts[storedUser];
-      let isMod = userLower === MODERATOR_EMAIL.toLowerCase();
-      if (!isMod && !userAccount) {
-        try {
-          const rawAuth = localStorage.getItem(LS_AUTH);
-          if (rawAuth) {
-            const parsedAuth: LocalAuthUser[] = JSON.parse(rawAuth);
-            const authUser = parsedAuth.find(a => a.email.toLowerCase() === userLower);
-            if (authUser && authUser.role === 'moderator') {
-              isMod = true;
+    } catch (_err) {
+      // Server unreachable - fall back to localStorage session for admin-created moderators
+      if (storedUser) {
+        const userLower = storedUser.toLowerCase();
+        const userAccount = parsedAccounts[userLower] || parsedAccounts[storedUser];
+        let isMod = userLower === MODERATOR_EMAIL.toLowerCase();
+        if (!isMod && !userAccount) {
+          try {
+            const rawAuth = localStorage.getItem(LS_AUTH);
+            if (rawAuth) {
+              const parsedAuth: LocalAuthUser[] = JSON.parse(rawAuth);
+              const authUser = parsedAuth.find(a => a.email.toLowerCase() === userLower);
+              if (authUser && authUser.role === 'moderator') isMod = true;
             }
+          } catch (e) {
+            console.error("Failed to check auth users for session restore", e);
           }
-        } catch (e) {
-          console.error("Failed to check auth users for session restore", e);
         }
+        let parsedProfilesFallback: Record<string, UserProfile> = {};
+        try { parsedProfilesFallback = storedProfiles ? JSON.parse(storedProfiles) : {}; } catch (_e) {}
+        setUser({
+          email: storedUser,
+          isAdmin: ADMIN_EMAILS.includes(userLower),
+          isModerator: isMod,
+          profile: parsedProfilesFallback[storedUser],
+          account: userAccount,
+        });
       }
-      setUser({ 
-        email: storedUser, 
-        isAdmin: ADMIN_EMAILS.includes(userLower),
-        isModerator: isMod,
-        profile: parsedProfiles[storedUser],
-        account: userAccount
-      });
     }
     if (storedLang) setLang(storedLang);
     if (storedPosts) {
@@ -754,6 +786,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     }
     
     setIsLoading(false);
+    }
+    init();
   }, []);
 
   // Update language effect
@@ -765,65 +799,59 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   // Actions
   
-  // Full login with password (for registered users and admin-created moderators)
-  const login = (email: string, password: string, rememberMe: boolean = false) => {
+  // Full login with password
+  const login = async (email: string, password: string, rememberMe: boolean = false): Promise<void> => {
     const emailLower = email.toLowerCase();
-    const account = accounts[emailLower];
-    
-    if (!account) {
-      const authUser = authUsers.find(a => a.email.toLowerCase() === emailLower);
-      
-      if (!authUser) {
-        throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
-      }
-      
-      if (authUser.passwordHash !== password) {
-        throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
-      }
-      
-      const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
-      const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
-      
-      localStorage.setItem(KEYS.USER, email);
-      setUser({
-        email,
-        isAdmin: isAdminEmail,
-        isModerator: isMod,
-        profile: profiles[email]
-      });
-      return;
+
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email: emailLower, password }),
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      const errMap: Record<string, string> = {
+        'Account not registered': 'هذا الحساب غير مسجل',
+        'Incorrect password': 'كلمة المرور غير صحيحة',
+        'Your account is banned': 'حسابك محظور',
+      };
+      const msg = data.error || 'Login failed';
+      throw new Error(lang === 'ar' ? (errMap[msg] || msg) : msg);
     }
-    
-    if (!account.verified) {
-      throw new Error(lang === 'ar' ? 'يرجى تأكيد بريدك الإلكتروني أولاً' : 'Please verify your email first');
-    }
-    
-    if (account.banned) {
-      throw new Error(lang === 'ar' ? 'حسابك محظور: ' + account.bannedReason : 'Your account is banned: ' + account.bannedReason);
-    }
-    
-    if (account.passwordHash !== simpleHash(password)) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
-    }
-    
-    // Update rememberMe status
-    const updatedAccounts = {
-      ...accounts,
-      [emailLower]: { ...account, rememberMe }
+
+    const acc = data.account;
+    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+    const isMod = acc.role === 'moderator';
+
+    const userAccount: UserAccount = {
+      email: acc.email,
+      passwordHash: '',
+      phone: acc.phone || '',
+      region: { governorate: acc.governorate || '', wilayat: acc.wilayat || '' },
+      role: acc.role || 'student',
+      verified: acc.verified ?? true,
+      banned: acc.banned ?? false,
+      bannedReason: acc.bannedReason ?? undefined,
+      isDemo: acc.isDemo ?? false,
+      allowDM: (acc.allowDM as any) ?? 'everyone',
+      createdAt: typeof acc.createdAt === 'string' ? acc.createdAt : new Date().toISOString(),
+      rememberMe,
     };
+
+    const updatedAccounts = { ...accounts, [emailLower]: userAccount };
     setAccounts(updatedAccounts);
     localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
-    
-    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
-    const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
-    
     localStorage.setItem(KEYS.USER, email);
-    setUser({ 
-      email, 
+
+    setUser({
+      email,
       isAdmin: isAdminEmail,
       isModerator: isMod,
-      account: updatedAccounts[emailLower],
-      profile: profiles[email]
+      account: userAccount,
+      profile: profiles[email],
     });
   };
   
@@ -835,48 +863,45 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       : 'Quick login is disabled. Please use password login.');
   };
   
-  // Register new account - Auto-verified (no email verification required)
-  const register = (data: RegistrationData): PendingVerification => {
+  // Register new account
+  const register = async (data: RegistrationData): Promise<void> => {
     const emailLower = data.email.toLowerCase();
-    
-    // Check if already registered
-    if (accounts[emailLower]) {
-      throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
-    }
-    
-    // Validate email domain against allowed domains
     const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
     const emailDomain = emailLower.split('@')[1];
-    const isDomainAllowed = emailDomain && allowedDomains.includes(emailDomain);
-    
-    if (!isModerator && !isDomainAllowed) {
+
+    if (!isModerator && (!emailDomain || !allowedDomains.includes(emailDomain))) {
       throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي معتمد' : 'Please use an approved university email');
     }
-    
-    // Reject other hotmail emails (unless moderator)
-    if (!isModerator && data.email.toLowerCase().includes('@hotmail.')) {
+
+    if (!isModerator && emailLower.includes('@hotmail.')) {
       throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
     }
-    
-    // Create account - automatically verified
-    const newAccount: UserAccount = {
-      email: data.email,
-      passwordHash: simpleHash(data.password),
-      phone: data.phone,
-      region: {
+
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
         governorate: data.governorate,
-        wilayat: data.wilayat
-      },
-      role: isModerator ? 'moderator' : 'student',
-      verified: true, // Auto-verified
-      createdAt: new Date().toISOString()
-    };
-    
-    const updatedAccounts = { ...accounts, [emailLower]: newAccount };
-    setAccounts(updatedAccounts);
-    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
-    
-    // Create default profile
+        wilayat: data.wilayat,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!result.ok) {
+      const errMap: Record<string, string> = {
+        'Email already registered': 'هذا البريد مسجل مسبقاً',
+        'Please use an approved university email': 'يرجى استخدام بريد جامعي معتمد',
+      };
+      const msg = result.error || 'Registration failed';
+      throw new Error(lang === 'ar' ? (errMap[msg] || msg) : msg);
+    }
+
+    // Create default profile in localStorage
     const defaultProfile: UserProfile = {
       email: data.email,
       name: data.name,
@@ -884,69 +909,65 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       major: '',
       university: 'UTAS',
       followers: [],
-      following: []
+      following: [],
     };
     const updatedProfiles = { ...profiles, [data.email]: defaultProfile };
     setProfiles(updatedProfiles);
     localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
-    
-    // Return verification object (for backward compatibility)
-    const verification: PendingVerification = {
-      email: data.email,
-      token: '',
-      expiry: ''
+
+    // Cache account data in localStorage (no passwordHash)
+    const acc = result.account;
+    const userAccount: UserAccount = {
+      email: acc.email,
+      passwordHash: '',
+      phone: acc.phone || '',
+      region: { governorate: acc.governorate || '', wilayat: acc.wilayat || '' },
+      role: acc.role || 'student',
+      verified: true,
+      createdAt: typeof acc.createdAt === 'string' ? acc.createdAt : new Date().toISOString(),
     };
-    
-    return verification;
+    const updatedAccounts = { ...accounts, [emailLower]: userAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
   
-  // Change password for any authenticated user (requires current password)
-  const changePassword = (email: string, currentPassword: string, newPassword: string) => {
-    const emailLower = email.toLowerCase();
-    const account = accounts[emailLower];
-
-    if (!account) {
-      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+  // Change password for the authenticated user
+  const changePassword = async (_email: string, currentPassword: string, newPassword: string): Promise<void> => {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      const errMap: Record<string, string> = {
+        'Current password is incorrect': 'كلمة المرور الحالية غير صحيحة',
+        'Password must be at least 8 characters': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+      };
+      const msg = data.error || 'Failed to change password';
+      throw new Error(lang === 'ar' ? (errMap[msg] || msg) : msg);
     }
-
-    if (account.passwordHash !== simpleHash(currentPassword)) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
-    }
-
-    if (newPassword.length < 8) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters');
-    }
-
-    const updatedAccount = { ...account, passwordHash: simpleHash(newPassword) };
-    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
-    setAccounts(updatedAccounts);
-    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
 
-  // Reset password for admin/moderator accounts
-  const resetPassword = (email: string, newPassword: string) => {
-    const emailLower = email.toLowerCase();
-    const account = accounts[emailLower];
-    
-    if (!account) {
-      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+  // Reset password for admin/moderator accounts (no current password required)
+  const resetPassword = async (email: string, newPassword: string): Promise<void> => {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, newPassword }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      const errMap: Record<string, string> = {
+        'Account not registered': 'هذا الحساب غير مسجل',
+        'Password reset only available for moderator accounts': 'إعادة تعيين كلمة المرور متاحة فقط للمشرفين',
+        'Password must be at least 6 characters': 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+      };
+      const msg = data.error || 'Failed to reset password';
+      throw new Error(lang === 'ar' ? (errMap[msg] || msg) : msg);
     }
-    
-    // Only allow reset for admin/moderator accounts
-    const isAdminOrMod = ADMIN_EMAILS.includes(emailLower) || emailLower === MODERATOR_EMAIL.toLowerCase();
-    if (!isAdminOrMod) {
-      throw new Error(lang === 'ar' ? 'إعادة تعيين كلمة المرور متاحة فقط للمشرفين' : 'Password reset only available for moderators');
-    }
-    
-    if (newPassword.length < 6) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters');
-    }
-    
-    // Update password
-    const updatedAccount = { ...account, passwordHash: simpleHash(newPassword) };
-    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
-    setAccounts(updatedAccounts);
-    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
   
   // Verify email with token
@@ -987,7 +1008,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  const logout = () => {
+  const logout = async (): Promise<void> => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (_e) {
+      // ignore network errors
+    }
     localStorage.removeItem(KEYS.USER);
     setUser(null);
   };

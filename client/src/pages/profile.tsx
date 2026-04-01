@@ -2873,7 +2873,7 @@ export default function Profile() {
                     {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
                   <Button
-                    onClick={() => {
+                    onClick={async () => {
                       const errors: Record<string, string> = {};
                       if (!cpForm.current.trim()) {
                         errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
@@ -2889,7 +2889,7 @@ export default function Profile() {
                         return;
                       }
                       try {
-                        changePassword(user!.email, cpForm.current, cpForm.newPw);
+                        await changePassword(user!.email, cpForm.current, cpForm.newPw);
                         setCpSubmitted(true);
                       } catch (err: any) {
                         setCpErrors({ current: err.message });
@@ -4594,7 +4594,7 @@ export default function Profile() {
                   {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     const errors: Record<string, string> = {};
                     if (!cpForm.current.trim()) {
                       errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
