@@ -52,10 +52,10 @@ export default function Login() {
     passwordResetSuccess: lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully',
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      login(email, password, rememberMe);
+      await login(email, password, rememberMe);
       setLocation("/dashboard");
       toast({
         title: lang === 'en' ? "Welcome back!" : "أهلاً بك!",
@@ -87,9 +87,9 @@ export default function Login() {
     });
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPassword !== confirmNewPassword) {
       toast({
         title: lang === 'ar' ? 'خطأ' : 'Error',

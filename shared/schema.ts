@@ -1,19 +1,189 @@
-import { pgTable, text, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// We are using localStorage as requested, but we define types here for consistency
+// ==================== DATABASE TABLES ====================
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-});
-
+export const insertUserSchema = createInsertSchema(users).pick({ email: true });
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// Auth accounts - passwords stored here
+export const authAccounts = pgTable("auth_accounts", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  phone: text("phone").notNull().default(""),
+  governorate: text("governorate").notNull().default(""),
+  wilayat: text("wilayat").notNull().default(""),
+  role: text("role").notNull().default("student"),
+  verified: boolean("verified").notNull().default(true),
+  banned: boolean("banned").notNull().default(false),
+  bannedReason: text("banned_reason"),
+  isDemo: boolean("is_demo").notNull().default(false),
+  allowDM: text("allow_dm").notNull().default("everyone"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// User profiles
+export const profiles = pgTable("profiles", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull().default(""),
+  major: text("major").notNull().default(""),
+  university: text("university").notNull().default("UTAS"),
+  level: text("level"),
+  college: text("college"),
+  avatarColor: text("avatar_color"),
+  avatarUrl: text("avatar_url"),
+  coverUrl: text("cover_url"),
+  interests: jsonb("interests").$type<string[]>().default([]),
+  bio: text("bio"),
+  showFavorites: boolean("show_favorites").notNull().default(true),
+  showInterests: boolean("show_interests").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Posts
+export const posts = pgTable("posts", {
+  id: text("id").primaryKey(),
+  authorEmail: text("author_email").notNull(),
+  content: text("content").notNull(),
+  postType: text("post_type").notNull().default("discussion"),
+  subject: text("subject"),
+  imageUrl: text("image_url"),
+  attachments: jsonb("attachments").$type<any[]>().default([]),
+  status: text("status").notNull().default("visible"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Replies (flat structure with parent_reply_id for nesting)
+export const replies = pgTable("replies", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  authorEmail: text("author_email").notNull(),
+  content: text("content").notNull(),
+  parentReplyId: text("parent_reply_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Post likes
+export const postLikes = pgTable("post_likes", {
+  postId: text("post_id").notNull(),
+  userEmail: text("user_email").notNull(),
+});
+
+// Post saves
+export const postSaves = pgTable("post_saves", {
+  postId: text("post_id").notNull(),
+  userEmail: text("user_email").notNull(),
+});
+
+// Follows
+export const follows = pgTable("follows", {
+  followerEmail: text("follower_email").notNull(),
+  followingEmail: text("following_email").notNull(),
+});
+
+// Reports
+export const reports = pgTable("reports", {
+  id: text("id").primaryKey(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  targetTitle: text("target_title").notNull(),
+  reason: text("reason").notNull(),
+  note: text("note"),
+  reporterEmail: text("reporter_email").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Moderators
+export const moderators = pgTable("moderators", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  role: text("role").notNull().default("moderator"),
+  permissions: jsonb("permissions").$type<string[]>().default([]),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+// Admin-created moderator auth users
+export const authUsers = pgTable("auth_users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("moderator"),
+  linkedModeratorId: text("linked_moderator_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Mutes
+export const mutes = pgTable("mutes", {
+  id: serial("id").primaryKey(),
+  userEmail: text("user_email").notNull().unique(),
+  mutedBy: text("muted_by").notNull(),
+  reason: text("reason"),
+  mutedAt: timestamp("muted_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// Bans
+export const bans = pgTable("bans", {
+  id: serial("id").primaryKey(),
+  userEmail: text("user_email").notNull().unique(),
+  bannedBy: text("banned_by").notNull(),
+  reason: text("reason"),
+  bannedAt: timestamp("banned_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// Conversations
+export const conversations = pgTable("conversations", {
+  id: text("id").primaryKey(),
+  participant1: text("participant1").notNull(),
+  participant2: text("participant2").notNull(),
+  lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
+  lastMessagePreview: text("last_message_preview").notNull().default(""),
+});
+
+// Direct messages
+export const directMessages = pgTable("direct_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id").notNull(),
+  senderEmail: text("sender_email").notNull(),
+  content: text("content").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  readBy: jsonb("read_by").$type<string[]>().default([]),
+});
+
+// Audit log
+export const auditLog = pgTable("audit_log", {
+  id: text("id").primaryKey(),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  byEmail: text("by_email").notNull(),
+  at: timestamp("at").notNull().defaultNow(),
+  meta: jsonb("meta").$type<Record<string, unknown>>(),
+});
+
+// Allowed domains
+export const allowedDomains = pgTable("allowed_domains", {
+  id: serial("id").primaryKey(),
+  domain: text("domain").notNull().unique(),
+});
+
+// ==================== TYPESCRIPT INTERFACES ====================
 
 // Post types for discussion arena
 export type PostType = 'question' | 'explanation' | 'summary' | 'discussion';
