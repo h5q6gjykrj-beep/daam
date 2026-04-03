@@ -238,15 +238,6 @@ const getInitialTheme = (): Theme => {
   return 'dark';
 };
 
-// ─── Demo Data Seeder ─────────────────────────────────────────────────────────
-const DEMO_USERS = [
-  { email: 'ahmed@utas.edu.om', name: 'أحمد محمد', major: 'علوم الحاسب', university: 'جامعة التقنية والعلوم التطبيقية', level: 'السنة الثالثة', bio: 'مهتم بالبرمجة والذكاء الاصطناعي', interests: ['programming', 'it', 'math'] },
-  { email: 'fatima@utas.edu.om', name: 'فاطمة علي', major: 'إدارة الأعمال', university: 'جامعة التقنية والعلوم التطبيقية', level: 'السنة الثانية', bio: 'أحب التعلم ومشاركة المعرفة', interests: ['business', 'english', 'summaries'] },
-  { email: 'mohammed@utas.edu.om', name: 'محمد سالم', major: 'الهندسة الميكانيكية', university: 'جامعة التقنية والعلوم التطبيقية', level: 'السنة الرابعة', bio: 'مهندس المستقبل', interests: ['engineering', 'physics', 'math'] },
-  { email: 'sara@utas.edu.om', name: 'سارة خالد', major: 'الصيدلة', university: 'جامعة التقنية والعلوم التطبيقية', level: 'السنة الثالثة', bio: 'شغوفة بالعلوم الطبية', interests: ['chemistry', 'biology', 'summaries'] },
-  { email: 'omar@utas.edu.om', name: 'عمر يوسف', major: 'التصميم الجرافيكي', university: 'جامعة التقنية والعلوم التطبيقية', level: 'السنة الأولى', bio: 'مصمم مبدع', interests: ['design', 'media', 'it'] },
-  { email: MODERATOR_EMAIL, name: 'المشرف العام', major: '', university: '', level: '', bio: 'مشرف المنصة', interests: [] },
-];
 
 export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -285,24 +276,6 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         const loadedAccounts: Record<string, UserAccount> = data.accounts || {};
         const loadedModerators: ModeratorAccount[] = data.moderators || [];
         const loadedAuthUsers: LocalAuthUser[] = data.authUsers || [];
-
-        // Seed demo users if not present
-        let profilesUpdated = false;
-        let accountsUpdated = false;
-        for (const demo of DEMO_USERS) {
-          if (!loadedProfiles[demo.email]) {
-            const profile: UserProfile = { email: demo.email, name: demo.name, major: demo.major, university: demo.university, level: demo.level, bio: demo.bio, interests: demo.interests, followers: [], following: [], showFavorites: true, showInterests: true };
-            loadedProfiles[demo.email] = profile;
-            api('PATCH', `/api/profiles/${encodeURIComponent(demo.email)}`, profile).catch(() => {});
-            profilesUpdated = true;
-          }
-          if (!loadedAccounts[demo.email]) {
-            const acc: UserAccount = { email: demo.email, passwordHash: simpleHash('Demo123!'), phone: '99999999', region: { governorate: 'muscat', wilayat: 'muscat' }, role: 'student', verified: true, rememberMe: false, createdAt: new Date().toISOString(), isDemo: true };
-            loadedAccounts[demo.email] = acc;
-            api('POST', '/api/accounts', acc).catch(() => {});
-            accountsUpdated = true;
-          }
-        }
 
         setProfiles(loadedProfiles);
         setAccounts(loadedAccounts);
