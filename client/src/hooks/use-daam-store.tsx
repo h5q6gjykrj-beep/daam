@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
-import { type LocalPost, type LocalReply, type PostType, type UserProfile, type Attachment, type UserAccount, type UserRole, type Region } from "@shared/schema";
+import { type LocalPost, type LocalReply, type PostType, type PostStatus, type UserProfile, type Attachment, type UserAccount, type UserRole, type Region } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Language = 'ar' | 'en';
@@ -175,6 +175,7 @@ interface DaamStoreContextType {
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, content: string, postType?: PostType, subject?: string) => void;
+  updatePostStatus: (postId: string, status: PostStatus) => void;
   toggleLike: (postId: string) => void;
   toggleSave: (postId: string) => void;
   addReply: (postId: string, content: string, parentReplyId?: string) => void;
@@ -475,6 +476,11 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (!user.isAdmin && !user.isModerator && post.authorEmail !== user.email) return;
     setPosts(prev => prev.filter(p => p.id !== postId));
     api('DELETE', `/api/posts/${postId}`).catch(() => {});
+  };
+
+  const updatePostStatus = (postId: string, status: PostStatus) => {
+    setPosts(prev => prev.map(p => p.id !== postId ? p : { ...p, status }));
+    api('PATCH', `/api/posts/${postId}`, { status }).catch(() => {});
   };
 
   const toggleLike = (postId: string) => {
@@ -891,7 +897,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const value: DaamStoreContextType = {
     user, lang, theme, posts, profiles, accounts, pendingVerification, isLoading,
     t: DICTIONARY[lang], login, loginSimple, logout, register, resetPassword, changePassword, verifyEmail,
-    createPost, deletePost, updatePost, toggleLike, toggleSave, addReply, toggleLang, toggleTheme,
+    createPost, deletePost, updatePost, updatePostStatus, toggleLike, toggleSave, addReply, toggleLang, toggleTheme,
     updateProfile, getProfile, getAccount, updateAccount, toggleFollow, isFollowing, banUser, unbanUser,
     deleteReply, editReply, reports, hasUserReported, submitReport, updateReportStatus,
     allowedDomains, addAllowedDomain, removeAllowedDomain, isEmailDomainAllowed,

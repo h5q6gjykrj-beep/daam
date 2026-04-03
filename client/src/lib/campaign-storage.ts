@@ -52,8 +52,28 @@ export function getCampaigns(): Campaign[] {
   }
 }
 
+export async function loadCampaignsFromApi(): Promise<Campaign[]> {
+  try {
+    const res = await fetch(`/api/settings/${encodeURIComponent(STORAGE_KEYS.CAMPAIGNS)}`);
+    if (!res.ok) return getCampaigns();
+    const json = await res.json();
+    const campaigns: Campaign[] = json?.value ?? [];
+    if (Array.isArray(campaigns) && campaigns.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.CAMPAIGNS, JSON.stringify(campaigns));
+    }
+    return getCampaigns();
+  } catch {
+    return getCampaigns();
+  }
+}
+
 export function saveCampaigns(campaigns: Campaign[]): void {
   localStorage.setItem(STORAGE_KEYS.CAMPAIGNS, JSON.stringify(campaigns));
+  fetch(`/api/settings/${encodeURIComponent(STORAGE_KEYS.CAMPAIGNS)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: campaigns })
+  }).catch(() => {});
 }
 
 export function getCampaignById(id: string): Campaign | undefined {

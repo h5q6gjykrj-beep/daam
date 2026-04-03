@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import type { Campaign, CampaignType, CampaignStatus, CampaignTarget, CampaignPlacement, CampaignStats, CampaignAttachment, CampaignAttachmentKind } from "@/types/campaign";
 import { 
-  getCampaigns, createCampaign, updateCampaign, deleteCampaign, 
+  getCampaigns, loadCampaignsFromApi, createCampaign, updateCampaign, deleteCampaign, 
   updateCampaignStatus, getCampaignStats, attachCampaignVideo, removeCampaignVideo,
   attachCampaignAttachment, removeCampaignAttachment, getAttachmentCountByKind, ATTACHMENT_LIMITS
 } from "@/lib/campaign-storage";
@@ -217,27 +217,6 @@ interface Report {
 }
 
 
-const initialUsers: AdminUser[] = [
-  { id: '1', email: 'ahmed@utas.edu.om', name: 'أحمد الحارثي', status: 'active', role: 'user', joinedAt: '2024-01-15', postsCount: 12, commentsCount: 45, phone: '+968 9123 4567', lastActive: '2024-12-20' },
-  { id: '2', email: 'fatima@utas.edu.om', name: 'فاطمة البلوشي', status: 'active', role: 'user', joinedAt: '2024-02-20', postsCount: 8, commentsCount: 23, phone: '+968 9234 5678', lastActive: '2024-12-18' },
-  { id: '3', email: 'mohammed@utas.edu.om', name: 'محمد الكندي', status: 'suspended', role: 'user', joinedAt: '2024-03-10', postsCount: 3, commentsCount: 15, phone: '+968 9345 6789', lastActive: '2024-12-15' },
-  { id: '4', email: 'sara@utas.edu.om', name: 'سارة المعمري', status: 'active', role: 'user', joinedAt: '2024-01-25', postsCount: 20, commentsCount: 67, phone: '+968 9456 7890', lastActive: '2024-12-21' },
-  { id: '5', email: 'omar@utas.edu.om', name: 'عمر الراشدي', status: 'banned', role: 'user', joinedAt: '2024-04-05', postsCount: 1, commentsCount: 2, phone: '+968 9567 8901', lastActive: '2024-11-20' },
-  { id: '6', email: 'w.qq89@hotmail.com', name: 'المشرف العام', status: 'active', role: 'moderator', joinedAt: '2024-01-01', postsCount: 5, commentsCount: 100 },
-];
-
-const initialPosts: AdminPost[] = [
-  { id: 'p1', title: 'كيف أحسن مستواي في البرمجة؟', author: 'أحمد الحارثي', authorEmail: 'ahmed@utas.edu.om', status: 'visible', type: 'question', createdAt: '2024-12-01', likesCount: 15, commentsCount: 8 },
-  { id: 'p2', title: 'نقاش حول مشروع التخرج', author: 'فاطمة البلوشي', authorEmail: 'fatima@utas.edu.om', status: 'visible', type: 'discussion', createdAt: '2024-12-05', likesCount: 23, commentsCount: 12 },
-  { id: 'p3', title: 'إعلان: موعد الامتحانات النهائية', author: 'المشرف العام', authorEmail: 'w.qq89@hotmail.com', status: 'visible', type: 'announcement', createdAt: '2024-12-10', likesCount: 45, commentsCount: 5 },
-  { id: 'p4', title: 'محتوى غير لائق', author: 'عمر الراشدي', authorEmail: 'omar@utas.edu.om', status: 'hidden', type: 'discussion', createdAt: '2024-12-08', likesCount: 2, commentsCount: 1 },
-];
-
-const initialComments: AdminComment[] = [
-  { id: 'c1', content: 'شكراً على المشاركة المفيدة!', author: 'سارة المعمري', authorEmail: 'sara@utas.edu.om', postId: 'p1', postTitle: 'كيف أحسن مستواي في البرمجة؟', status: 'visible', createdAt: '2024-12-02' },
-  { id: 'c2', content: 'أوافقك الرأي تماماً', author: 'محمد الكندي', authorEmail: 'mohammed@utas.edu.om', postId: 'p2', postTitle: 'نقاش حول مشروع التخرج', status: 'visible', createdAt: '2024-12-06' },
-  { id: 'c3', content: 'تعليق مخالف للقواعد', author: 'عمر الراشدي', authorEmail: 'omar@utas.edu.om', postId: 'p1', postTitle: 'كيف أحسن مستواي في البرمجة؟', status: 'hidden', createdAt: '2024-12-03' },
-];
 
 const initialFiles: AdminFile[] = [
   { id: 'f1', filename: 'project_proposal.pdf', uploader: 'أحمد الحارثي', uploaderEmail: 'ahmed@utas.edu.om', postId: 'p1', postTitle: 'كيف أحسن مستواي في البرمجة؟', size: '2.5 MB', type: 'PDF', uploadedAt: '2024-12-01' },
@@ -245,14 +224,6 @@ const initialFiles: AdminFile[] = [
   { id: 'f3', filename: 'exam_schedule.pdf', uploader: 'المشرف العام', uploaderEmail: 'w.qq89@hotmail.com', postId: 'p3', postTitle: 'إعلان: موعد الامتحانات النهائية', size: '1.2 MB', type: 'PDF', uploadedAt: '2024-12-10' },
 ];
 
-const initialReports: Report[] = [
-  { id: 'r1', targetType: 'post', targetId: 'p4', targetTitle: 'محتوى غير لائق', reason: 'harassment', reporter: 'سارة المعمري', reporterEmail: 'sara@utas.edu.om', status: 'open', createdAt: '2024-12-08', authorEmail: 'omar@utas.edu.om' },
-  { id: 'r2', targetType: 'comment', targetId: 'c3', targetTitle: 'تعليق مخالف للقواعد', reason: 'spam', reporter: 'فاطمة البلوشي', reporterEmail: 'fatima@utas.edu.om', status: 'resolved', createdAt: '2024-12-04', authorEmail: 'omar@utas.edu.om' },
-  { id: 'r3', targetType: 'user', targetId: '5', targetTitle: 'عمر الراشدي', reason: 'impersonation', reporter: 'أحمد الحارثي', reporterEmail: 'ahmed@utas.edu.om', status: 'open', createdAt: '2024-12-07' },
-];
-
-// Helper to compute priority from reason
-const DEMO_REPORTS_KEY = 'daam_admin_demo_reports_v1';
 
 const getReasonLabel = (reason: string, lang: string): string => {
   const labels: Record<string, { ar: string; en: string }> = {
@@ -342,10 +313,19 @@ export default function Admin() {
     addAuditEvent,
     // Mute System
     mutes,
+    muteUser,
     unmuteUser,
     // Ban System
     bans,
-    unbanUserRecord
+    banUserWithDuration,
+    unbanUserRecord,
+    // Real DB data
+    accounts,
+    profiles,
+    posts: storePosts,
+    deletePost,
+    updatePostStatus,
+    deleteReply,
   } = useDaamStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [contentSubTab, setContentSubTab] = useState('posts');
@@ -357,24 +337,70 @@ export default function Admin() {
   const [aiSettingsMessage, setAiSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [aiSettingsErrors, setAiSettingsErrors] = useState<Record<string, string>>({});
   
-  const [users, setUsers] = useState<AdminUser[]>(initialUsers);
-  const [posts, setPosts] = useState<AdminPost[]>(initialPosts);
-  const [comments, setComments] = useState<AdminComment[]>(initialComments);
   const [files, setFiles] = useState<AdminFile[]>(initialFiles);
-  const [localDemoReports, setLocalDemoReports] = useState<Report[]>(() => {
-    try {
-      const stored = localStorage.getItem(DEMO_REPORTS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return initialReports;
-  });
 
-  useEffect(() => {
-    localStorage.setItem(DEMO_REPORTS_KEY, JSON.stringify(localDemoReports));
-  }, [localDemoReports]);
+  const users: AdminUser[] = useMemo(() => {
+    return Object.entries(accounts).map(([email, account]) => {
+      const profile = profiles[email];
+      const muteRecord = mutes.find(m => m.userEmail === email);
+      const banRecord = bans.find(b => b.userEmail === email);
+      const mod = moderators.find(m => m.email === email);
+      let status: UserStatus = 'active';
+      if (banRecord) status = 'banned';
+      else if (muteRecord) status = 'suspended';
+      const role: 'user' | 'moderator' = mod ? 'moderator' : 'user';
+      const userPosts = storePosts.filter(p => p.authorEmail === email);
+      const userComments = storePosts.flatMap(p => (p.replies || []).filter(r => r.authorEmail === email));
+      return {
+        id: email,
+        email,
+        name: profile?.displayName || email,
+        status,
+        role,
+        joinedAt: (account as any).createdAt || new Date().toISOString(),
+        university: profile?.university,
+        postsCount: userPosts.length,
+        commentsCount: userComments.length,
+      } as AdminUser;
+    });
+  }, [accounts, profiles, mutes, bans, moderators, storePosts]);
+
+  const posts: AdminPost[] = useMemo(() => {
+    return storePosts.map(p => {
+      const replyCount = (p.replies || []).length;
+      return {
+        id: p.id,
+        title: p.subject || p.content.substring(0, 60),
+        author: profiles[p.authorEmail]?.displayName || p.authorEmail,
+        authorEmail: p.authorEmail,
+        status: (p.status || 'visible') as PostStatus,
+        type: (p.postType === 'question' ? 'question' : 'discussion') as 'question' | 'discussion' | 'announcement',
+        createdAt: p.createdAt,
+        likesCount: (p.likedBy || []).length,
+        commentsCount: replyCount,
+      } as AdminPost;
+    });
+  }, [storePosts, profiles]);
+
+  const comments: AdminComment[] = useMemo(() => {
+    const result: AdminComment[] = [];
+    storePosts.forEach(p => {
+      const postTitle = p.subject || p.content.substring(0, 60);
+      (p.replies || []).forEach(r => {
+        result.push({
+          id: r.id,
+          content: r.content,
+          author: profiles[r.authorEmail]?.displayName || r.authorEmail,
+          authorEmail: r.authorEmail,
+          postId: p.id,
+          postTitle,
+          status: 'visible' as PostStatus,
+          createdAt: r.createdAt,
+        } as AdminComment);
+      });
+    });
+    return result;
+  }, [storePosts, profiles]);
 
   // Load all DB-backed settings on mount
   useEffect(() => {
@@ -394,6 +420,9 @@ export default function Admin() {
     loadSetting<AISettings>('daam_ai_settings_v1', DEFAULT_AI_SETTINGS).then(settings => {
       setAiSettings({ ...DEFAULT_AI_SETTINGS, ...settings });
     });
+    loadCampaignsFromApi().then(campaigns => {
+      setCampaignsList(campaigns);
+    });
   }, []);
   
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
@@ -404,9 +433,8 @@ export default function Admin() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [reportSortOption, setReportSortOption] = useState<ReportSortOption>('newest');
   
-  // Merge store reports with local demo reports for display
   const reports: Report[] = useMemo(() => {
-    const storeReportsMapped: Report[] = storeReports.map(r => ({
+    return storeReports.map(r => ({
       id: r.id,
       targetType: r.targetType,
       targetId: r.targetId,
@@ -423,14 +451,7 @@ export default function Admin() {
       userAction: (r as any).userAction,
       authorEmail: (r as any).authorEmail
     }));
-    // Add priority to local demo reports
-    const localWithPriority = localDemoReports.map(r => ({
-      ...r,
-      priority: r.priority || computePriority(r.reason)
-    }));
-    // Combine store reports (new) with local demo reports
-    return [...storeReportsMapped, ...localWithPriority.filter(r => !storeReportsMapped.some(sr => sr.id === r.id))];
-  }, [storeReports, localDemoReports]);
+  }, [storeReports]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -1027,39 +1048,37 @@ export default function Admin() {
   ];
 
   const handleUserAction = (userId: string, action: 'suspend' | 'ban' | 'activate') => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        const newStatus: UserStatus = action === 'suspend' ? 'suspended' : action === 'ban' ? 'banned' : 'active';
-        const actionType: ActionType = action === 'suspend' ? 'user_suspended' : action === 'ban' ? 'user_banned' : 'user_activated';
-        addAuditLog(actionType, 'user', u.id, u.name);
-        return { ...u, status: newStatus };
-      }
-      return u;
-    }));
+    const u = users.find(usr => usr.id === userId);
+    if (!u) return;
+    const actionType: ActionType = action === 'suspend' ? 'user_suspended' : action === 'ban' ? 'user_banned' : 'user_activated';
+    addAuditLog(actionType, 'user', u.id, u.name);
+    if (action === 'suspend') muteUser(u.email, 'Admin action', 60 * 24 * 7);
+    else if (action === 'ban') banUserWithDuration(u.email, 'Admin action', 30);
+    else { unmuteUser(u.email); unbanUserRecord(u.email); }
   };
 
   const handlePostAction = (postId: string, action: 'hide' | 'show' | 'delete') => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        const newStatus: PostStatus = action === 'hide' ? 'hidden' : action === 'delete' ? 'deleted' : 'visible';
-        const actionType: ActionType = action === 'hide' ? 'post_hidden' : action === 'delete' ? 'post_deleted' : 'post_restored';
-        addAuditLog(actionType, 'post', p.id, p.title);
-        return { ...p, status: newStatus };
-      }
-      return p;
-    }));
+    const p = posts.find(post => post.id === postId);
+    if (!p) return;
+    if (action === 'hide') {
+      updatePostStatus(postId, 'hidden');
+      addAuditLog('post_hidden', 'post', postId, p.title);
+    } else if (action === 'show') {
+      updatePostStatus(postId, 'visible');
+      addAuditLog('post_restored', 'post', postId, p.title);
+    } else if (action === 'delete') {
+      deletePost(postId);
+      addAuditLog('post_deleted', 'post', postId, p.title);
+    }
   };
 
   const handleCommentAction = (commentId: string, action: 'hide' | 'delete') => {
-    setComments(prev => prev.map(c => {
-      if (c.id === commentId) {
-        const newStatus: PostStatus = action === 'hide' ? 'hidden' : 'deleted';
-        const actionType: ActionType = action === 'hide' ? 'comment_hidden' : 'comment_deleted';
-        addAuditLog(actionType, 'comment', c.id, c.content.substring(0, 30) + '...');
-        return { ...c, status: newStatus };
-      }
-      return c;
-    }));
+    const c = comments.find(comment => comment.id === commentId);
+    if (!c) return;
+    if (action === 'delete') {
+      deleteReply(c.postId, commentId);
+      addAuditLog('comment_deleted', 'comment', commentId, c.content.substring(0, 30) + '...');
+    }
   };
 
   const handleFileAction = (fileId: string) => {
@@ -1096,15 +1115,7 @@ export default function Admin() {
     const details = reason ? `${oldStatus} → ${newStatus}: ${reason}` : `${oldStatus} → ${newStatus}`;
     addAuditLog(actionType, 'report', report.id, report.targetTitle, details);
     
-    if (reportId.startsWith('report-')) {
-      updateReportStatus(reportId, newStatus, reason);
-    } else {
-      setLocalDemoReports(prev => prev.map(r => 
-        r.id === reportId 
-          ? { ...r, status: newStatus, resolutionReason: reason } 
-          : r
-      ));
-    }
+    updateReportStatus(reportId, newStatus, reason);
   };
 
   const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss' | 'reopen') => {
@@ -1134,39 +1145,26 @@ export default function Admin() {
   const handleHideTarget = (reportId: string) => {
     const report = reports.find(r => r.id === reportId);
     if (!report) return;
-    
-    // Only for post/comment targets
     if (report.targetType !== 'post' && report.targetType !== 'comment') return;
-    
     addAuditLog('target_hidden', report.targetType, report.targetId, report.targetTitle, `Report: ${reportId}`);
-    
-    // Update report with targetAction
-    if (reportId.startsWith('report-')) {
-      // For store reports, we can't modify them directly, so we track locally
-      // In a real app, this would update the store
+    if (report.targetType === 'post') {
+      updatePostStatus(report.targetId, 'hidden');
+    } else if (report.targetType === 'comment') {
+      const comment = comments.find(c => c.id === report.targetId);
+      if (comment) deleteReply(comment.postId, comment.id);
     }
-    setLocalDemoReports(prev => prev.map(r => 
-      r.id === reportId ? { ...r, targetAction: 'hidden' as const } : r
-    ));
   };
 
   // Quick Action: Suspend User/Author
   const handleSuspendUser = (reportId: string) => {
     const report = reports.find(r => r.id === reportId);
     if (!report) return;
-    
     const targetEmail = report.targetType === 'user' 
       ? report.targetId 
       : report.authorEmail;
-    
     if (!targetEmail) return;
-    
     addAuditLog('author_suspended', 'user', targetEmail, report.targetTitle, `Report: ${reportId}`);
-    
-    // Update report with userAction
-    setLocalDemoReports(prev => prev.map(r => 
-      r.id === reportId ? { ...r, userAction: 'suspended' as const } : r
-    ));
+    muteUser(targetEmail, `Report: ${reportId}`, 60 * 24 * 7);
   };
 
   // User Details: Open modal
@@ -1179,53 +1177,41 @@ export default function Admin() {
 
   // User Details: Support Actions
   const handleUserDetailAction = (userId: string, action: 'suspend' | 'unsuspend' | 'ban' | 'unban' | 'forceLogout' | 'resetSettings') => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        let newStatus = u.status;
-        let actionType: ActionType;
-        let updatedUser = { ...u };
-        
-        switch (action) {
-          case 'suspend':
-            newStatus = 'suspended';
-            actionType = 'user_suspended';
-            break;
-          case 'unsuspend':
-            newStatus = 'active';
-            actionType = 'user_unsuspended';
-            break;
-          case 'ban':
-            newStatus = 'banned';
-            actionType = 'user_banned';
-            break;
-          case 'unban':
-            newStatus = 'active';
-            actionType = 'user_unbanned';
-            break;
-          case 'forceLogout':
-            actionType = 'user_force_logout';
-            updatedUser.forceLogoutFlag = true;
-            break;
-          case 'resetSettings':
-            actionType = 'user_settings_reset';
-            updatedUser.settingsResetFlag = true;
-            break;
-          default:
-            return u;
-        }
-        
-        addAuditLog(actionType, 'user', u.id, u.name);
-        updatedUser.status = newStatus;
-        
-        // Update selected user detail if open
-        if (selectedUserDetail?.id === userId) {
-          setSelectedUserDetail(updatedUser);
-        }
-        
-        return updatedUser;
-      }
-      return u;
-    }));
+    const u = users.find(usr => usr.id === userId);
+    if (!u) return;
+    let actionType: ActionType;
+    switch (action) {
+      case 'suspend':
+        actionType = 'user_suspended';
+        muteUser(u.email, 'Admin action', 60 * 24 * 7);
+        setSelectedUserDetail(prev => prev ? { ...prev, status: 'suspended' } : null);
+        break;
+      case 'unsuspend':
+        actionType = 'user_unsuspended';
+        unmuteUser(u.email);
+        setSelectedUserDetail(prev => prev ? { ...prev, status: 'active' } : null);
+        break;
+      case 'ban':
+        actionType = 'user_banned';
+        banUserWithDuration(u.email, 'Admin action', 30);
+        setSelectedUserDetail(prev => prev ? { ...prev, status: 'banned' } : null);
+        break;
+      case 'unban':
+        actionType = 'user_unbanned';
+        unbanUserRecord(u.email);
+        setSelectedUserDetail(prev => prev ? { ...prev, status: 'active' } : null);
+        break;
+      case 'forceLogout':
+        actionType = 'user_force_logout';
+        setSelectedUserDetail(prev => prev ? { ...prev, forceLogoutFlag: true } : null);
+        break;
+      case 'resetSettings':
+        actionType = 'user_settings_reset';
+        setSelectedUserDetail(prev => prev ? { ...prev, settingsResetFlag: true } : null);
+        break;
+      default: return;
+    }
+    addAuditLog(actionType, 'user', u.id, u.name);
   };
 
   // User Details: Add admin note
