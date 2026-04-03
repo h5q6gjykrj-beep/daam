@@ -2,7 +2,7 @@
 
 ## Overview
 
-DAAM is a bilingual (Arabic/English) student collaboration platform for university students. It features a social feed for peer discussions, an AI tutor assistant, and university email authentication. The platform is primarily client-side, utilizing localStorage for data persistence, which minimizes backend requirements. The project aims to provide a robust, engaging, and customizable environment for student interaction and support.
+DAAM is a bilingual (Arabic/English) student collaboration platform for university students. It features a social feed for peer discussions, an AI tutor assistant, and university email authentication. The project uses PostgreSQL (via Drizzle ORM) as its primary data store, with a comprehensive REST API backend and optimistic-update React frontend.
 
 ## User Preferences
 
@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Design Principles
 - **Bilingual Support**: Full Arabic/English support with dynamic RTL switching.
-- **Client-Side Focus**: Primary application logic and data persistence (localStorage) on the client.
+- **Database-Backed**: All data persisted to PostgreSQL via a REST API. Frontend uses optimistic updates for fast UI.
 - **Modularity**: Component-based architecture with reusable UI elements.
 - **Customization**: Admin-controlled visibility and content for key UI elements like the landing page and navigation.
 
@@ -27,11 +27,15 @@ Preferred communication style: Simple, everyday language.
 ### Backend
 - **Runtime**: Node.js with Express.
 - **Purpose**: Primarily serves static files; application logic is client-side.
-- **API**: Minimal REST endpoints (health check only).
+- **API**: Comprehensive REST API for all data operations (accounts, profiles, posts, replies, reports, mods, DMs, audit log, mutes, bans, domains, settings).
+- **Storage Layer**: `server/storage.ts` — Drizzle ORM functions for all CRUD operations.
 
 ### Data Persistence
-- **Primary Storage**: localStorage for all user data, posts, preferences, and administrative configurations. Key items include user accounts, posts, language preferences, moderation records (reports, mutes, bans, audit logs), official content pages, and UI configuration settings.
-- **Authentication**: University email domain restriction, localStorage-based session persistence, password-based login. Admin-created moderator accounts (stored in `daam_auth_users_v1`) can also log in via a fallback path in the `login()` function that checks `authUsers` when no regular account is found. The built-in admin/moderator (w.qq89@hotmail.com) is auto-seeded into `accounts` on first load.
+- **Primary Storage**: PostgreSQL via Drizzle ORM. All user data, posts, profiles, reports, moderation records, DMs, and audit logs are stored in the database.
+- **Client Preferences**: Theme and language stored in localStorage only (no sensitive data).
+- **Session**: Current user email stored in localStorage; full account/profile data loaded from API on app start.
+- **Authentication**: University email domain restriction, password-based login with client-side hash verification. Demo users auto-seeded on first load via API. The built-in admin/moderator (w.qq89@hotmail.com) is seeded automatically.
+- **Tables**: `accounts`, `profiles`, `posts`, `replies`, `reports`, `moderators`, `auth_users`, `audit_log`, `mutes`, `bans`, `conversations`, `messages`, `allowed_domains`, `settings`.
 
 ### Key Features
 - **Social Feed**: Discussion arena with post creation, replies, and reporting.
