@@ -349,6 +349,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Profile Materials ─────────────────────────────────────────────────────
+  app.get('/api/profile-materials/:email', async (req, res) => {
+    try {
+      const items = await store.getMaterials(req.params.email);
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/profile-materials', async (req, res) => {
+    try {
+      await store.addMaterial(req.body);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch('/api/profile-materials/:id', async (req, res) => {
+    try {
+      await store.updateMaterial(req.params.id, req.body);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete('/api/profile-materials/:id', async (req, res) => {
+    try {
+      await store.deleteMaterial(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Profile Research ──────────────────────────────────────────────────────
+  app.get('/api/profile-research/:email', async (req, res) => {
+    try {
+      const items = await store.getResearch(req.params.email);
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/profile-research', async (req, res) => {
+    try {
+      await store.addResearch(req.body);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch('/api/profile-research/:id', async (req, res) => {
+    try {
+      await store.updateResearch(req.params.id, req.body);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete('/api/profile-research/:id', async (req, res) => {
+    try {
+      await store.deleteResearch(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── PDF Upload ────────────────────────────────────────────────────────────
   app.post('/api/materials/upload', (req, res, next) => {
     pdfUpload.single('file')(req, res, (err) => {

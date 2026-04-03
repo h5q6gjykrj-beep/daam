@@ -313,6 +313,27 @@ export const settings = pgTable("settings", {
   value: jsonb("value"),
 });
 
+export const profileMaterials = pgTable("profile_materials", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  title: text("title").notNull(),
+  kind: text("kind").$type<"pdf" | "link" | "note">().notNull(),
+  url: text("url"),
+  note: text("note"),
+  createdAt: bigint("created_at", { mode: 'number' }).notNull(),
+});
+
+export const profileResearch = pgTable("profile_research", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  title: text("title").notNull(),
+  abstract: text("abstract"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  pdfUrl: text("pdf_url"),
+  pdfName: text("pdf_name"),
+  createdAt: bigint("created_at", { mode: 'number' }).notNull(),
+});
+
 // ─── Insert Schemas ──────────────────────────────────────────────────────────
 export const insertAccountSchema = createInsertSchema(accounts);
 export const insertProfileSchema = createInsertSchema(profiles);

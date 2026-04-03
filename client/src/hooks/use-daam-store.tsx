@@ -170,6 +170,7 @@ interface DaamStoreContextType {
   logout: () => void;
   register: (data: RegistrationData) => PendingVerification;
   resetPassword: (email: string, newPassword: string) => void;
+  changePassword: (currentPassword: string, newPassword: string) => void;
   verifyEmail: (token: string) => boolean;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
@@ -395,6 +396,24 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     api('PATCH', `/api/profiles/${encodeURIComponent(data.email)}`, defaultProfile).catch(() => {});
 
     return { email: data.email, token: '', expiry: '' };
+  };
+
+  const changePassword = (currentPassword: string, newPassword: string) => {
+    if (!user) throw new Error(lang === 'ar' ? 'يجب تسجيل الدخول أولاً' : 'Must be logged in');
+    const emailLower = user.email.toLowerCase();
+    const account = accounts[emailLower];
+    if (!account) throw new Error(lang === 'ar' ? 'الحساب غير موجود' : 'Account not found');
+    if (account.passwordHash !== simpleHash(currentPassword)) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
+    }
+    if (newPassword.length < 8) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters');
+    }
+    const newHash = simpleHash(newPassword);
+    const updatedAccount = { ...account, passwordHash: newHash };
+    setAccounts(prev => ({ ...prev, [emailLower]: updatedAccount }));
+    setUser(prev => prev ? { ...prev, account: updatedAccount } : prev);
+    api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { passwordHash: newHash }).catch(() => {});
   };
 
   const resetPassword = (email: string, newPassword: string) => {
@@ -871,7 +890,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   const value: DaamStoreContextType = {
     user, lang, theme, posts, profiles, accounts, pendingVerification, isLoading,
-    t: DICTIONARY[lang], login, loginSimple, logout, register, resetPassword, verifyEmail,
+    t: DICTIONARY[lang], login, loginSimple, logout, register, resetPassword, changePassword, verifyEmail,
     createPost, deletePost, updatePost, toggleLike, toggleSave, addReply, toggleLang, toggleTheme,
     updateProfile, getProfile, getAccount, updateAccount, toggleFollow, isFollowing, banUser, unbanUser,
     deleteReply, editReply, reports, hasUserReported, submitReport, updateReportStatus,

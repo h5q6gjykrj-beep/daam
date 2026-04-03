@@ -184,33 +184,7 @@ const INTEREST_OPTIONS = [
   { id: 'media', labelAr: 'إعلام', labelEn: 'Media' }
 ];
 
-const COVER_STORAGE_KEY = 'daam_profile_cover_v1';
-
-function getCoverFromStorage(userId: string): string | null {
-  try {
-    const data = localStorage.getItem(COVER_STORAGE_KEY);
-    if (!data) return null;
-    const covers = JSON.parse(data);
-    return covers[userId] || null;
-  } catch {
-    return null;
-  }
-}
-
-function saveCoverToStorage(userId: string, coverUrl: string | null): void {
-  try {
-    const data = localStorage.getItem(COVER_STORAGE_KEY);
-    const covers = data ? JSON.parse(data) : {};
-    if (coverUrl) {
-      covers[userId] = coverUrl;
-    } else {
-      delete covers[userId];
-    }
-    localStorage.setItem(COVER_STORAGE_KEY, JSON.stringify(covers));
-  } catch {
-    // Storage error, ignore
-  }
-}
+// Cover is now stored in the DB via profile.coverUrl (no localStorage needed)
 
 // Types for Materials and Research tabs
 type ProfileMaterial = {
@@ -296,7 +270,7 @@ const activeViewToShellTab = (view: string): ProfileTab => {
 };
 
 export default function Profile() {
-  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM } = useDaamStore();
+  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM, changePassword } = useDaamStore();
   const [, navigate] = useLocation();
   
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -402,7 +376,6 @@ export default function Profile() {
   const [draftAllowDM, setDraftAllowDM] = useState<'everyone' | 'none'>('everyone');
   const [isSavingDMSettings, setIsSavingDMSettings] = useState(false);
   
-  const [storedCover, setStoredCover] = useState<string | null>(null);
   
   const [showUnifiedEditDialog, setShowUnifiedEditDialog] = useState(false);
   const [editTab, setEditTab] = useState<'cover' | 'avatar' | 'info' | 'account'>('info');
@@ -418,8 +391,6 @@ export default function Profile() {
     if (profileEmail) {
       const p = getProfile(profileEmail);
       setProfile(p || null);
-      const cover = getCoverFromStorage(profileEmail);
-      setStoredCover(cover);
     }
   }, [profileEmail, getProfile]);
 
@@ -449,12 +420,17 @@ export default function Profile() {
     }
   }, [user, getAccount]);
 
-  // Load materials and research from localStorage
+  // Load materials and research from database
   useEffect(() => {
-    if (profileEmail) {
-      setMaterials(loadMaterials(profileEmail));
-      setResearch(loadResearch(profileEmail));
-    }
+    if (!profileEmail) return;
+    fetch(`/api/profile-materials/${encodeURIComponent(profileEmail)}`)
+      .then(r => r.json())
+      .then(items => setMaterials(items))
+      .catch(() => {});
+    fetch(`/api/profile-research/${encodeURIComponent(profileEmail)}`)
+      .then(r => r.json())
+      .then(items => setResearch(items))
+      .catch(() => {});
   }, [profileEmail]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'avatar') => {
@@ -484,8 +460,7 @@ export default function Profile() {
 
   const handleSaveCover = () => {
     if (!profileEmail || !tempCover) return;
-    saveCoverToStorage(profileEmail, tempCover);
-    setStoredCover(tempCover);
+    updateProfile(profileEmail, { coverUrl: tempCover });
     setTempCover(null);
     toast({
       title: lang === 'ar' ? 'تم الحفظ' : 'Saved',
@@ -495,8 +470,7 @@ export default function Profile() {
 
   const handleRemoveCover = () => {
     if (!profileEmail) return;
-    saveCoverToStorage(profileEmail, null);
-    setStoredCover(null);
+    updateProfile(profileEmail, { coverUrl: undefined });
     setTempCover(null);
     toast({
       title: lang === 'ar' ? 'تمت الإزالة' : 'Removed',
@@ -1700,9 +1674,8 @@ export default function Profile() {
                           url: data.url,
                           createdAt: Date.now()
                         };
-                        const updated = [...materials, item];
-                        setMaterials(updated);
-                        saveMaterials(profileEmail, updated);
+                        setMaterials(prev => [...prev, item]);
+                        fetch('/api/profile-materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, email: profileEmail }) }).catch(() => {});
                         setShowAddMaterialDialog(false);
                         setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                         setPdfFile(null);
@@ -1732,9 +1705,8 @@ export default function Profile() {
                         note: newMaterial.note.trim(),
                         createdAt: Date.now()
                       };
-                      const updated = [...materials, item];
-                      setMaterials(updated);
-                      saveMaterials(profileEmail, updated);
+                      setMaterials(prev => [...prev, item]);
+                      fetch('/api/profile-materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, email: profileEmail }) }).catch(() => {});
                       setShowAddMaterialDialog(false);
                       setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                       toast({

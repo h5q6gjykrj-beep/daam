@@ -392,4 +392,48 @@ export async function loadAllData() {
     allowedDomains: domainsData };
 }
 
+// ── Profile Materials ──────────────────────────────────────────────────────────
+export async function getMaterials(email: string) {
+  return db.select().from(schema.profileMaterials)
+    .where(eq(schema.profileMaterials.email, email.toLowerCase()))
+    .orderBy(desc(schema.profileMaterials.createdAt));
+}
+
+export async function addMaterial(data: { id: string; email: string; title: string; kind: "pdf" | "link" | "note"; url?: string; note?: string; createdAt: number }) {
+  await db.insert(schema.profileMaterials).values({
+    id: data.id, email: data.email.toLowerCase(), title: data.title, kind: data.kind,
+    url: data.url, note: data.note, createdAt: data.createdAt,
+  });
+}
+
+export async function updateMaterial(id: string, data: Partial<{ title: string; url: string; note: string }>) {
+  await db.update(schema.profileMaterials).set(data).where(eq(schema.profileMaterials.id, id));
+}
+
+export async function deleteMaterial(id: string) {
+  await db.delete(schema.profileMaterials).where(eq(schema.profileMaterials.id, id));
+}
+
+// ── Profile Research ───────────────────────────────────────────────────────────
+export async function getResearch(email: string) {
+  return db.select().from(schema.profileResearch)
+    .where(eq(schema.profileResearch.email, email.toLowerCase()))
+    .orderBy(desc(schema.profileResearch.createdAt));
+}
+
+export async function addResearch(data: { id: string; email: string; title: string; abstract?: string; tags?: string[]; pdfUrl?: string; pdfName?: string; createdAt: number }) {
+  await db.insert(schema.profileResearch).values({
+    id: data.id, email: data.email.toLowerCase(), title: data.title, abstract: data.abstract,
+    tags: data.tags || [], pdfUrl: data.pdfUrl, pdfName: data.pdfName, createdAt: data.createdAt,
+  });
+}
+
+export async function updateResearch(id: string, data: Partial<{ title: string; abstract: string; tags: string[]; pdfUrl: string; pdfName: string }>) {
+  await db.update(schema.profileResearch).set(data).where(eq(schema.profileResearch.id, id));
+}
+
+export async function deleteResearch(id: string) {
+  await db.delete(schema.profileResearch).where(eq(schema.profileResearch.id, id));
+}
+
 export const storage = { db };
