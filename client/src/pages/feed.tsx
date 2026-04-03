@@ -637,8 +637,8 @@ export default function Feed() {
                   </Link>
                   {isStaff(reply.authorEmail) && (
                     <Shield 
-                      size={14} 
-                      className="inline-block text-emerald-400" 
+                      size={13} 
+                      className="inline-block text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.7)]" 
                       aria-label={isAdmin(reply.authorEmail) ? 'Admin' : 'Moderator'}
                       data-testid={`staff-badge-reply-${reply.id}`}
                     />
@@ -998,7 +998,6 @@ export default function Feed() {
     statusHidden: lang === 'ar' ? 'مخفي' : 'Hidden',
     statusFlagged: lang === 'ar' ? 'مُبلغ عنه' : 'Flagged',
     bannedUser: lang === 'ar' ? 'مستخدم محظور' : 'Banned User',
-    demoAccount: lang === 'ar' ? 'حساب تجريبي' : 'Demo Account',
     // RBAC moderation actions
     hidePost: lang === 'ar' ? 'إخفاء المنشور' : 'Hide Post',
     showPost: lang === 'ar' ? 'إظهار المنشور' : 'Show Post',
@@ -1261,8 +1260,8 @@ export default function Feed() {
                           </Link>
                           {isStaff(post.authorEmail) && (
                             <Shield 
-                              size={16} 
-                              className="inline-block text-emerald-400" 
+                              size={15} 
+                              className="inline-block text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.7)]" 
                               aria-label={isAdmin(post.authorEmail) ? 'Admin' : 'Moderator'}
                               data-testid={`staff-badge-post-${post.id}`}
                             />
@@ -1289,15 +1288,6 @@ export default function Feed() {
                                   data-testid={`badge-banned-${post.id}`}
                                 >
                                   {tr.bannedUser}
-                                </Badge>
-                              )}
-                              {getAccount(post.authorEmail)?.isDemo && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-[10px] px-1.5 py-0 border-blue-500/30 text-blue-500 bg-blue-500/10"
-                                  data-testid={`badge-demo-${post.id}`}
-                                >
-                                  {tr.demoAccount}
                                 </Badge>
                               )}
                             </>
