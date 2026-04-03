@@ -4,9 +4,9 @@ import { type LocalPost, type LocalReply, type PostType, type UserProfile, type 
 // Types
 export type Language = 'ar' | 'en';
 export type Theme = 'light' | 'dark';
-export type User = {
-  email: string;
-  isAdmin: boolean;
+export type User = { 
+  email: string; 
+  isAdmin: boolean; 
   isModerator: boolean;
   profile?: UserProfile;
   account?: UserAccount;
@@ -94,11 +94,30 @@ export const ADMIN_EMAILS = [
   MODERATOR_EMAIL
 ];
 
-// localStorage keys - only for UI preferences
 const KEYS = {
+  USER: 'daam_user',
+  POSTS: 'daam_posts_v2',
   LANG: 'daam_lang',
+  PROFILES: 'daam_profiles',
   THEME: 'daam_theme',
+  ACCOUNTS: 'daam_accounts',
+  PENDING_VERIFICATION: 'daam_pending_verification',
+  REPORTS: 'daam_reports_v1',
+  REPORTS_OLD: 'daam_reports',
+  ALLOWED_DOMAINS: 'daam_allowed_domains_v1'
 };
+
+// RBAC localStorage keys
+const LS_MODS = "daam_moderators_v1";
+const LS_AUTH = "daam_auth_users_v1";
+const LS_AUDIT = "daam_audit_v1";
+const LS_MUTES = "daam_mutes_v1";
+const LS_BANS = "daam_bans_v1";
+
+// DM localStorage keys
+const LS_CONVERSATIONS = "daam_conversations_v1";
+const LS_MESSAGES = "daam_messages_v1";
+const LS_RATE_LIMIT = "daam_dm_rate_limit_v1";
 
 // ========== DM Types ==========
 export interface Conversation {
@@ -363,29 +382,6 @@ const getInitialTheme = (): Theme => {
   return 'dark'; // Default to dark
 };
 
-// API helper
-const apiFetch = async (path: string, options?: RequestInit) => {
-  const res = await fetch(path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
-    ...options,
-  });
-  if (!res.ok) {
-    let errMsg = res.statusText;
-    try {
-      const body = await res.json();
-      if (body?.error) errMsg = body.error;
-      else if (body?.message) errMsg = body.message;
-    } catch (_) {}
-    throw new Error(errMsg);
-  }
-  try {
-    return await res.json();
-  } catch (_) {
-    return null;
-  }
-};
-
 export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // State
   const [user, setUser] = useState<User | null>(null);
@@ -402,147 +398,364 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // RBAC State
   const [moderators, setModerators] = useState<ModeratorAccount[]>([]);
   const [authUsers, setAuthUsers] = useState<LocalAuthUser[]>([]);
-
+  
   // Audit Log State
   const [auditLog, setAuditLog] = useState<AuditEvent[]>([]);
-
+  
   // Mute System State
   const [mutes, setMutes] = useState<MuteRecord[]>([]);
-
+  
   // Ban System State
   const [bans, setBans] = useState<BanRecord[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
 
-  // Initialize: restore session from API, then fetch all data
+  // Initialize from localStorage
   useEffect(() => {
-    const storedLang = localStorage.getItem(KEYS.LANG) as Language | null;
+    const storedUser = localStorage.getItem(KEYS.USER);
+    const storedLang = localStorage.getItem(KEYS.LANG) as Language;
+    const storedPosts = localStorage.getItem(KEYS.POSTS);
+    const storedProfiles = localStorage.getItem(KEYS.PROFILES);
+    const storedAccounts = localStorage.getItem(KEYS.ACCOUNTS);
+    const storedPendingVerification = localStorage.getItem(KEYS.PENDING_VERIFICATION);
+    const storedAllowedDomains = localStorage.getItem(KEYS.ALLOWED_DOMAINS);
+
+    if (storedProfiles) {
+      try {
+        setProfiles(JSON.parse(storedProfiles));
+      } catch (e) {
+        console.error("Failed to parse profiles", e);
+      }
+    }
+    
+    let parsedAccounts: Record<string, UserAccount> = {};
+    if (storedAccounts) {
+      try {
+        parsedAccounts = JSON.parse(storedAccounts);
+        setAccounts(parsedAccounts);
+      } catch (e) {
+        console.error("Failed to parse accounts", e);
+      }
+    }
+    
+    if (storedPendingVerification) {
+      try {
+        setPendingVerification(JSON.parse(storedPendingVerification));
+      } catch (e) {
+        console.error("Failed to parse pending verification", e);
+      }
+    }
+    
+    let storedReports = localStorage.getItem(KEYS.REPORTS);
+    if (!storedReports) {
+      const oldReports = localStorage.getItem(KEYS.REPORTS_OLD);
+      if (oldReports) {
+        try {
+          const parsed = JSON.parse(oldReports);
+          const migrated = parsed.map((r: any) => ({
+            ...r,
+            status: r.status === 'pending' ? 'open' : r.status
+          }));
+          localStorage.setItem(KEYS.REPORTS, JSON.stringify(migrated));
+          storedReports = JSON.stringify(migrated);
+        } catch (e) {
+          console.error("Failed to migrate old reports", e);
+        }
+      }
+    }
+    if (storedReports) {
+      try {
+        const parsed = JSON.parse(storedReports);
+        const normalized = parsed.map((r: any) => ({
+          ...r,
+          status: r.status === 'pending' ? 'open' : r.status
+        }));
+        setReports(normalized);
+      } catch (e) {
+        console.error("Failed to parse reports", e);
+      }
+    }
+
+    if (storedUser) {
+      let parsedProfiles: Record<string, UserProfile> = {};
+      try {
+        parsedProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+      } catch (e) {
+        console.error("Failed to parse profiles for user", e);
+      }
+      const userLower = storedUser.toLowerCase();
+      const userAccount = parsedAccounts[userLower] || parsedAccounts[storedUser];
+      let isMod = userLower === MODERATOR_EMAIL.toLowerCase();
+      if (!isMod && !userAccount) {
+        try {
+          const rawAuth = localStorage.getItem(LS_AUTH);
+          if (rawAuth) {
+            const parsedAuth: LocalAuthUser[] = JSON.parse(rawAuth);
+            const authUser = parsedAuth.find(a => a.email.toLowerCase() === userLower);
+            if (authUser && authUser.role === 'moderator') {
+              isMod = true;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to check auth users for session restore", e);
+        }
+      }
+      setUser({ 
+        email: storedUser, 
+        isAdmin: ADMIN_EMAILS.includes(userLower),
+        isModerator: isMod,
+        profile: parsedProfiles[storedUser],
+        account: userAccount
+      });
+    }
     if (storedLang) setLang(storedLang);
-
-    // Apply document direction based on stored/default lang
-    const effectiveLang = storedLang || 'ar';
-    document.documentElement.dir = effectiveLang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = effectiveLang;
-
+    if (storedPosts) {
+      try {
+        setPosts(JSON.parse(storedPosts));
+      } catch (e) {
+        console.error("Failed to parse posts", e);
+      }
+    }
+    
+    // Update document direction
+    document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = storedLang || 'ar';
+    
     // Initialize theme
     const initialTheme = getInitialTheme();
     setTheme(initialTheme);
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(initialTheme);
-
-    const init = async () => {
-      try {
-        // 1. Restore session
-        let restoredUser: User | null = null;
-        try {
-          const meData = await apiFetch('/api/auth/me');
-          if (meData && meData.email) {
-            restoredUser = {
-              email: meData.email,
-              isAdmin: ADMIN_EMAILS.includes(meData.email.toLowerCase()),
-              isModerator: meData.isModerator || meData.email.toLowerCase() === MODERATOR_EMAIL.toLowerCase(),
-              profile: meData.profile,
-              account: meData.account,
-            };
-            setUser(restoredUser);
-          }
-        } catch (_) {
-          // Not authenticated - that's fine
-        }
-
-        // 2. Fetch posts
-        try {
-          const postsData = await apiFetch('/api/posts');
-          if (Array.isArray(postsData)) {
-            setPosts(postsData);
-          } else if (postsData?.data && Array.isArray(postsData.data)) {
-            setPosts(postsData.data);
-          }
-        } catch (err) {
-          console.error('Failed to fetch posts:', err);
-        }
-
-        // 3. Fetch reports
-        try {
-          const reportsData = await apiFetch('/api/reports');
-          const raw = Array.isArray(reportsData) ? reportsData : (reportsData?.data || []);
-          const normalized = raw.map((r: any) => ({
-            ...r,
-            status: r.status === 'pending' ? 'open' : r.status
-          }));
-          setReports(normalized);
-        } catch (err) {
-          console.error('Failed to fetch reports:', err);
-        }
-
-        // 4. Fetch moderators
-        try {
-          const modsData = await apiFetch('/api/moderators');
-          const raw = Array.isArray(modsData) ? modsData : (modsData?.data || []);
-          setModerators(raw);
-        } catch (err) {
-          console.error('Failed to fetch moderators:', err);
-        }
-
-        // 5. Fetch mutes
-        try {
-          const mutesData = await apiFetch('/api/mutes');
-          const raw = Array.isArray(mutesData) ? mutesData : (mutesData?.data || []);
-          setMutes(raw);
-        } catch (err) {
-          console.error('Failed to fetch mutes:', err);
-        }
-
-        // 6. Fetch bans
-        try {
-          const bansData = await apiFetch('/api/bans');
-          const raw = Array.isArray(bansData) ? bansData : (bansData?.data || []);
-          setBans(raw);
-        } catch (err) {
-          console.error('Failed to fetch bans:', err);
-        }
-
-        // 7. Fetch conversations
-        try {
-          const convsData = await apiFetch('/api/conversations');
-          const raw = Array.isArray(convsData) ? convsData : (convsData?.data || []);
-          setConversations(raw);
-        } catch (err) {
-          console.error('Failed to fetch conversations:', err);
-        }
-
-        // 8. Fetch allowed domains
-        try {
-          const domainsData = await apiFetch('/api/allowed-domains');
-          const raw = Array.isArray(domainsData) ? domainsData : (domainsData?.data || []);
-          if (raw.length > 0) {
-            // If array of objects with .domain, extract; otherwise treat as string[]
-            const domains = raw.map((d: any) => (typeof d === 'string' ? d : d.domain)).filter(Boolean);
-            if (domains.length > 0) setAllowedDomains(domains);
-          }
-        } catch (err) {
-          console.error('Failed to fetch allowed domains:', err);
-        }
-
-        // 9. Fetch audit log
-        try {
-          const auditData = await apiFetch('/api/audit');
-          const raw = Array.isArray(auditData) ? auditData : (auditData?.data || []);
-          setAuditLog(raw);
-        } catch (err) {
-          console.error('Failed to fetch audit log:', err);
-        }
-
-      } finally {
-        setIsLoading(false);
+    
+    // Initialize demo users if none exist
+    const existingProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+    const existingAccounts = parsedAccounts;
+    const demoUsers = [
+      {
+        email: 'ahmed@utas.edu.om',
+        name: 'أحمد محمد',
+        major: 'علوم الحاسب',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثالثة',
+        bio: 'مهتم بالبرمجة والذكاء الاصطناعي',
+        college: 'computer_science',
+        interests: ['programming', 'it', 'math']
+      },
+      {
+        email: 'fatima@utas.edu.om',
+        name: 'فاطمة علي',
+        major: 'إدارة الأعمال',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثانية',
+        bio: 'أحب التعلم ومشاركة المعرفة',
+        college: 'economics_business',
+        interests: ['business', 'english', 'summaries']
+      },
+      {
+        email: 'mohammed@utas.edu.om',
+        name: 'محمد سالم',
+        major: 'الهندسة الميكانيكية',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الرابعة',
+        bio: 'مهندس المستقبل',
+        college: 'engineering_technology',
+        interests: ['engineering', 'physics', 'math']
+      },
+      {
+        email: 'sara@utas.edu.om',
+        name: 'سارة خالد',
+        major: 'الصيدلة',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الثالثة',
+        bio: 'شغوفة بالعلوم الطبية',
+        college: 'applied_sciences_pharmacy',
+        interests: ['chemistry', 'biology', 'summaries']
+      },
+      {
+        email: 'omar@utas.edu.om',
+        name: 'عمر يوسف',
+        major: 'التصميم الجرافيكي',
+        university: 'جامعة التقنية والعلوم التطبيقية',
+        level: 'السنة الأولى',
+        bio: 'مصمم مبدع',
+        college: 'creative_industries',
+        interests: ['design', 'media', 'it']
       }
-    };
+    ];
+    
+    let updatedProfiles = { ...existingProfiles };
+    let updatedAccounts = { ...existingAccounts };
+    let hasNewData = false;
+    
+    demoUsers.forEach(demoUser => {
+      if (!updatedProfiles[demoUser.email]) {
+        updatedProfiles[demoUser.email] = {
+          name: demoUser.name,
+          major: demoUser.major,
+          university: demoUser.university,
+          level: demoUser.level,
+          bio: demoUser.bio,
+          college: demoUser.college,
+          interests: demoUser.interests,
+          followers: [],
+          following: [],
+          showFavorites: true,
+          showInterests: true
+        };
+        hasNewData = true;
+      }
+      if (!updatedAccounts[demoUser.email]) {
+        updatedAccounts[demoUser.email] = {
+          email: demoUser.email,
+          passwordHash: simpleHash('Demo123!'),
+          phone: '99999999',
+          region: { governorate: 'muscat', wilayat: 'muscat' },
+          role: 'student' as const,
+          verified: true,
+          rememberMe: false,
+          createdAt: new Date().toISOString(),
+          isDemo: true
+        };
+        hasNewData = true;
+      } else if (!updatedAccounts[demoUser.email].isDemo) {
+        updatedAccounts[demoUser.email] = {
+          ...updatedAccounts[demoUser.email],
+          isDemo: true
+        };
+        hasNewData = true;
+      }
+    });
+    
+    if (!updatedAccounts[MODERATOR_EMAIL]) {
+      updatedAccounts[MODERATOR_EMAIL] = {
+        email: MODERATOR_EMAIL,
+        passwordHash: simpleHash('Demo123!'),
+        phone: '',
+        region: { governorate: 'muscat', wilayat: 'muscat' },
+        role: 'student' as const,
+        verified: true,
+        rememberMe: false,
+        createdAt: new Date().toISOString(),
+        isDemo: true
+      };
+      hasNewData = true;
+    }
+    if (!updatedProfiles[MODERATOR_EMAIL]) {
+      updatedProfiles[MODERATOR_EMAIL] = {
+        name: 'المشرف العام',
+        major: '',
+        university: '',
+        level: '',
+        bio: 'مشرف المنصة',
+        followers: [],
+        following: [],
+        showFavorites: true,
+        showInterests: true
+      };
+      hasNewData = true;
+    }
+    
+    if (hasNewData) {
+      setProfiles(updatedProfiles);
+      setAccounts(updatedAccounts);
+      localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+      localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    }
 
-    init();
+    // Load allowed domains from localStorage
+    if (storedAllowedDomains) {
+      try {
+        const parsedDomains = JSON.parse(storedAllowedDomains);
+        if (Array.isArray(parsedDomains) && parsedDomains.length > 0) {
+          setAllowedDomains(parsedDomains);
+        }
+      } catch (e) {
+        console.error("Failed to parse allowed domains", e);
+      }
+    }
+
+    // Load RBAC data from localStorage
+    const storedMods = localStorage.getItem(LS_MODS);
+    if (storedMods) {
+      try {
+        setModerators(JSON.parse(storedMods));
+      } catch (e) {
+        console.error("Failed to parse moderators", e);
+      }
+    }
+    
+    const storedAuthUsers = localStorage.getItem(LS_AUTH);
+    if (storedAuthUsers) {
+      try {
+        setAuthUsers(JSON.parse(storedAuthUsers));
+      } catch (e) {
+        console.error("Failed to parse auth users", e);
+      }
+    }
+    
+    // Load audit log
+    const storedAudit = localStorage.getItem(LS_AUDIT);
+    if (storedAudit) {
+      try {
+        setAuditLog(JSON.parse(storedAudit));
+      } catch (e) {
+        console.error("Failed to parse audit log", e);
+      }
+    }
+    
+    // Load mutes
+    const storedMutes = localStorage.getItem(LS_MUTES);
+    if (storedMutes) {
+      try {
+        setMutes(JSON.parse(storedMutes));
+      } catch (e) {
+        console.error("Failed to parse mutes", e);
+      }
+    }
+    
+    // Load bans
+    const storedBans = localStorage.getItem(LS_BANS);
+    if (storedBans) {
+      try {
+        setBans(JSON.parse(storedBans));
+      } catch (e) {
+        console.error("Failed to parse bans", e);
+      }
+    }
+    
+    // Load DM data
+    const storedConversations = localStorage.getItem(LS_CONVERSATIONS);
+    if (storedConversations) {
+      try {
+        setConversations(JSON.parse(storedConversations));
+      } catch (e) {
+        console.error("Failed to parse conversations", e);
+      }
+    }
+    
+    const storedMessages = localStorage.getItem(LS_MESSAGES);
+    if (storedMessages) {
+      try {
+        setDirectMessages(JSON.parse(storedMessages));
+      } catch (e) {
+        console.error("Failed to parse messages", e);
+      }
+    }
+    
+    const storedRateLimit = localStorage.getItem(LS_RATE_LIMIT);
+    if (storedRateLimit) {
+      try {
+        setRateLimitEntries(JSON.parse(storedRateLimit));
+      } catch (e) {
+        console.error("Failed to parse rate limit", e);
+      }
+    }
+    
+    setIsLoading(false);
   }, []);
 
-  // Update language effect - persist UI preference to localStorage
+  // Update language effect
   useEffect(() => {
     localStorage.setItem(KEYS.LANG, lang);
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -550,104 +763,208 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   // Actions
-
-  // Full login with password - async, throws on error
-  const login = async (email: string, password: string, rememberMe: boolean = false): Promise<void> => {
-    const data = await apiFetch('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, rememberMe }),
-    });
-
+  
+  // Full login with password (for registered users and admin-created moderators)
+  const login = (email: string, password: string, rememberMe: boolean = false) => {
     const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    
+    if (!account) {
+      const authUser = authUsers.find(a => a.email.toLowerCase() === emailLower);
+      
+      if (!authUser) {
+        throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+      }
+      
+      if (authUser.passwordHash !== password) {
+        throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
+      }
+      
+      const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+      const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
+      
+      localStorage.setItem(KEYS.USER, email);
+      setUser({
+        email,
+        isAdmin: isAdminEmail,
+        isModerator: isMod,
+        profile: profiles[email]
+      });
+      return;
+    }
+    
+    if (!account.verified) {
+      throw new Error(lang === 'ar' ? 'يرجى تأكيد بريدك الإلكتروني أولاً' : 'Please verify your email first');
+    }
+    
+    if (account.banned) {
+      throw new Error(lang === 'ar' ? 'حسابك محظور: ' + account.bannedReason : 'Your account is banned: ' + account.bannedReason);
+    }
+    
+    if (account.passwordHash !== simpleHash(password)) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
+    }
+    
+    // Update rememberMe status
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: { ...account, rememberMe }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
     const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
-    const isMod = (data?.isModerator ?? false) || emailLower === MODERATOR_EMAIL.toLowerCase();
-
-    setUser({
-      email: data?.email || email,
+    const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
+    
+    localStorage.setItem(KEYS.USER, email);
+    setUser({ 
+      email, 
       isAdmin: isAdminEmail,
       isModerator: isMod,
-      profile: data?.profile,
-      account: data?.account,
+      account: updatedAccounts[emailLower],
+      profile: profiles[email]
     });
   };
-
+  
   // Simple login - DISABLED for security
+  // This function is kept for backward compatibility but always throws an error
   const loginSimple = (_email: string) => {
-    throw new Error(lang === 'ar'
-      ? 'الدخول السريع معطل. يرجى استخدام تسجيل الدخول بكلمة المرور.'
+    throw new Error(lang === 'ar' 
+      ? 'الدخول السريع معطل. يرجى استخدام تسجيل الدخول بكلمة المرور.' 
       : 'Quick login is disabled. Please use password login.');
   };
-
-  // Register new account - synchronous interface, fires API in background
-  // NOTE: The context interface requires synchronous return of PendingVerification.
-  // We fire the API call in the background and return an optimistic verification object.
-  // Callers that need true async behaviour should be updated to use the API directly.
+  
+  // Register new account - Auto-verified (no email verification required)
   const register = (data: RegistrationData): PendingVerification => {
-    // Fire API call in background
-    apiFetch('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }).catch(err => console.error('register API error:', err));
-
-    // Return verification object immediately (for backward compatibility)
+    const emailLower = data.email.toLowerCase();
+    
+    // Check if already registered
+    if (accounts[emailLower]) {
+      throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
+    }
+    
+    // Validate email domain against allowed domains
+    const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
+    const emailDomain = emailLower.split('@')[1];
+    const isDomainAllowed = emailDomain && allowedDomains.includes(emailDomain);
+    
+    if (!isModerator && !isDomainAllowed) {
+      throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي معتمد' : 'Please use an approved university email');
+    }
+    
+    // Reject other hotmail emails (unless moderator)
+    if (!isModerator && data.email.toLowerCase().includes('@hotmail.')) {
+      throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
+    }
+    
+    // Create account - automatically verified
+    const newAccount: UserAccount = {
+      email: data.email,
+      passwordHash: simpleHash(data.password),
+      phone: data.phone,
+      region: {
+        governorate: data.governorate,
+        wilayat: data.wilayat
+      },
+      role: isModerator ? 'moderator' : 'student',
+      verified: true, // Auto-verified
+      createdAt: new Date().toISOString()
+    };
+    
+    const updatedAccounts = { ...accounts, [emailLower]: newAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
+    // Create default profile
+    const defaultProfile: UserProfile = {
+      email: data.email,
+      name: data.name,
+      bio: '',
+      major: '',
+      university: 'UTAS',
+      followers: [],
+      following: []
+    };
+    const updatedProfiles = { ...profiles, [data.email]: defaultProfile };
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+    
+    // Return verification object (for backward compatibility)
     const verification: PendingVerification = {
       email: data.email,
       token: '',
       expiry: ''
     };
-
+    
     return verification;
   };
-
-  // Reset password - fires API in background (interface requires synchronous void)
-  const resetPassword = (email: string, newPassword: string): void => {
-    apiFetch('/api/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ email, newPassword }),
-    }).catch(err => console.error('resetPassword API error:', err));
+  
+  // Reset password for admin/moderator accounts
+  const resetPassword = (email: string, newPassword: string) => {
+    const emailLower = email.toLowerCase();
+    const account = accounts[emailLower];
+    
+    if (!account) {
+      throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
+    }
+    
+    // Only allow reset for admin/moderator accounts
+    const isAdminOrMod = ADMIN_EMAILS.includes(emailLower) || emailLower === MODERATOR_EMAIL.toLowerCase();
+    if (!isAdminOrMod) {
+      throw new Error(lang === 'ar' ? 'إعادة تعيين كلمة المرور متاحة فقط للمشرفين' : 'Password reset only available for moderators');
+    }
+    
+    if (newPassword.length < 6) {
+      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters');
+    }
+    
+    // Update password
+    const updatedAccount = { ...account, passwordHash: simpleHash(newPassword) };
+    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
-
-  // Verify email with token (kept synchronous for interface compatibility, uses local state)
+  
+  // Verify email with token
   const verifyEmail = (token: string): boolean => {
-    // Find account with this token in local state
+    // Find account with this token
     const accountEntry = Object.entries(accounts).find(
-      ([_, acc]) => (acc as any).verificationToken === token
+      ([_, acc]) => acc.verificationToken === token
     );
-
+    
     if (!accountEntry) {
       return false;
     }
-
+    
     const [email, account] = accountEntry;
-
+    
     // Check expiry
-    if ((account as any).verificationExpiry && new Date((account as any).verificationExpiry) < new Date()) {
+    if (account.verificationExpiry && new Date(account.verificationExpiry) < new Date()) {
       return false;
     }
-
-    // Mark as verified optimistically
-    setAccounts(prev => ({
-      ...prev,
+    
+    // Mark as verified
+    const updatedAccounts = {
+      ...accounts,
       [email]: {
         ...account,
         verified: true,
         verificationToken: undefined,
         verificationExpiry: undefined
       }
-    }));
-
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    
     // Clear pending verification
     setPendingVerification(null);
-
+    localStorage.removeItem(KEYS.PENDING_VERIFICATION);
+    
     return true;
   };
 
-  const logout = async (): Promise<void> => {
-    try {
-      await apiFetch('/api/auth/logout', { method: 'POST' });
-    } catch (err) {
-      console.error('Logout API error:', err);
-    }
+  const logout = () => {
+    localStorage.removeItem(KEYS.USER);
     setUser(null);
   };
 
@@ -660,14 +977,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   };
 
   const createPost = (
-    content: string,
-    postType: PostType = 'discussion',
-    subject?: string,
+    content: string, 
+    postType: PostType = 'discussion', 
+    subject?: string, 
     imageUrl?: string,
     attachments?: Attachment[]
   ) => {
     if (!user || !content.trim()) return;
-
+    
     const newPost: LocalPost = {
       id: generateId(),
       authorEmail: user.email,
@@ -681,98 +998,72 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       imageUrl,
       attachments
     };
-
-    setPosts(prev => [newPost, ...prev]);
-
-    // Fire API call in background
-    apiFetch('/api/posts', {
-      method: 'POST',
-      body: JSON.stringify({ content, postType, subject, imageUrl, attachments }),
-    }).catch(err => console.error('createPost API error:', err));
+    const updatedPosts = [newPost, ...posts];
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const updateProfile = (email: string, profileData: Partial<UserProfile>) => {
-    // Optimistic update
-    setProfiles(prev => ({
-      ...prev,
-      [email]: { ...prev[email], ...profileData }
-    }));
-
+    const updatedProfiles = {
+      ...profiles,
+      [email]: {
+        ...profiles[email],
+        ...profileData
+      }
+    };
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
+    
     // Update user object if it's the current user
     if (user?.email === email) {
-      setUser(prev => prev ? { ...prev, profile: { ...prev.profile, ...profileData } as UserProfile } : prev);
+      setUser({
+        ...user,
+        profile: updatedProfiles[email]
+      });
     }
-
-    // Fire API call in background
-    apiFetch(`/api/profiles/${encodeURIComponent(email)}`, {
-      method: 'PUT',
-      body: JSON.stringify(profileData),
-    }).catch(err => console.error('updateProfile API error:', err));
   };
 
   const getProfile = useCallback((email: string): UserProfile | undefined => {
-    if (profiles[email]) return profiles[email];
-    // Fetch in background and update state
-    apiFetch(`/api/profiles/${encodeURIComponent(email)}`)
-      .then(data => {
-        if (data) setProfiles(prev => ({ ...prev, [email]: data }));
-      })
-      .catch(() => {});
-    return undefined;
+    return profiles[email];
   }, [profiles]);
 
   const getAccount = useCallback((email: string): UserAccount | undefined => {
-    if (accounts[email]) return accounts[email];
-    const emailLower = email.toLowerCase();
-    if (accounts[emailLower]) return accounts[emailLower];
-    // Fetch in background and update state
-    apiFetch(`/api/accounts/${encodeURIComponent(email)}`)
-      .then(data => {
-        if (data) setAccounts(prev => ({ ...prev, [email]: data }));
-      })
-      .catch(() => {});
-    return undefined;
+    // Only return account data if the requester is the account owner (checked by caller)
+    return accounts[email];
   }, [accounts]);
 
   const updateAccount = useCallback((email: string, data: { phone?: string; region?: { governorate: string; wilayat: string }; allowDM?: 'everyone' | 'none' }) => {
     const emailLower = email.toLowerCase();
-
-    // Optimistic update
-    setAccounts(prev => {
-      const existing = prev[emailLower] || prev[email];
-      if (!existing) return prev;
-      return {
-        ...prev,
-        [emailLower]: { ...existing, ...data }
-      };
-    });
-
-    // Fire API call in background
-    apiFetch(`/api/accounts/${encodeURIComponent(email)}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }).catch(err => console.error('updateAccount API error:', err));
+    const existingAccount = accounts[emailLower];
+    if (!existingAccount) return;
+    
+    const updatedAccount: UserAccount = {
+      ...existingAccount,
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.region !== undefined && { region: data.region }),
+      ...(data.allowDM !== undefined && { allowDM: data.allowDM })
+    };
+    
+    const updatedAccounts = { ...accounts, [emailLower]: updatedAccount };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   }, [accounts]);
 
   const toggleSave = (postId: string) => {
     if (!user) return;
-
-    setPosts(prev => prev.map(post => {
+    const updatedPosts = posts.map(post => {
       if (post.id !== postId) return post;
       const savedBy = post.savedBy || [];
       const isSaved = savedBy.includes(user.email);
       return {
         ...post,
-        savedBy: isSaved
+        savedBy: isSaved 
           ? savedBy.filter(email => email !== user.email)
           : [...savedBy, user.email]
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}/save`, {
-      method: 'POST',
-    }).catch(err => console.error('toggleSave API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const deletePost = (postId: string) => {
@@ -781,13 +1072,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (!post) return;
     // Allow deletion if user is admin, moderator, or the post author
     if (!user.isAdmin && !user.isModerator && post.authorEmail !== user.email) return;
-
-    setPosts(prev => prev.filter(p => p.id !== postId));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('deletePost API error:', err));
+    const updatedPosts = posts.filter(p => p.id !== postId);
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const updatePost = (postId: string, content: string, postType?: PostType, subject?: string) => {
@@ -796,8 +1083,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (!post) return;
     // Allow update if user is moderator or the post author
     if (!user.isModerator && post.authorEmail !== user.email) return;
-
-    setPosts(prev => prev.map(p => {
+    const updatedPosts = posts.map(p => {
       if (p.id !== postId) return p;
       return {
         ...p,
@@ -806,34 +1092,26 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         subject: subject !== undefined ? subject : p.subject,
         updatedAt: new Date().toISOString()
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content, postType, subject }),
-    }).catch(err => console.error('updatePost API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const toggleLike = (postId: string) => {
     if (!user) return;
-
-    setPosts(prev => prev.map(post => {
+    const updatedPosts = posts.map(post => {
       if (post.id !== postId) return post;
       const likedBy = post.likedBy || [];
       const isLiked = likedBy.includes(user.email);
       return {
         ...post,
-        likedBy: isLiked
+        likedBy: isLiked 
           ? likedBy.filter(email => email !== user.email)
           : [...likedBy, user.email]
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}/like`, {
-      method: 'POST',
-    }).catch(err => console.error('toggleLike API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const addReply = (postId: string, content: string, parentReplyId?: string) => {
@@ -845,20 +1123,15 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
       parentId: parentReplyId
     };
-
-    setPosts(prev => prev.map(post => {
+    const updatedPosts = posts.map(post => {
       if (post.id !== postId) return post;
       return {
         ...post,
         replies: [...(post.replies || []), newReply]
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}/replies`, {
-      method: 'POST',
-      body: JSON.stringify({ content, parentReplyId }),
-    }).catch(err => console.error('addReply API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   const toggleLang = () => {
@@ -869,34 +1142,34 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     setTheme(prev => {
       const newTheme = prev === 'light' ? 'dark' : 'light';
       localStorage.setItem(KEYS.THEME, newTheme);
-
+      
       // Add transition class for smooth color change
       document.documentElement.classList.add('theme-transition');
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(newTheme);
-
+      
       // Remove transition class after animation completes
       setTimeout(() => {
         document.documentElement.classList.remove('theme-transition');
       }, 300);
-
+      
       return newTheme;
     });
   };
 
   const toggleFollow = (targetEmail: string) => {
     if (!user || user.email === targetEmail) return;
-
+    
     const currentUserProfile = profiles[user.email] || { email: user.email, name: '', major: '', university: '' };
     const targetProfile = profiles[targetEmail] || { email: targetEmail, name: '', major: '', university: '' };
-
+    
     const currentFollowing = currentUserProfile.following || [];
     const targetFollowers = targetProfile.followers || [];
-
+    
     const isCurrentlyFollowing = currentFollowing.includes(targetEmail);
-
-    setProfiles(prev => ({
-      ...prev,
+    
+    const updatedProfiles = {
+      ...profiles,
       [user.email]: {
         ...currentUserProfile,
         following: isCurrentlyFollowing
@@ -909,12 +1182,10 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
           ? targetFollowers.filter(e => e !== user.email)
           : [...targetFollowers, user.email]
       }
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/follows/${encodeURIComponent(targetEmail)}`, {
-      method: 'POST',
-    }).catch(err => console.error('toggleFollow API error:', err));
+    };
+    
+    setProfiles(updatedProfiles);
+    localStorage.setItem(KEYS.PROFILES, JSON.stringify(updatedProfiles));
   };
 
   const isFollowing = (targetEmail: string): boolean => {
@@ -922,87 +1193,88 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     const currentUserProfile = profiles[user.email];
     return currentUserProfile?.following?.includes(targetEmail) || false;
   };
-
-  // Moderator functions (legacy - kept for interface compatibility)
+  
+  // Moderator functions
   const banUser = (email: string, reason: string) => {
     if (!user?.isModerator) return;
     const emailLower = email.toLowerCase();
-
-    setAccounts(prev => {
-      const account = prev[emailLower];
-      if (!account) return prev;
-      return {
-        ...prev,
-        [emailLower]: { ...account, banned: true, bannedReason: reason }
-      };
-    });
+    const account = accounts[emailLower];
+    if (!account) return;
+    
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: {
+        ...account,
+        banned: true,
+        bannedReason: reason
+      }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
-
+  
   const unbanUser = (email: string) => {
     if (!user?.isModerator) return;
     const emailLower = email.toLowerCase();
-
-    setAccounts(prev => {
-      const account = prev[emailLower];
-      if (!account) return prev;
-      return {
-        ...prev,
-        [emailLower]: { ...account, banned: false, bannedReason: undefined }
-      };
-    });
+    const account = accounts[emailLower];
+    if (!account) return;
+    
+    const updatedAccounts = {
+      ...accounts,
+      [emailLower]: {
+        ...account,
+        banned: false,
+        bannedReason: undefined
+      }
+    };
+    setAccounts(updatedAccounts);
+    localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
   };
-
+  
   const deleteReply = (postId: string, replyId: string) => {
     if (!user) return;
     const post = posts.find(p => p.id === postId);
     if (!post) return;
-
+    
     const reply = post.replies?.find(r => r.id === replyId);
     if (!reply) return;
-
+    
     // Allow deletion if user is moderator or the reply author
     if (!user.isModerator && reply.authorEmail !== user.email) return;
-
-    setPosts(prev => prev.map(p => {
+    
+    const updatedPosts = posts.map(p => {
       if (p.id !== postId) return p;
       return {
         ...p,
         replies: p.replies?.filter(r => r.id !== replyId) || []
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}/replies/${encodeURIComponent(replyId)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('deleteReply API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
-
+  
   const editReply = (postId: string, replyId: string, content: string) => {
     if (!user) return;
     const post = posts.find(p => p.id === postId);
     if (!post) return;
-
+    
     const reply = post.replies?.find(r => r.id === replyId);
     if (!reply) return;
-
+    
     // Allow edit if user is moderator or the reply author
     if (!user.isModerator && reply.authorEmail !== user.email) return;
-
-    setPosts(prev => prev.map(p => {
+    
+    const updatedPosts = posts.map(p => {
       if (p.id !== postId) return p;
       return {
         ...p,
-        replies: p.replies?.map(r =>
+        replies: p.replies?.map(r => 
           r.id === replyId ? { ...r, content } : r
         ) || []
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/posts/${encodeURIComponent(postId)}/replies/${encodeURIComponent(replyId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    }).catch(err => console.error('editReply API error:', err));
+    });
+    setPosts(updatedPosts);
+    localStorage.setItem(KEYS.POSTS, JSON.stringify(updatedPosts));
   };
 
   // Check if user has already reported this target
@@ -1012,22 +1284,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [user, reports]);
 
   const submitReport = useCallback((
-    targetType: ReportTargetType,
-    targetId: string,
-    targetTitle: string,
-    reason: ReportReason,
+    targetType: ReportTargetType, 
+    targetId: string, 
+    targetTitle: string, 
+    reason: ReportReason, 
     note?: string
   ) => {
     if (!user) return;
-
+    
     // Prevent duplicate reports from same user on same target
     if (reports.some(r => r.targetType === targetType && r.targetId === targetId && r.reporterEmail === user.email)) {
       return; // Already reported
     }
-
+    
     const profile = profiles[user.email];
     const reporterName = profile?.name || user.email.split('@')[0];
-
+    
     const newReport: Report = {
       id: `report-${Date.now()}`,
       targetType,
@@ -1040,50 +1312,39 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       status: 'open',
       createdAt: new Date().toISOString().split('T')[0]
     };
-
-    setReports(prev => [newReport, ...prev]);
-
-    // Fire API call in background
-    apiFetch('/api/reports', {
-      method: 'POST',
-      body: JSON.stringify({ targetType, targetId, targetTitle, reason, note }),
-    }).catch(err => console.error('submitReport API error:', err));
-
-    // Add audit event optimistically
+    
+    const updatedReports = [newReport, ...reports];
+    setReports(updatedReports);
+    localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
+    
+    // Add audit event for report creation
     const auditEvent: AuditEvent = {
       id: crypto.randomUUID(),
       action: 'report.create',
-      targetType: targetType as any,
+      targetType: targetType as any, // post, comment, or user
       targetId,
       byEmail: user.email,
       at: Date.now(),
       meta: { reason, targetTitle }
     };
-    setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-
-    // Fire audit API in background
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(auditEvent),
-    }).catch(err => console.error('audit API error:', err));
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, [user, profiles, reports]);
 
   const updateReportStatus = useCallback((reportId: string, status: ReportStatus, resolutionReason?: string) => {
     const report = reports.find(r => r.id === reportId);
-
-    setReports(prev => prev.map(r =>
-      r.id === reportId
-        ? { ...r, status, resolutionReason }
+    const updatedReports = reports.map(r => 
+      r.id === reportId 
+        ? { ...r, status, resolutionReason } 
         : r
-    ));
-
-    // Fire API call in background
-    apiFetch(`/api/reports/${encodeURIComponent(reportId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status, resolutionReason }),
-    }).catch(err => console.error('updateReportStatus API error:', err));
-
-    // Add audit event optimistically
+    );
+    setReports(updatedReports);
+    localStorage.setItem(KEYS.REPORTS, JSON.stringify(updatedReports));
+    
+    // Add audit event for status update (if user is logged in)
     if (user && report) {
       const auditEvent: AuditEvent = {
         id: crypto.randomUUID(),
@@ -1094,12 +1355,11 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         at: Date.now(),
         meta: { status, targetTitle: report.targetTitle, resolutionReason }
       };
-      setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-
-      apiFetch('/api/audit', {
-        method: 'POST',
-        body: JSON.stringify(auditEvent),
-      }).catch(err => console.error('audit API error:', err));
+      setAuditLog(prev => {
+        const updated = [auditEvent, ...prev].slice(0, 200);
+        localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+        return updated;
+      });
     }
   }, [user, reports]);
 
@@ -1114,13 +1374,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     }
     const updated = [...allowedDomains, normalized];
     setAllowedDomains(updated);
-
-    // Fire API call in background
-    apiFetch('/api/allowed-domains', {
-      method: 'POST',
-      body: JSON.stringify({ domain: normalized }),
-    }).catch(err => console.error('addAllowedDomain API error:', err));
-
+    localStorage.setItem(KEYS.ALLOWED_DOMAINS, JSON.stringify(updated));
     return true;
   }, [allowedDomains]);
 
@@ -1132,13 +1386,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (allowedDomains.length <= 1) {
       return false; // Cannot remove last domain
     }
-    setAllowedDomains(prev => prev.filter(d => d !== normalized));
-
-    // Fire API call in background
-    apiFetch(`/api/allowed-domains/${encodeURIComponent(normalized)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('removeAllowedDomain API error:', err));
-
+    const updated = allowedDomains.filter(d => d !== normalized);
+    setAllowedDomains(updated);
+    localStorage.setItem(KEYS.ALLOWED_DOMAINS, JSON.stringify(updated));
     return true;
   }, [allowedDomains]);
 
@@ -1187,39 +1437,38 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       at: Date.now()
     };
-
-    setAuditLog(prev => [fullEvent, ...prev].slice(0, 200));
-
-    // Fire API call in background
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(fullEvent),
-    }).catch(err => console.error('addAuditEvent API error:', err));
+    
+    setAuditLog(prev => {
+      // Add at the beginning, limit to 200 entries
+      const updated = [fullEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   // Create moderator account
-  const createModeratorAccount = useCallback((data: {
-    email: string;
-    displayName: string;
-    tempPassword: string;
-    permissions: DaamPermission[]
+  const createModeratorAccount = useCallback((data: { 
+    email: string; 
+    displayName: string; 
+    tempPassword: string; 
+    permissions: DaamPermission[] 
   }): ModeratorAccount => {
     const emailLower = data.email.toLowerCase();
-
+    
     // Check for duplicate email in moderators
     if (moderators.some(m => m.email.toLowerCase() === emailLower)) {
       throw new Error(lang === 'ar' ? 'هذا البريد مسجل كمشرف مسبقاً' : 'Email already registered as moderator');
     }
-
+    
     // Check for duplicate email in authUsers
     if (authUsers.some(a => a.email.toLowerCase() === emailLower)) {
       throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
     }
-
+    
     const moderatorId = crypto.randomUUID();
     const authUserId = crypto.randomUUID();
     const now = Date.now();
-
+    
     // Create ModeratorAccount
     const newModerator: ModeratorAccount = {
       id: moderatorId,
@@ -1231,8 +1480,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       createdBy: user?.email || 'system'
     };
-
+    
     // Create LocalAuthUser
+    // TODO: Use Web Crypto SHA-256 for proper hashing
     const newAuthUser: LocalAuthUser = {
       id: authUserId,
       email: data.email,
@@ -1241,75 +1491,53 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       linkedModeratorId: moderatorId,
       createdAt: now
     };
-
-    // Optimistic update
-    setModerators(prev => [...prev, newModerator]);
-    setAuthUsers(prev => [...prev, newAuthUser]);
-
-    // Fire API calls in background
-    apiFetch('/api/moderators', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: data.email,
-        displayName: data.displayName,
-        permissions: uniq(data.permissions),
-      }),
-    }).catch(err => console.error('createModeratorAccount API error:', err));
-
-    apiFetch('/api/auth-users', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: data.email,
-        password: data.tempPassword,
-        role: 'moderator',
-        linkedModeratorId: moderatorId,
-      }),
-    }).catch(err => console.error('createAuthUser API error:', err));
-
+    
+    // Update state and localStorage
+    const updatedMods = [...moderators, newModerator];
+    const updatedAuthUsers = [...authUsers, newAuthUser];
+    
+    setModerators(updatedMods);
+    setAuthUsers(updatedAuthUsers);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+    localStorage.setItem(LS_AUTH, JSON.stringify(updatedAuthUsers));
+    
     return newModerator;
   }, [moderators, authUsers, user, lang]);
 
   // Update moderator permissions
   const updateModeratorPermissions = useCallback((moderatorId: string, permissions: DaamPermission[]): void => {
-    setModerators(prev => prev.map(m =>
-      m.id === moderatorId
-        ? { ...m, permissions: uniq(permissions) }
+    const updatedMods = moderators.map(m => 
+      m.id === moderatorId 
+        ? { ...m, permissions: uniq(permissions) } 
         : m
-    ));
-
-    // Fire API call in background
-    apiFetch(`/api/moderators/${encodeURIComponent(moderatorId)}/permissions`, {
-      method: 'PUT',
-      body: JSON.stringify({ permissions: uniq(permissions) }),
-    }).catch(err => console.error('updateModeratorPermissions API error:', err));
+    );
+    setModerators(updatedMods);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
   }, [moderators]);
 
   // Toggle moderator active status
   const toggleModeratorActive = useCallback((moderatorId: string): void => {
-    setModerators(prev => prev.map(m =>
-      m.id === moderatorId
-        ? { ...m, isActive: !m.isActive }
+    const updatedMods = moderators.map(m => 
+      m.id === moderatorId 
+        ? { ...m, isActive: !m.isActive } 
         : m
-    ));
-
-    // Fire API call in background
-    apiFetch(`/api/moderators/${encodeURIComponent(moderatorId)}/toggle-active`, {
-      method: 'PUT',
-    }).catch(err => console.error('toggleModeratorActive API error:', err));
+    );
+    setModerators(updatedMods);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
   }, [moderators]);
 
   // Delete moderator (and linked authUser)
   const deleteModerator = useCallback((moderatorId: string): void => {
     const mod = moderators.find(m => m.id === moderatorId);
     if (!mod) return;
-
-    setModerators(prev => prev.filter(m => m.id !== moderatorId));
-    setAuthUsers(prev => prev.filter(a => a.linkedModeratorId !== moderatorId));
-
-    // Fire API call in background
-    apiFetch(`/api/moderators/${encodeURIComponent(moderatorId)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('deleteModerator API error:', err));
+    
+    const updatedMods = moderators.filter(m => m.id !== moderatorId);
+    const updatedAuthUsers = authUsers.filter(a => a.linkedModeratorId !== moderatorId);
+    
+    setModerators(updatedMods);
+    setAuthUsers(updatedAuthUsers);
+    localStorage.setItem(LS_MODS, JSON.stringify(updatedMods));
+    localStorage.setItem(LS_AUTH, JSON.stringify(updatedAuthUsers));
   }, [moderators, authUsers]);
 
   // Get moderator by email
@@ -1318,21 +1546,21 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [moderators]);
 
   // ========== Mute System Actions ==========
-
+  
   // Check if user is currently muted (auto-removes expired mutes)
   const isUserMuted = useCallback((userEmail: string): boolean => {
     const record = mutes.find(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
     if (!record) return false;
-
+    
     // Check if mute has expired
     if (record.expiresAt && record.expiresAt < Date.now()) {
       // Auto-remove expired mute
-      setMutes(prev => prev.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-      apiFetch(`/api/mutes/${encodeURIComponent(userEmail)}`, { method: 'DELETE' })
-        .catch(() => {});
+      const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setMutes(updatedMutes);
+      localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
       return false;
     }
-
+    
     return true;
   }, [mutes]);
 
@@ -1340,25 +1568,26 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const getMuteRecord = useCallback((userEmail: string): MuteRecord | undefined => {
     const record = mutes.find(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
     if (!record) return undefined;
-
+    
     // Check if mute has expired
     if (record.expiresAt && record.expiresAt < Date.now()) {
-      setMutes(prev => prev.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-      apiFetch(`/api/mutes/${encodeURIComponent(userEmail)}`, { method: 'DELETE' })
-        .catch(() => {});
+      // Auto-remove expired mute
+      const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setMutes(updatedMutes);
+      localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
       return undefined;
     }
-
+    
     return record;
   }, [mutes]);
 
   // Mute a user
   const muteUser = useCallback((userEmail: string, reason?: string, durationMinutes?: number): void => {
     if (!user) return;
-
+    
     const now = Date.now();
     const expiresAt = durationMinutes ? now + (durationMinutes * 60 * 1000) : undefined;
-
+    
     const newMuteRecord: MuteRecord = {
       userEmail: userEmail.toLowerCase(),
       mutedBy: user.email,
@@ -1366,22 +1595,20 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       mutedAt: now,
       expiresAt
     };
-
-    // Optimistic update
-    setMutes(prev => {
-      const existingIndex = prev.findIndex(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
-      if (existingIndex >= 0) {
-        return prev.map((m, i) => i === existingIndex ? newMuteRecord : m);
-      }
-      return [...prev, newMuteRecord];
-    });
-
-    // Fire API call in background
-    apiFetch('/api/mutes', {
-      method: 'POST',
-      body: JSON.stringify({ userEmail: userEmail.toLowerCase(), reason, durationMinutes }),
-    }).catch(err => console.error('muteUser API error:', err));
-
+    
+    // Update or add mute record
+    const existingIndex = mutes.findIndex(m => m.userEmail.toLowerCase() === userEmail.toLowerCase());
+    let updatedMutes: MuteRecord[];
+    
+    if (existingIndex >= 0) {
+      updatedMutes = mutes.map((m, i) => i === existingIndex ? newMuteRecord : m);
+    } else {
+      updatedMutes = [...mutes, newMuteRecord];
+    }
+    
+    setMutes(updatedMutes);
+    localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+    
     // Add audit event
     const auditEvent: AuditEvent = {
       id: crypto.randomUUID(),
@@ -1392,24 +1619,21 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       at: now,
       meta: { reason, expiresAt }
     };
-    setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(auditEvent),
-    }).catch(err => console.error('audit API error:', err));
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, [user, mutes]);
 
   // Unmute a user
   const unmuteUser = useCallback((userEmail: string): void => {
     if (!user) return;
-
-    setMutes(prev => prev.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-
-    // Fire API call in background
-    apiFetch(`/api/mutes/${encodeURIComponent(userEmail)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('unmuteUser API error:', err));
-
+    
+    const updatedMutes = mutes.filter(m => m.userEmail.toLowerCase() !== userEmail.toLowerCase());
+    setMutes(updatedMutes);
+    localStorage.setItem(LS_MUTES, JSON.stringify(updatedMutes));
+    
     // Add audit event
     const auditEvent: AuditEvent = {
       id: crypto.randomUUID(),
@@ -1419,22 +1643,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       byEmail: user.email,
       at: Date.now()
     };
-    setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(auditEvent),
-    }).catch(err => console.error('audit API error:', err));
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, [user, mutes]);
 
   // ========== Ban System Functions ==========
-
+  
   // Ban a user with optional duration
   const banUserWithDuration = useCallback((userEmail: string, reason?: string, durationDays?: number): void => {
     if (!user) return;
-
+    
     const now = Date.now();
     const expiresAt = durationDays ? now + (durationDays * 24 * 60 * 60 * 1000) : undefined;
-
+    
     const newBanRecord: BanRecord = {
       userEmail: userEmail.toLowerCase(),
       bannedBy: user.email,
@@ -1442,22 +1666,20 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       bannedAt: now,
       expiresAt
     };
-
-    // Optimistic update
-    setBans(prev => {
-      const existingIndex = prev.findIndex(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
-      if (existingIndex >= 0) {
-        return prev.map((b, i) => i === existingIndex ? newBanRecord : b);
-      }
-      return [...prev, newBanRecord];
-    });
-
-    // Fire API call in background
-    apiFetch('/api/bans', {
-      method: 'POST',
-      body: JSON.stringify({ userEmail: userEmail.toLowerCase(), reason, durationDays }),
-    }).catch(err => console.error('banUserWithDuration API error:', err));
-
+    
+    // Update or add ban record
+    const existingIndex = bans.findIndex(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
+    let updatedBans: BanRecord[];
+    
+    if (existingIndex >= 0) {
+      updatedBans = bans.map((b, i) => i === existingIndex ? newBanRecord : b);
+    } else {
+      updatedBans = [...bans, newBanRecord];
+    }
+    
+    setBans(updatedBans);
+    localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+    
     // Add audit event
     const auditEvent: AuditEvent = {
       id: crypto.randomUUID(),
@@ -1468,12 +1690,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       at: now,
       meta: { reason, expiresAt }
     };
-    setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(auditEvent),
-    }).catch(err => console.error('audit API error:', err));
-
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
+    
     // If banning current user, log them out
     if (user.email.toLowerCase() === userEmail.toLowerCase()) {
       logout();
@@ -1483,14 +1705,11 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // Unban a user
   const unbanUserRecord = useCallback((userEmail: string): void => {
     if (!user) return;
-
-    setBans(prev => prev.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-
-    // Fire API call in background
-    apiFetch(`/api/bans/${encodeURIComponent(userEmail)}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('unbanUserRecord API error:', err));
-
+    
+    const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+    setBans(updatedBans);
+    localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
+    
     // Add audit event
     const auditEvent: AuditEvent = {
       id: crypto.randomUUID(),
@@ -1500,77 +1719,78 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       byEmail: user.email,
       at: Date.now()
     };
-    setAuditLog(prev => [auditEvent, ...prev].slice(0, 200));
-    apiFetch('/api/audit', {
-      method: 'POST',
-      body: JSON.stringify(auditEvent),
-    }).catch(err => console.error('audit API error:', err));
+    setAuditLog(prev => {
+      const updated = [auditEvent, ...prev].slice(0, 200);
+      localStorage.setItem(LS_AUDIT, JSON.stringify(updated));
+      return updated;
+    });
   }, [user, bans]);
 
   // Check if a user is banned
   const isUserBanned = useCallback((userEmail: string): { banned: boolean; expiresAt?: number; reason?: string } => {
     const record = bans.find(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
-
+    
     if (!record) {
       return { banned: false };
     }
-
+    
     // Check if ban has expired
     if (record.expiresAt && record.expiresAt < Date.now()) {
       // Auto-remove expired ban
-      setBans(prev => prev.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-      apiFetch(`/api/bans/${encodeURIComponent(userEmail)}`, { method: 'DELETE' })
-        .catch(() => {});
+      const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setBans(updatedBans);
+      localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
       return { banned: false };
     }
-
+    
     return { banned: true, expiresAt: record.expiresAt, reason: record.reason };
   }, [bans]);
 
   // Get ban record for a user
   const getBanRecord = useCallback((userEmail: string): BanRecord | undefined => {
     const record = bans.find(b => b.userEmail.toLowerCase() === userEmail.toLowerCase());
-
+    
     if (!record) return undefined;
-
+    
     // Check if ban has expired
     if (record.expiresAt && record.expiresAt < Date.now()) {
-      setBans(prev => prev.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase()));
-      apiFetch(`/api/bans/${encodeURIComponent(userEmail)}`, { method: 'DELETE' })
-        .catch(() => {});
+      // Auto-remove expired ban
+      const updatedBans = bans.filter(b => b.userEmail.toLowerCase() !== userEmail.toLowerCase());
+      setBans(updatedBans);
+      localStorage.setItem(LS_BANS, JSON.stringify(updatedBans));
       return undefined;
     }
-
+    
     return record;
   }, [bans]);
 
   // ========== DM System Functions ==========
-
+  
   const canSendDM = useCallback((targetEmail: string): { allowed: boolean; reason?: string } => {
     const targetAccount = accounts[targetEmail.toLowerCase()];
     const allowDM = targetAccount?.allowDM ?? 'everyone';
-
+    
     if (allowDM === 'none') {
       return { allowed: false, reason: 'dm_closed' };
     }
-
+    
     return { allowed: true };
   }, [accounts]);
-
+  
   const getOrCreateConversation = useCallback((otherEmail: string): Conversation | null => {
     if (!user?.email) return null;
-
+    
     const myEmail = user.email.toLowerCase();
     const theirEmail = otherEmail.toLowerCase();
-
+    
     // Check if conversation already exists
-    const existing = conversations.find(c =>
+    const existing = conversations.find(c => 
       c.participants.includes(myEmail) && c.participants.includes(theirEmail)
     );
-
+    
     if (existing) return existing;
-
-    // Create new conversation optimistically
+    
+    // Create new conversation (set old date so it sorts at bottom until first message)
     const newConv: Conversation = {
       id: crypto.randomUUID(),
       participants: [myEmail, theirEmail],
@@ -1578,87 +1798,67 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       lastMessagePreview: '',
       unreadCount: { [myEmail]: 0, [theirEmail]: 0 }
     };
-
-    setConversations(prev => [...prev, newConv]);
-
-    // Fire API call in background
-    apiFetch('/api/conversations', {
-      method: 'POST',
-      body: JSON.stringify({ otherEmail: theirEmail }),
-    }).then(data => {
-      // Optionally replace the optimistic conversation with the server one
-      if (data && data.id && data.id !== newConv.id) {
-        setConversations(prev => prev.map(c => c.id === newConv.id ? data : c));
-      }
-    }).catch(err => console.error('getOrCreateConversation API error:', err));
-
+    
+    const updatedConversations = [...conversations, newConv];
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
     return newConv;
   }, [user, conversations]);
-
+  
   const getConversationsForUser = useCallback((userEmail: string): Conversation[] => {
     const email = userEmail.toLowerCase();
     return conversations
       .filter(c => c.participants.includes(email))
       .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }, [conversations]);
-
+  
   const getMessages = useCallback((conversationId: string): DirectMessage[] => {
-    // Also trigger a background fetch to populate messages if not loaded
-    if (!directMessages.some(m => m.conversationId === conversationId)) {
-      apiFetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages`)
-        .then(data => {
-          const raw = Array.isArray(data) ? data : (data?.data || []);
-          if (raw.length > 0) {
-            setDirectMessages(prev => {
-              const existing = prev.filter(m => m.conversationId !== conversationId);
-              return [...existing, ...raw];
-            });
-          }
-        })
-        .catch(() => {});
-    }
     return directMessages
       .filter(m => m.conversationId === conversationId)
       .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
   }, [directMessages]);
-
+  
   const sendDirectMessage = useCallback((conversationId: string, senderEmail: string, content: string): { success: boolean; error?: string } => {
     const sender = senderEmail.toLowerCase();
     const conversation = conversations.find(c => c.id === conversationId);
-
+    
     if (!conversation) {
       return { success: false, error: 'conversation_not_found' };
     }
-
+    
     // Find the other participant
     const otherEmail = conversation.participants.find(p => p !== sender);
     if (!otherEmail) {
       return { success: false, error: 'invalid_conversation' };
     }
-
+    
     // Check allowDM for receiver
     const dmCheck = canSendDM(otherEmail);
     if (!dmCheck.allowed) {
       return { success: false, error: dmCheck.reason };
     }
-
+    
     // Check rate limit (10 messages per 60 seconds)
     const now = Date.now();
     const oneMinuteAgo = now - 60000;
     const senderEntry = rateLimitEntries.find(e => e.senderEmail === sender);
     const recentTimestamps = senderEntry?.timestamps.filter(t => t > oneMinuteAgo) || [];
-
+    
     if (recentTimestamps.length >= 10) {
       return { success: false, error: 'rate_limit' };
     }
-
+    
     // Update rate limit
-    setRateLimitEntries(prev => {
-      const filtered = prev.filter(e => e.senderEmail !== sender);
-      return [...filtered, { senderEmail: sender, timestamps: [...recentTimestamps, now] }];
+    const updatedRateLimitEntries = rateLimitEntries.filter(e => e.senderEmail !== sender);
+    updatedRateLimitEntries.push({
+      senderEmail: sender,
+      timestamps: [...recentTimestamps, now]
     });
-
-    // Create the message optimistically
+    setRateLimitEntries(updatedRateLimitEntries);
+    localStorage.setItem(LS_RATE_LIMIT, JSON.stringify(updatedRateLimitEntries));
+    
+    // Create the message
     const newMessage: DirectMessage = {
       id: crypto.randomUUID(),
       conversationId,
@@ -1667,11 +1867,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       sentAt: new Date().toISOString(),
       readBy: [sender]
     };
-
-    setDirectMessages(prev => [...prev, newMessage]);
-
-    // Update conversation optimistically
-    setConversations(prev => prev.map(c => {
+    
+    const updatedMessages = [...directMessages, newMessage];
+    setDirectMessages(updatedMessages);
+    localStorage.setItem(LS_MESSAGES, JSON.stringify(updatedMessages));
+    
+    // Update conversation
+    const updatedConversations = conversations.map(c => {
       if (c.id !== conversationId) return c;
       return {
         ...c,
@@ -1682,47 +1884,47 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
           [otherEmail]: (c.unreadCount[otherEmail] || 0) + 1
         }
       };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    }).catch(err => console.error('sendDirectMessage API error:', err));
-
+    });
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
     return { success: true };
   }, [conversations, directMessages, rateLimitEntries, canSendDM]);
-
+  
   const markConversationRead = useCallback((conversationId: string, userEmail: string): void => {
     const email = userEmail.toLowerCase();
-
-    // Optimistic update - conversations
-    setConversations(prev => prev.map(c => {
+    
+    // Update unread count
+    const updatedConversations = conversations.map(c => {
       if (c.id !== conversationId) return c;
       return {
         ...c,
-        unreadCount: { ...c.unreadCount, [email]: 0 }
+        unreadCount: {
+          ...c.unreadCount,
+          [email]: 0
+        }
       };
-    }));
-
-    // Optimistic update - messages readBy
-    setDirectMessages(prev => prev.map(m => {
+    });
+    setConversations(updatedConversations);
+    localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(updatedConversations));
+    
+    // Update readBy on messages
+    const updatedMessages = directMessages.map(m => {
       if (m.conversationId !== conversationId) return m;
       if (m.readBy.includes(email)) return m;
-      return { ...m, readBy: [...m.readBy, email] };
-    }));
-
-    // Fire API call in background
-    apiFetch(`/api/conversations/${encodeURIComponent(conversationId)}/read`, {
-      method: 'PUT',
-      body: JSON.stringify({ userEmail: email }),
-    }).catch(err => console.error('markConversationRead API error:', err));
+      return {
+        ...m,
+        readBy: [...m.readBy, email]
+      };
+    });
+    setDirectMessages(updatedMessages);
+    localStorage.setItem(LS_MESSAGES, JSON.stringify(updatedMessages));
   }, [conversations, directMessages]);
 
   // Get count of unread conversations for a user
   const getUnreadConversationCount = useCallback((userEmail: string): number => {
     const email = userEmail.toLowerCase();
-    return conversations.filter(c =>
+    return conversations.filter(c => 
       c.participants.includes(email) && (c.unreadCount?.[email] ?? 0) > 0
     ).length;
   }, [conversations]);
