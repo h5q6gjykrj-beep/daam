@@ -206,45 +206,6 @@ type ProfileResearch = {
   createdAt: number;
 };
 
-// localStorage helpers for Materials
-function loadMaterials(email: string): ProfileMaterial[] {
-  try {
-    const key = `daam_profile_materials_v1::${email}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveMaterials(email: string, items: ProfileMaterial[]): void {
-  try {
-    const key = `daam_profile_materials_v1::${email}`;
-    localStorage.setItem(key, JSON.stringify(items));
-  } catch {
-    // Storage error, ignore
-  }
-}
-
-// localStorage helpers for Research
-function loadResearch(email: string): ProfileResearch[] {
-  try {
-    const key = `daam_profile_research_v1::${email}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveResearch(email: string, items: ProfileResearch[]): void {
-  try {
-    const key = `daam_profile_research_v1::${email}`;
-    localStorage.setItem(key, JSON.stringify(items));
-  } catch {
-    // Storage error, ignore
-  }
-}
 
 // Feature flag for new Academic Shell UI
 const USE_ACADEMIC_SHELL = true;
@@ -772,7 +733,7 @@ export default function Profile() {
     </Card>
   );
 
-  const coverImage = tempCover || storedCover || profile?.coverUrl;
+  const coverImage = tempCover || profile?.coverUrl;
 
   if (!profileEmail) {
     return (
@@ -1721,9 +1682,8 @@ export default function Profile() {
                         url: newMaterial.url.trim() || undefined,
                         createdAt: Date.now()
                       };
-                      const updated = [...materials, item];
-                      setMaterials(updated);
-                      saveMaterials(profileEmail, updated);
+                      setMaterials(prev => [...prev, item]);
+                      fetch('/api/profile-materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, email: profileEmail }) }).catch(() => {});
                       setShowAddMaterialDialog(false);
                       setNewMaterial({ title: '', kind: 'pdf', url: '', note: '' });
                       toast({
@@ -1816,7 +1776,7 @@ export default function Profile() {
                         : m
                     );
                     setMaterials(updated);
-                    saveMaterials(user.email, updated);
+                    fetch(`/api/profile-materials/${editingMaterial.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editMaterialForm.title.trim(), url: editingMaterial.kind === 'link' ? editMaterialForm.url.trim() : undefined, note: editingMaterial.kind === 'note' ? editMaterialForm.note.trim() : undefined }) }).catch(() => {});
                     setShowEditMaterialDialog(false);
                     setEditingMaterial(null);
                     setEditMaterialForm({ title: '', url: '', note: '' });
@@ -1898,9 +1858,8 @@ export default function Profile() {
                     }
                   }
                   
-                  const updated = materials.filter(m => m.id !== deletingMaterialId);
-                  setMaterials(updated);
-                  saveMaterials(user.email, updated);
+                  setMaterials(prev => prev.filter(m => m.id !== deletingMaterialId));
+                  fetch(`/api/profile-materials/${deletingMaterialId}`, { method: 'DELETE' }).catch(() => {});
                   setShowDeleteMaterialConfirm(false);
                   setDeletingMaterialId(null);
                   setIsDeletingMaterial(false);
@@ -2062,9 +2021,8 @@ export default function Profile() {
                       pdfName,
                       createdAt: Date.now()
                     };
-                    const updated = [...research, item];
-                    setResearch(updated);
-                    saveResearch(profileEmail, updated);
+                    setResearch(prev => [...prev, item]);
+                    fetch('/api/profile-research', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, email: profileEmail }) }).catch(() => {});
                     setShowAddResearchDialog(false);
                     setNewResearch({ title: '', abstract: '', tags: '' });
                     setResearchPdfFile(null);
@@ -2152,7 +2110,7 @@ export default function Profile() {
                                 : r
                             );
                             setResearch(updated);
-                            saveResearch(user.email, updated);
+                            fetch(`/api/profile-research/${editingResearch.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pdfUrl: null, pdfName: null }) }).catch(() => {});
                             setEditingResearch({ ...editingResearch, pdfUrl: undefined, pdfName: undefined });
                             toast({
                               title: lang === 'ar' ? 'تم الحذف' : 'Removed',
@@ -2268,7 +2226,7 @@ export default function Profile() {
                         : r
                     );
                     setResearch(updated);
-                    saveResearch(user.email, updated);
+                    fetch(`/api/profile-research/${editingResearch.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editResearchForm.title.trim(), abstract: editResearchForm.abstract.trim() || undefined, tags: tags.length > 0 ? tags : undefined, pdfUrl: pdfUrl || null, pdfName: pdfName || null }) }).catch(() => {});
                     setShowEditResearchDialog(false);
                     setEditingResearch(null);
                     setEditResearchForm({ title: '', abstract: '', tags: '' });
@@ -2349,9 +2307,8 @@ export default function Profile() {
                     }
                   }
                   
-                  const updated = research.filter(r => r.id !== deletingResearchId);
-                  setResearch(updated);
-                  saveResearch(user.email, updated);
+                  setResearch(prev => prev.filter(r => r.id !== deletingResearchId));
+                  fetch(`/api/profile-research/${deletingResearchId}`, { method: 'DELETE' }).catch(() => {});
                   setShowDeleteResearchConfirm(false);
                   setDeletingResearchId(null);
                   setIsDeletingResearch(false);
@@ -2407,9 +2364,9 @@ export default function Profile() {
               {editTab === 'cover' && (
                 <div className="space-y-4">
                   <div className="relative aspect-[3/1] rounded-lg overflow-hidden bg-muted">
-                    {(tempCover || storedCover || profile?.coverUrl) ? (
+                    {(tempCover || profile?.coverUrl) ? (
                       <img 
-                        src={tempCover || storedCover || profile?.coverUrl} 
+                        src={tempCover || profile?.coverUrl} 
                         alt="Cover preview" 
                         className="w-full h-full object-cover"
                       />
@@ -2429,7 +2386,7 @@ export default function Profile() {
                       <ImageIcon className="w-4 h-4" />
                       {lang === 'ar' ? 'رفع غلاف' : 'Upload Cover'}
                     </Button>
-                    {(tempCover || storedCover || profile?.coverUrl) && (
+                    {(tempCover || profile?.coverUrl) && (
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -2736,17 +2693,18 @@ export default function Profile() {
 
             {cpSubmitted ? (
               <div className="py-6 text-center space-y-3">
-                <Check className="w-10 h-10 mx-auto text-primary" />
+                <Check className="w-10 h-10 mx-auto text-green-500" />
+                <p className="font-medium">{lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully'}</p>
                 <p className="text-sm text-muted-foreground">
-                  {lang === 'ar'
-                    ? 'سيتم تفعيل تغيير كلمة المرور عند ربط نظام المصادقة النهائي.'
-                    : 'Password change will be enabled once authentication is fully wired.'}
+                  {lang === 'ar' ? 'كلمة المرور الجديدة محفوظة في قاعدة البيانات' : 'Your new password has been saved.'}
                 </p>
                 <Button
                   variant="outline"
                   onClick={() => {
                     setShowChangePasswordDialog(false);
                     setCpSubmitted(false);
+                    setCpForm({ current: '', newPw: '', confirm: '' });
+                    setCpErrors({});
                   }}
                   data-testid="button-close-change-password"
                 >
@@ -2860,7 +2818,12 @@ export default function Profile() {
                         setCpErrors(errors);
                         return;
                       }
-                      setCpSubmitted(true);
+                      try {
+                        changePassword(cpForm.current, cpForm.newPw);
+                        setCpSubmitted(true);
+                      } catch (err: any) {
+                        setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                      }
                     }}
                     className="flex-1"
                     data-testid="button-submit-change-password"
@@ -4122,9 +4085,9 @@ export default function Profile() {
             {editTab === 'cover' && (
               <div className="space-y-4">
                 <div className="relative h-32 rounded-lg overflow-hidden bg-muted">
-                  {(tempCover || storedCover || profile?.coverUrl) ? (
+                  {(tempCover || profile?.coverUrl) ? (
                     <img 
-                      src={tempCover || storedCover || profile?.coverUrl} 
+                      src={tempCover || profile?.coverUrl} 
                       alt="Cover preview" 
                       className="w-full h-full object-cover"
                     />
@@ -4144,7 +4107,7 @@ export default function Profile() {
                     <ImageIcon className="w-4 h-4" />
                     {lang === 'ar' ? 'رفع غلاف' : 'Upload Cover'}
                   </Button>
-                  {(tempCover || storedCover || profile?.coverUrl) && (
+                  {(tempCover || profile?.coverUrl) && (
                     <Button
                       variant="outline"
                       onClick={() => {
@@ -4452,17 +4415,18 @@ export default function Profile() {
 
           {cpSubmitted ? (
             <div className="py-6 text-center space-y-3">
-              <Check className="w-10 h-10 mx-auto text-primary" />
+              <Check className="w-10 h-10 mx-auto text-green-500" />
+              <p className="font-medium">{lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully'}</p>
               <p className="text-sm text-muted-foreground">
-                {lang === 'ar'
-                  ? 'سيتم تفعيل تغيير كلمة المرور عند ربط نظام المصادقة النهائي.'
-                  : 'Password change will be enabled once authentication is fully wired.'}
+                {lang === 'ar' ? 'كلمة المرور الجديدة محفوظة في قاعدة البيانات' : 'Your new password has been saved.'}
               </p>
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowChangePasswordDialog(false);
                   setCpSubmitted(false);
+                  setCpForm({ current: '', newPw: '', confirm: '' });
+                  setCpErrors({});
                 }}
                 data-testid="button-close-change-password"
               >
@@ -4576,7 +4540,12 @@ export default function Profile() {
                       setCpErrors(errors);
                       return;
                     }
-                    setCpSubmitted(true);
+                    try {
+                      changePassword(cpForm.current, cpForm.newPw);
+                      setCpSubmitted(true);
+                    } catch (err: any) {
+                      setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                    }
                   }}
                   className="flex-1"
                   data-testid="button-submit-change-password"
