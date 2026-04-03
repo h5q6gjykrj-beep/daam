@@ -161,7 +161,8 @@ import {
   Upload,
   KeyRound,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -299,6 +300,7 @@ export default function Profile() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [tempCover, setTempCover] = useState<string | null>(null);
   const [tempAvatar, setTempAvatar] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
@@ -394,29 +396,44 @@ export default function Profile() {
       .catch(() => {});
   }, [profileEmail]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'avatar') => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'avatar') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    if (file.size > 2 * 1024 * 1024) {
+    e.target.value = '';
+
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         title: lang === 'ar' ? 'الملف كبير جداً' : 'File too large',
-        description: lang === 'ar' ? 'الحد الأقصى 2 ميجابايت' : 'Maximum 2MB allowed',
+        description: lang === 'ar' ? 'الحد الأقصى 5 ميجابايت' : 'Maximum 5MB allowed',
         variant: 'destructive'
       });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      if (type === 'cover') {
-        setTempCover(base64);
-      } else {
-        setTempAvatar(base64);
-      }
-    };
-    reader.readAsDataURL(file);
+    const previewUrl = URL.createObjectURL(file);
+    if (type === 'cover') setTempCover(previewUrl);
+    else setTempAvatar(previewUrl);
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Upload failed');
+      if (type === 'cover') setTempCover(data.url);
+      else setTempAvatar(data.url);
+    } catch {
+      toast({
+        title: lang === 'ar' ? 'فشل الرفع' : 'Upload failed',
+        description: lang === 'ar' ? 'حدث خطأ أثناء رفع الصورة' : 'An error occurred while uploading the image',
+        variant: 'destructive'
+      });
+      if (type === 'cover') setTempCover(null);
+      else setTempAvatar(null);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSaveCover = () => {
@@ -2401,16 +2418,15 @@ export default function Profile() {
                       </Button>
                     )}
                   </div>
-                  {tempCover && (
+                  {(tempCover || isUploadingImage) && (
                     <Button
-                      onClick={() => {
-                        handleSaveCover();
-                      }}
+                      onClick={() => { handleSaveCover(); }}
                       className="w-full gap-1.5"
+                      disabled={isUploadingImage || !tempCover}
                       data-testid="button-save-cover-dialog"
                     >
-                      <Check className="w-4 h-4" />
-                      {lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover'}
+                      {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {isUploadingImage ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover')}
                     </Button>
                   )}
                 </div>
@@ -2662,10 +2678,11 @@ export default function Profile() {
                   setPrivateEditErrors({});
                 }}
                 className="flex-1"
+                disabled={isUploadingImage}
                 data-testid="button-save-edit-dialog"
               >
-                <Check className="w-4 h-4 me-1.5" />
-                {tr.save}
+                {isUploadingImage ? <Loader2 className="w-4 h-4 me-1.5 animate-spin" /> : <Check className="w-4 h-4 me-1.5" />}
+                {isUploadingImage ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : tr.save}
               </Button>
             </div>
             </div>
@@ -4122,16 +4139,15 @@ export default function Profile() {
                     </Button>
                   )}
                 </div>
-                {tempCover && (
+                {(tempCover || isUploadingImage) && (
                   <Button
-                    onClick={() => {
-                      handleSaveCover();
-                    }}
+                    onClick={() => { handleSaveCover(); }}
                     className="w-full gap-1.5"
+                    disabled={isUploadingImage || !tempCover}
                     data-testid="button-save-cover-dialog"
                   >
-                    <Check className="w-4 h-4" />
-                    {lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover'}
+                    {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {isUploadingImage ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...') : (lang === 'ar' ? 'حفظ الغلاف' : 'Save Cover')}
                   </Button>
                 )}
               </div>
@@ -4384,9 +4400,10 @@ export default function Profile() {
                 setPrivateEditErrors({});
               }}
               className="flex-1"
+              disabled={isUploadingImage}
               data-testid="button-save-edit-dialog"
             >
-              <Check className="w-4 h-4 me-1.5" />
+              {isUploadingImage ? <Loader2 className="w-4 h-4 me-1.5 animate-spin" /> : <Check className="w-4 h-4 me-1.5" />}
               {tr.save}
             </Button>
           </div>

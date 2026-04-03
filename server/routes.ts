@@ -9,6 +9,9 @@ import * as store from "./storage";
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "materials");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
+const IMAGES_DIR = path.join(process.cwd(), "public", "uploads", "images");
+if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
+
 const pdfStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {
@@ -23,6 +26,23 @@ const pdfUpload = multer({
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf" && path.extname(file.originalname).toLowerCase() === ".pdf") cb(null, true);
     else cb(new Error("PDF only"));
+  },
+});
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const imageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, IMAGES_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`);
+  },
+});
+const imageUpload = multer({
+  storage: imageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Images only (JPEG/PNG/WebP/GIF)"));
   },
 });
 
@@ -405,6 +425,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await store.deleteResearch(req.params.id);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Image Upload (avatar / cover) ─────────────────────────────────────────
+  app.post('/api/upload/image', (req, res, next) => {
+    imageUpload.single('file')(req, res, (err) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") return res.status(400).json({ ok: false, error: "File too large (max 5MB)" });
+        return res.status(400).json({ ok: false, error: err.message || "Upload failed" });
+      }
+      if (!req.file) return res.status(400).json({ ok: false, error: "No file uploaded" });
+      res.json({ ok: true, url: `/uploads/images/${req.file.filename}` });
+    });
+  });
+
+  app.delete('/api/upload/image', (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string') return res.status(400).json({ ok: false, error: 'Missing url' });
+    if (!url.startsWith('/uploads/images/') || url.includes('..')) return res.status(400).json({ ok: false, error: 'Invalid path' });
+    try {
+      const filePath = path.join(IMAGES_DIR, path.basename(url));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      res.json({ ok: true });
+    } catch { res.json({ ok: true }); }
   });
 
   // ── PDF Upload ────────────────────────────────────────────────────────────
