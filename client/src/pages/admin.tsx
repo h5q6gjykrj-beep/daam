@@ -65,13 +65,15 @@ interface OfficialPage {
 
 const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
 
+const DEFAULT_OFFICIAL_PAGES: OfficialPage[] = [
+  { id: 'privacy', title_ar: 'سياسة الخصوصية', title_en: 'Privacy Policy', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
+  { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
+  { id: 'terms', title_ar: 'الشروط والأحكام', title_en: 'Terms & Conditions', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
+];
+
 function getOfficialPages(): OfficialPage[] {
-  const defaultPages: OfficialPage[] = [
-    { id: 'privacy', title_ar: 'سياسة الخصوصية', title_en: 'Privacy Policy', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
-    { id: 'contact', title_ar: 'تواصل معنا', title_en: 'Contact Us', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' },
-    { id: 'terms', title_ar: 'الشروط والأحكام', title_en: 'Terms & Conditions', content_ar: '', content_en: '', status: 'draft', updatedAt: '', updatedBy: '' }
-  ];
-  
+  const defaultPages = DEFAULT_OFFICIAL_PAGES;
+  // NOTE: now loaded from DB via API in useEffect; this returns defaults only
   try {
     const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
     if (stored) {
@@ -91,8 +93,11 @@ function getOfficialPages(): OfficialPage[] {
 }
 
 function saveOfficialPages(pages: OfficialPage[]) {
-  localStorage.setItem(OFFICIAL_PAGES_KEY, JSON.stringify(pages));
-  // Dispatch custom event for same-tab reactivity (storage event only fires cross-tab)
+  fetch(`/api/settings/${encodeURIComponent(OFFICIAL_PAGES_KEY)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: pages })
+  }).catch(() => {});
   window.dispatchEvent(new CustomEvent('officialPagesUpdated'));
 }
 
@@ -114,22 +119,21 @@ const DEFAULT_WHY_DAAM_CARDS: WhyDaamCardsSettings = {
 };
 
 export function getWhyDaamCardsSettings(): WhyDaamCardsSettings {
-  try {
-    const stored = localStorage.getItem(WHY_DAAM_CARDS_KEY);
-    if (stored) {
-      return { ...DEFAULT_WHY_DAAM_CARDS, ...JSON.parse(stored) };
-    }
-  } catch {}
-  return DEFAULT_WHY_DAAM_CARDS;
+  return { ...DEFAULT_WHY_DAAM_CARDS };
 }
 
 function saveWhyDaamCardsSettings(settings: WhyDaamCardsSettings) {
-  localStorage.setItem(WHY_DAAM_CARDS_KEY, JSON.stringify(settings));
+  fetch(`/api/settings/${encodeURIComponent(WHY_DAAM_CARDS_KEY)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: settings })
+  }).catch(() => {});
   window.dispatchEvent(new CustomEvent('whyDaamCardsUpdated'));
 }
 
-import { getNavbarConfig, saveNavbarConfig, resetNavbarConfig, type NavbarConfig } from "@/lib/navbar-config";
-import { getLandingNavbarConfig, saveLandingNavbarConfig, resetLandingNavbarConfig, getActionLabel, type LandingNavbarConfig } from "@/lib/landing-navbar-config";
+import { getNavbarConfig, loadNavbarConfig, saveNavbarConfig, resetNavbarConfig, type NavbarConfig } from "@/lib/navbar-config";
+import { getLandingNavbarConfig, loadLandingNavbarConfig, saveLandingNavbarConfig, resetLandingNavbarConfig, getActionLabel, type LandingNavbarConfig } from "@/lib/landing-navbar-config";
+import { loadSetting } from "@/lib/settings-api";
 import { aiSettingsRepo, validateAISettings, DEFAULT_AI_SETTINGS, type AISettings } from "@/lib/ai-settings-storage";
 import { aiAuditRepo, aiMetricsRepo, createSettingsSavedMeta, createSettingsResetMeta, createAccessDeniedMeta } from "@/lib/ai-audit-storage";
 import { Label } from "@/components/ui/label";
@@ -371,6 +375,26 @@ export default function Admin() {
   useEffect(() => {
     localStorage.setItem(DEMO_REPORTS_KEY, JSON.stringify(localDemoReports));
   }, [localDemoReports]);
+
+  // Load all DB-backed settings on mount
+  useEffect(() => {
+    loadSetting<OfficialPage[]>(OFFICIAL_PAGES_KEY, DEFAULT_OFFICIAL_PAGES).then(pages => {
+      const existingIds = pages.map(p => p.id);
+      const merged = [...pages];
+      for (const def of DEFAULT_OFFICIAL_PAGES) {
+        if (!existingIds.includes(def.id)) merged.push(def);
+      }
+      setOfficialPages(merged);
+    });
+    loadSetting<WhyDaamCardsSettings>(WHY_DAAM_CARDS_KEY, DEFAULT_WHY_DAAM_CARDS).then(cards => {
+      setWhyDaamCards({ ...DEFAULT_WHY_DAAM_CARDS, ...cards });
+    });
+    loadNavbarConfig().then(cfg => setNavbarConfig(cfg));
+    loadLandingNavbarConfig().then(cfg => setLandingNavbarConfig(cfg));
+    loadSetting<AISettings>('daam_ai_settings_v1', DEFAULT_AI_SETTINGS).then(settings => {
+      setAiSettings({ ...DEFAULT_AI_SETTINGS, ...settings });
+    });
+  }, []);
   
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [reasonModalAction, setReasonModalAction] = useState<{ reportId: string; targetStatus: ReportStatus } | null>(null);
@@ -444,7 +468,7 @@ export default function Admin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Official Content state
-  const [officialPages, setOfficialPages] = useState<OfficialPage[]>(getOfficialPages());
+  const [officialPages, setOfficialPages] = useState<OfficialPage[]>(DEFAULT_OFFICIAL_PAGES);
   const [editingOfficialPage, setEditingOfficialPage] = useState<OfficialPage | null>(null);
   const [officialPageDialogOpen, setOfficialPageDialogOpen] = useState(false);
   const [previewOfficialPage, setPreviewOfficialPage] = useState<OfficialPage | null>(null);
@@ -456,7 +480,7 @@ export default function Admin() {
   });
 
   // Why DAAM Cards state
-  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
+  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(DEFAULT_WHY_DAAM_CARDS);
 
   // Navbar config state
   const [navbarConfig, setNavbarConfig] = useState<NavbarConfig>(getNavbarConfig());
@@ -4002,8 +4026,7 @@ export default function Admin() {
   };
 
   const handleNavbarReset = () => {
-    const reset = resetNavbarConfig();
-    setNavbarConfig(reset);
+    resetNavbarConfig().then(reset => setNavbarConfig(reset));
   };
 
   // Landing Navbar config handlers
@@ -4049,8 +4072,7 @@ export default function Admin() {
   };
 
   const handleLandingNavbarReset = () => {
-    const reset = resetLandingNavbarConfig();
-    setLandingNavbarConfig(reset);
+    resetLandingNavbarConfig().then(reset => setLandingNavbarConfig(reset));
   };
 
   const renderLandingPage = () => {
@@ -4589,6 +4611,11 @@ export default function Admin() {
                             updatedBy: currentUser || null,
                           };
                           aiSettingsRepo.saveSettings(updatedSettings);
+                          fetch('/api/settings/daam_ai_settings_v1', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: updatedSettings })
+                          }).catch(() => {});
                           // Log audit event for settings save
                           aiAuditRepo.append({
                             actorUserId: currentUser || 'unknown',
@@ -4623,6 +4650,11 @@ export default function Admin() {
                       variant="outline"
                       onClick={() => {
                         const defaults = aiSettingsRepo.resetToDefaults(currentUser || null);
+                        fetch('/api/settings/daam_ai_settings_v1', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ value: defaults })
+                        }).catch(() => {});
                         // Log audit event for settings reset
                         aiAuditRepo.append({
                           actorUserId: currentUser || 'unknown',

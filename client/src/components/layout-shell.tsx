@@ -7,7 +7,7 @@ import { LogOut, Bot, Shield, Home, MessageSquare, User, Menu, X, Sun, Moon, Set
 import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { isAdminEmail } from "@/config/admin";
-import { getNavbarConfig, NAVBAR_CONFIG_STORAGE_KEY, type NavbarItem } from "@/lib/navbar-config";
+import { getNavbarConfig, loadNavbarConfig, type NavbarItem } from "@/lib/navbar-config";
 
 const ROUTE_PATHS: Record<string, string> = {
   home: '/dashboard',
@@ -64,17 +64,14 @@ export function LayoutShell({ children }: LayoutShellProps) {
     return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen, isMobile]);
 
-  // Listen for navbar config changes
+  // Load navbar config from DB on mount, then listen for updates
   useEffect(() => {
-    const handleNavbarUpdate = () => setNavbarConfig(getNavbarConfig());
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === NAVBAR_CONFIG_STORAGE_KEY) handleNavbarUpdate();
-    };
+    loadNavbarConfig().then(cfg => setNavbarConfig(cfg));
+
+    const handleNavbarUpdate = () => loadNavbarConfig().then(cfg => setNavbarConfig(cfg));
     window.addEventListener('navbarConfigUpdated', handleNavbarUpdate);
-    window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('navbarConfigUpdated', handleNavbarUpdate);
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 

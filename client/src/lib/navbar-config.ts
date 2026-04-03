@@ -1,3 +1,5 @@
+import { loadSetting, saveSetting } from './settings-api';
+
 const NAVBAR_CONFIG_KEY = 'daam_navbar_config_v1';
 
 export interface NavbarItem {
@@ -31,47 +33,49 @@ function getDefaultItem(routeKey: string): NavbarItem | undefined {
   return DEFAULT_NAVBAR_CONFIG.items.find(i => i.routeKey === routeKey);
 }
 
-export function getNavbarConfig(): NavbarConfig {
-  try {
-    const stored = localStorage.getItem(NAVBAR_CONFIG_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as NavbarConfig;
-      const defaultKeys = DEFAULT_NAVBAR_CONFIG.items.map(i => i.routeKey);
-      const storedKeys = parsed.items.map(i => i.routeKey);
-      
-      const mergedItems = parsed.items.map(item => {
-        const defaultItem = getDefaultItem(item.routeKey);
-        if (!defaultItem) return item;
-        return {
-          ...defaultItem,
-          ...item,
-          label: {
-            ar: item.label?.ar ?? defaultItem.label.ar,
-            en: item.label?.en ?? defaultItem.label.en,
-          }
-        };
-      });
-      
-      const missingKeys = defaultKeys.filter(k => !storedKeys.includes(k));
-      if (missingKeys.length > 0) {
-        const missingItems = DEFAULT_NAVBAR_CONFIG.items.filter(i => missingKeys.includes(i.routeKey));
-        mergedItems.push(...missingItems);
+function mergeWithDefaults(parsed: NavbarConfig): NavbarConfig {
+  const defaultKeys = DEFAULT_NAVBAR_CONFIG.items.map(i => i.routeKey);
+  const storedKeys = parsed.items.map(i => i.routeKey);
+
+  const mergedItems = parsed.items.map(item => {
+    const defaultItem = getDefaultItem(item.routeKey);
+    if (!defaultItem) return item;
+    return {
+      ...defaultItem,
+      ...item,
+      label: {
+        ar: item.label?.ar ?? defaultItem.label.ar,
+        en: item.label?.en ?? defaultItem.label.en,
       }
-      
-      return { items: mergedItems };
-    }
-  } catch {}
+    };
+  });
+
+  const missingKeys = defaultKeys.filter(k => !storedKeys.includes(k));
+  if (missingKeys.length > 0) {
+    const missingItems = DEFAULT_NAVBAR_CONFIG.items.filter(i => missingKeys.includes(i.routeKey));
+    mergedItems.push(...missingItems);
+  }
+
+  return { items: mergedItems };
+}
+
+export function getNavbarConfig(): NavbarConfig {
   return { ...DEFAULT_NAVBAR_CONFIG, items: [...DEFAULT_NAVBAR_CONFIG.items] };
 }
 
-export function saveNavbarConfig(config: NavbarConfig) {
-  localStorage.setItem(NAVBAR_CONFIG_KEY, JSON.stringify(config));
+export async function loadNavbarConfig(): Promise<NavbarConfig> {
+  const stored = await loadSetting<NavbarConfig>(NAVBAR_CONFIG_KEY, DEFAULT_NAVBAR_CONFIG);
+  return mergeWithDefaults(stored);
+}
+
+export async function saveNavbarConfig(config: NavbarConfig) {
+  await saveSetting(NAVBAR_CONFIG_KEY, config);
   window.dispatchEvent(new CustomEvent('navbarConfigUpdated'));
 }
 
-export function resetNavbarConfig(): NavbarConfig {
+export async function resetNavbarConfig(): Promise<NavbarConfig> {
   const reset = { ...DEFAULT_NAVBAR_CONFIG, items: [...DEFAULT_NAVBAR_CONFIG.items] };
-  localStorage.setItem(NAVBAR_CONFIG_KEY, JSON.stringify(reset));
+  await saveSetting(NAVBAR_CONFIG_KEY, reset);
   window.dispatchEvent(new CustomEvent('navbarConfigUpdated'));
   return reset;
 }

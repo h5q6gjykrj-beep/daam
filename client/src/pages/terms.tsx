@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 import { motion } from "framer-motion";
+import { loadSetting } from "@/lib/settings-api";
 
 interface OfficialPage {
   id: 'privacy' | 'contact' | 'terms';
@@ -19,49 +20,28 @@ interface OfficialPage {
 
 const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
 
-function getPublishedTermsPage(): OfficialPage | null {
-  try {
-    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
-    if (stored) {
-      const pages: OfficialPage[] = JSON.parse(stored);
-      const page = pages.find(p => p.id === 'terms' && p.status === 'published');
-      return page || null;
-    }
-  } catch {}
-  return null;
-}
-
 export default function Terms() {
-  const { lang, theme } = useDaamStore();
+  const { lang } = useDaamStore();
   const [_, setLocation] = useLocation();
   const isRTL = lang === 'ar';
   
   const [termsPage, setTermsPage] = useState<OfficialPage | null>(null);
 
-  const refreshTermsPage = useCallback(() => {
-    setTermsPage(getPublishedTermsPage());
-  }, []);
+  const loadTermsPage = async () => {
+    const pages = await loadSetting<OfficialPage[]>(OFFICIAL_PAGES_KEY, []);
+    const page = pages.find(p => p.id === 'terms' && p.status === 'published');
+    setTermsPage(page || null);
+  };
 
   useEffect(() => {
-    refreshTermsPage();
+    loadTermsPage();
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === OFFICIAL_PAGES_KEY) {
-        refreshTermsPage();
-      }
-    };
-
-    const handleOfficialPagesUpdated = () => {
-      refreshTermsPage();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
+    const handleOfficialPagesUpdated = () => loadTermsPage();
     window.addEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
     };
-  }, [refreshTermsPage]);
+  }, []);
 
   const tr = {
     title: lang === 'ar' ? 'الشروط والأحكام' : 'Terms & Conditions',

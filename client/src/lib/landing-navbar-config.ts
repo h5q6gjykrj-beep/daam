@@ -1,6 +1,8 @@
+import { loadSetting, saveSetting } from './settings-api';
+
 export const LANDING_NAVBAR_CONFIG_KEY = 'daam_landing_navbar_config_v1';
 
-export type LandingNavAction = 
+export type LandingNavAction =
   | 'scroll:top'
   | 'scroll:#why'
   | 'scroll:#features'
@@ -44,47 +46,49 @@ function getDefaultItem(key: string): LandingNavbarItem | undefined {
   return DEFAULT_LANDING_NAVBAR_CONFIG.items.find(i => i.key === key);
 }
 
-export function getLandingNavbarConfig(): LandingNavbarConfig {
-  try {
-    const stored = localStorage.getItem(LANDING_NAVBAR_CONFIG_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as LandingNavbarConfig;
-      const defaultKeys = DEFAULT_LANDING_NAVBAR_CONFIG.items.map(i => i.key);
-      const storedKeys = parsed.items.map(i => i.key);
-      
-      const mergedItems = parsed.items.map(item => {
-        const defaultItem = getDefaultItem(item.key);
-        if (!defaultItem) return item;
-        return {
-          ...defaultItem,
-          ...item,
-          label: {
-            ar: item.label?.ar ?? defaultItem.label.ar,
-            en: item.label?.en ?? defaultItem.label.en,
-          }
-        };
-      });
-      
-      const missingKeys = defaultKeys.filter(k => !storedKeys.includes(k));
-      if (missingKeys.length > 0) {
-        const missingItems = DEFAULT_LANDING_NAVBAR_CONFIG.items.filter(i => missingKeys.includes(i.key));
-        mergedItems.push(...missingItems);
+function mergeWithDefaults(parsed: LandingNavbarConfig): LandingNavbarConfig {
+  const defaultKeys = DEFAULT_LANDING_NAVBAR_CONFIG.items.map(i => i.key);
+  const storedKeys = parsed.items.map(i => i.key);
+
+  const mergedItems = parsed.items.map(item => {
+    const defaultItem = getDefaultItem(item.key);
+    if (!defaultItem) return item;
+    return {
+      ...defaultItem,
+      ...item,
+      label: {
+        ar: item.label?.ar ?? defaultItem.label.ar,
+        en: item.label?.en ?? defaultItem.label.en,
       }
-      
-      return { items: mergedItems };
-    }
-  } catch {}
+    };
+  });
+
+  const missingKeys = defaultKeys.filter(k => !storedKeys.includes(k));
+  if (missingKeys.length > 0) {
+    const missingItems = DEFAULT_LANDING_NAVBAR_CONFIG.items.filter(i => missingKeys.includes(i.key));
+    mergedItems.push(...missingItems);
+  }
+
+  return { items: mergedItems };
+}
+
+export function getLandingNavbarConfig(): LandingNavbarConfig {
   return { ...DEFAULT_LANDING_NAVBAR_CONFIG, items: [...DEFAULT_LANDING_NAVBAR_CONFIG.items] };
 }
 
-export function saveLandingNavbarConfig(config: LandingNavbarConfig) {
-  localStorage.setItem(LANDING_NAVBAR_CONFIG_KEY, JSON.stringify(config));
+export async function loadLandingNavbarConfig(): Promise<LandingNavbarConfig> {
+  const stored = await loadSetting<LandingNavbarConfig>(LANDING_NAVBAR_CONFIG_KEY, DEFAULT_LANDING_NAVBAR_CONFIG);
+  return mergeWithDefaults(stored);
+}
+
+export async function saveLandingNavbarConfig(config: LandingNavbarConfig) {
+  await saveSetting(LANDING_NAVBAR_CONFIG_KEY, config);
   window.dispatchEvent(new CustomEvent('landingNavbarConfigUpdated'));
 }
 
-export function resetLandingNavbarConfig(): LandingNavbarConfig {
+export async function resetLandingNavbarConfig(): Promise<LandingNavbarConfig> {
   const reset = { ...DEFAULT_LANDING_NAVBAR_CONFIG, items: [...DEFAULT_LANDING_NAVBAR_CONFIG.items] };
-  localStorage.setItem(LANDING_NAVBAR_CONFIG_KEY, JSON.stringify(reset));
+  await saveSetting(LANDING_NAVBAR_CONFIG_KEY, reset);
   window.dispatchEvent(new CustomEvent('landingNavbarConfigUpdated'));
   return reset;
 }

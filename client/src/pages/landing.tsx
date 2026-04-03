@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,14 @@ import {
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
-import { getWhyDaamCardsSettings, WHY_DAAM_CARDS_KEY, type WhyDaamCardsSettings } from "@/pages/admin";
+import { type WhyDaamCardsSettings } from "@/pages/admin";
 import { 
   getLandingNavbarConfig, 
-  LANDING_NAVBAR_CONFIG_KEY, 
+  loadLandingNavbarConfig,
   type LandingNavbarConfig, 
   type LandingNavbarItem 
 } from "@/lib/landing-navbar-config";
+import { loadSetting } from "@/lib/settings-api";
 
 interface OfficialPage {
   id: 'privacy' | 'contact' | 'terms';
@@ -34,18 +35,14 @@ interface OfficialPage {
 }
 
 const OFFICIAL_PAGES_KEY = 'daam_official_pages_v1';
+const WHY_DAAM_CARDS_KEY = 'daam_landing_why_cards_v1';
 
-function getPublishedOfficialPage(pageId: 'privacy' | 'contact' | 'terms'): OfficialPage | null {
-  try {
-    const stored = localStorage.getItem(OFFICIAL_PAGES_KEY);
-    if (stored) {
-      const pages: OfficialPage[] = JSON.parse(stored);
-      const page = pages.find(p => p.id === pageId && p.status === 'published');
-      return page || null;
-    }
-  } catch {}
-  return null;
-}
+const DEFAULT_WHY_DAAM_CARDS: WhyDaamCardsSettings = {
+  why_discussion: true,
+  why_ai: false,
+  why_files: true,
+  why_community: true
+};
 
 export default function Landing() {
   const { posts, t, lang, toggleLang, theme, toggleTheme, getProfile } = useDaamStore();
@@ -59,67 +56,39 @@ export default function Landing() {
   const [contactPage, setContactPage] = useState<OfficialPage | null>(null);
   
   // Why DAAM cards visibility - reactive to admin changes
-  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(getWhyDaamCardsSettings());
+  const [whyDaamCards, setWhyDaamCards] = useState<WhyDaamCardsSettings>(DEFAULT_WHY_DAAM_CARDS);
 
   // Landing Navbar config - reactive to admin changes
   const [landingNavbarConfig, setLandingNavbarConfig] = useState<LandingNavbarConfig>(getLandingNavbarConfig());
 
-  const refreshOfficialPages = useCallback(() => {
-    setPrivacyPage(getPublishedOfficialPage('privacy'));
-    setContactPage(getPublishedOfficialPage('contact'));
-  }, []);
-  
-  const refreshWhyDaamCards = useCallback(() => {
-    setWhyDaamCards(getWhyDaamCardsSettings());
-  }, []);
-
-  const refreshLandingNavbarConfig = useCallback(() => {
-    setLandingNavbarConfig(getLandingNavbarConfig());
-  }, []);
+  const loadFromApi = async () => {
+    const [pages, cards, navCfg] = await Promise.all([
+      loadSetting<OfficialPage[]>(OFFICIAL_PAGES_KEY, []),
+      loadSetting<WhyDaamCardsSettings>(WHY_DAAM_CARDS_KEY, DEFAULT_WHY_DAAM_CARDS),
+      loadLandingNavbarConfig(),
+    ]);
+    setPrivacyPage(pages.find(p => p.id === 'privacy' && p.status === 'published') || null);
+    setContactPage(pages.find(p => p.id === 'contact' && p.status === 'published') || null);
+    setWhyDaamCards({ ...DEFAULT_WHY_DAAM_CARDS, ...cards });
+    setLandingNavbarConfig(navCfg);
+  };
 
   useEffect(() => {
-    // Initial load
-    refreshOfficialPages();
-    refreshWhyDaamCards();
-    refreshLandingNavbarConfig();
+    loadFromApi();
 
-    // Listen for storage events (when admin updates content in another tab/window)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === OFFICIAL_PAGES_KEY) {
-        refreshOfficialPages();
-      }
-      if (e.key === WHY_DAAM_CARDS_KEY) {
-        refreshWhyDaamCards();
-      }
-      if (e.key === LANDING_NAVBAR_CONFIG_KEY) {
-        refreshLandingNavbarConfig();
-      }
-    };
+    const handleOfficialPagesUpdated = () => loadFromApi();
+    const handleWhyDaamCardsUpdated = () => loadFromApi();
+    const handleLandingNavbarConfigUpdated = () => loadFromApi();
 
-    // Listen for custom event (when admin updates content in the same tab)
-    const handleOfficialPagesUpdated = () => {
-      refreshOfficialPages();
-    };
-    
-    const handleWhyDaamCardsUpdated = () => {
-      refreshWhyDaamCards();
-    };
-
-    const handleLandingNavbarConfigUpdated = () => {
-      refreshLandingNavbarConfig();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
     window.addEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
     window.addEventListener('landingNavbarConfigUpdated', handleLandingNavbarConfigUpdated);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('officialPagesUpdated', handleOfficialPagesUpdated);
       window.removeEventListener('whyDaamCardsUpdated', handleWhyDaamCardsUpdated);
       window.removeEventListener('landingNavbarConfigUpdated', handleLandingNavbarConfigUpdated);
     };
-  }, [refreshOfficialPages, refreshWhyDaamCards, refreshLandingNavbarConfig]);
+  }, []);
 
   const trendingPosts = [...posts]
     .sort((a, b) => {

@@ -51,9 +51,10 @@ Preferred communication style: Simple, everyday language.
   - **User Roles & RBAC**: `admin`, `moderator`, `user` roles with granular permissions.
   - **Moderation Tools**: Hide/delete posts, mute/ban users with configurable durations.
   - **Direct Messaging (DM)**: Private conversations with privacy controls and rate limiting.
-  - **Official Content System**: Admin-editable pages for Privacy Policy, Contact Us, and Terms & Conditions.
-  - **Landing Page Customization**: Admins can toggle visibility of "Why DAAM?" cards and configure the landing page navigation.
-  - **Navbar Configuration**: Admins can enable/disable, reorder, and relabel navigation items for both internal and landing pages.
+  - **Official Content System**: Admin-editable pages for Privacy Policy, Contact Us, and Terms & Conditions. Stored in `settings` DB table (key: `daam_official_pages_v1`).
+  - **Landing Page Customization**: Admins can toggle visibility of "Why DAAM?" cards and configure the landing page navigation. Stored in DB (`daam_landing_why_cards_v1`).
+  - **Navbar Configuration**: Admins can enable/disable, reorder, and relabel navigation items for both internal and landing pages. Stored in DB (`daam_navbar_config_v1`, `daam_landing_navbar_config_v1`).
+  - **Settings Migration**: All global settings (official pages, Why DAAM cards, navbar configs, AI settings) fully migrated from localStorage to PostgreSQL `settings` table via `GET/POST /api/settings/:key`. Helpers: `client/src/lib/settings-api.ts` (loadSetting/saveSetting), `navbar-config.ts` (loadNavbarConfig/saveNavbarConfig), `landing-navbar-config.ts` (loadLandingNavbarConfig/saveLandingNavbarConfig). Components load from API in `useEffect` on mount and listen to custom events for reactivity.
 - **User Profiles**: Public profiles with private data protections. Redesigned with "Academic Identity Overlay" layout.
   - **Cover with Identity Overlay**: Full-bleed responsive (320-440px height) cover with dark gradient overlay. Identity (avatar, name, subtitle, stats, action buttons) is absolutely positioned inside the cover, centered vertically with slight offset (pt-8 md:pt-12).
   - **Single Edit Button**: Pen icon (top-right corner) for profile owner opens unified edit dialog. Replaces scattered cover/profile edit buttons.
