@@ -10,5 +10,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Strip sslmode from the connection string — pg deprecated passing SSL mode
+// as a query param. Pass ssl as a proper config object instead.
+const connectionString = process.env.DATABASE_URL.replace(/[?&]sslmode=[^&]*/g, (m) =>
+  m.startsWith('?') ? '?' : ''
+).replace(/\?$/, '');
+
+export const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+});
 export const db = drizzle(pool, { schema });
