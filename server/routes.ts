@@ -2,30 +2,12 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import crypto from "crypto";
 import * as store from "./storage";
+import { uploadImageBuffer, uploadPdfBuffer, deleteCloudinaryFile } from "./cloudinary";
 
-const UPLOADS_DIR = process.env.VERCEL
-  ? "/tmp/materials"
-  : path.join(process.cwd(), "public", "uploads", "materials");
-try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
-
-const IMAGES_DIR = process.env.VERCEL
-  ? "/tmp/images"
-  : path.join(process.cwd(), "public", "uploads", "images");
-try { fs.mkdirSync(IMAGES_DIR, { recursive: true }); } catch {}
-
-const pdfStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
-    cb(null, `${uniqueSuffix}.pdf`);
-  },
-});
-
+// All uploads go to memory then straight to Cloudinary — no local disk needed.
 const pdfUpload = multer({
-  storage: pdfStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf" && path.extname(file.originalname).toLowerCase() === ".pdf") cb(null, true);
@@ -34,31 +16,14 @@ const pdfUpload = multer({
 });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const imageStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, IMAGES_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`);
-  },
-});
 const imageUpload = multer({
-  storage: imageStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
     else cb(new Error("Images only (JPEG/PNG/WebP/GIF)"));
   },
 });
-
-function isPdfMagicBytes(filePath: string): boolean {
-  try {
-    const buffer = Buffer.alloc(5);
-    const fd = fs.openSync(filePath, "r");
-    fs.readSync(fd, buffer, 0, 5, 0);
-    fs.closeSync(fd);
-    return buffer.toString("ascii", 0, 4) === "%PDF";
-  } catch { return false; }
-}
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -467,57 +432,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Image Upload (avatar / cover) ─────────────────────────────────────────
-  app.post('/api/upload/image', (req, res, next) => {
-    imageUpload.single('file')(req, res, (err) => {
+  app.post('/api/upload/image', (req, res) => {
+    imageUpload.single('file')(req, res, async (err) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") return res.status(400).json({ ok: false, error: "File too large (max 5MB)" });
         return res.status(400).json({ ok: false, error: err.message || "Upload failed" });
       }
       if (!req.file) return res.status(400).json({ ok: false, error: "No file uploaded" });
-      res.json({ ok: true, url: `/uploads/images/${req.file.filename}` });
+      try {
+        const url = await uploadImageBuffer(req.file.buffer);
+        res.json({ ok: true, url });
+      } catch (e: any) { res.status(500).json({ ok: false, error: e.message || "Upload failed" }); }
     });
   });
 
-  app.delete('/api/upload/image', (req, res) => {
+  app.delete('/api/upload/image', async (req, res) => {
     const { url } = req.body;
     if (!url || typeof url !== 'string') return res.status(400).json({ ok: false, error: 'Missing url' });
-    if (!url.startsWith('/uploads/images/') || url.includes('..')) return res.status(400).json({ ok: false, error: 'Invalid path' });
-    try {
-      const filePath = path.join(IMAGES_DIR, path.basename(url));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      res.json({ ok: true });
-    } catch { res.json({ ok: true }); }
+    try { await deleteCloudinaryFile(url, 'image'); } catch {}
+    res.json({ ok: true });
   });
 
   // ── PDF Upload ────────────────────────────────────────────────────────────
-  app.post('/api/materials/upload', (req, res, next) => {
-    pdfUpload.single('file')(req, res, (err) => {
+  app.post('/api/materials/upload', (req, res) => {
+    pdfUpload.single('file')(req, res, async (err) => {
       if (err) {
         if (err.message === "PDF only") return res.status(400).json({ ok: false, error: "PDF files only" });
         if (err.code === "LIMIT_FILE_SIZE") return res.status(400).json({ ok: false, error: "File too large (max 10MB)" });
         return res.status(400).json({ ok: false, error: "Upload failed" });
       }
       if (!req.file) return res.status(400).json({ ok: false, error: "No file uploaded" });
-      const filePath = path.join(UPLOADS_DIR, req.file.filename);
-      if (!isPdfMagicBytes(filePath)) {
-        fs.unlinkSync(filePath);
+      if (req.file.buffer.slice(0, 4).toString('ascii') !== '%PDF')
         return res.status(400).json({ ok: false, error: "Invalid PDF file" });
-      }
-      res.json({ ok: true, url: `/uploads/materials/${req.file.filename}`, originalName: req.file.originalname });
+      try {
+        const url = await uploadPdfBuffer(req.file.buffer, req.file.originalname);
+        res.json({ ok: true, url, originalName: req.file.originalname });
+      } catch (e: any) { res.status(500).json({ ok: false, error: e.message || "Upload failed" }); }
     });
   });
 
-  app.delete('/api/materials', (req, res) => {
+  app.delete('/api/materials', async (req, res) => {
     const { url } = req.body;
     if (!url || typeof url !== 'string') return res.status(400).json({ ok: false, error: 'Missing url' });
-    if (!url.startsWith('/uploads/materials/') || url.includes('..')) return res.status(400).json({ ok: false, error: 'Invalid path' });
-    const filename = path.basename(url);
-    if (!filename.endsWith('.pdf')) return res.status(400).json({ ok: false, error: 'Invalid file type' });
-    try {
-      const filePath = path.join(UPLOADS_DIR, filename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      res.json({ ok: true });
-    } catch { res.status(500).json({ ok: false, error: 'Failed to delete file' }); }
+    try { await deleteCloudinaryFile(url, 'raw'); } catch {}
+    res.json({ ok: true });
   });
 
   return httpServer;
