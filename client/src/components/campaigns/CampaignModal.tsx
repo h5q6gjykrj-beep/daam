@@ -155,7 +155,13 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     const loadImages = async () => {
       for (const img of images) {
         if (cancelled) break;
-        
+
+        // New uploads store a Cloudinary URL as the id — use it directly.
+        if (img.id.startsWith('https://') || img.id.startsWith('http://')) {
+          localUrls.set(img.id, img.id);
+          continue;
+        }
+
         try {
           const blob = await getCampaignAttachmentBlob(img.id);
           if (blob && !cancelled) {
@@ -201,13 +207,18 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     const loadFiles = async () => {
       for (const file of files) {
         if (cancelled) break;
-        
+
+        // New uploads store a Cloudinary URL as the id — use it directly.
+        if (file.id.startsWith('https://') || file.id.startsWith('http://')) {
+          localUrls.set(file.id, file.id);
+          continue;
+        }
+
+        // Legacy: IndexedDB key — load blob locally.
         try {
           const blob = await getCampaignAttachmentBlob(file.id);
           if (!blob || cancelled) {
-            if (!cancelled) {
-              localErrors.set(file.id, t.pdfNotAvailable);
-            }
+            if (!cancelled) localErrors.set(file.id, t.pdfNotAvailable);
             continue;
           }
 
@@ -223,9 +234,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
           const url = URL.createObjectURL(pdfBlob);
           localUrls.set(file.id, url);
         } catch {
-          if (!cancelled) {
-            localErrors.set(file.id, t.pdfNotAvailable);
-          }
+          if (!cancelled) localErrors.set(file.id, t.pdfNotAvailable);
         }
       }
       
