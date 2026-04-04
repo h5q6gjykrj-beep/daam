@@ -230,6 +230,13 @@ export async function deleteModerator(modId: string): Promise<void> {
   await db.delete(schema.moderators).where(eq(schema.moderators.id, modId));
 }
 
+export async function getAuthUserByEmail(email: string): Promise<LocalAuthUser | undefined> {
+  const rows = await db.select().from(schema.authUsers).where(eq(schema.authUsers.email, email.toLowerCase())).limit(1);
+  if (!rows[0]) return undefined;
+  const r = rows[0];
+  return { id: r.id, email: r.email, passwordHash: r.passwordHash, role: r.role as DaamRole, linkedModeratorId: r.linkedModeratorId ?? undefined, createdAt: Number(r.createdAt) };
+}
+
 export async function getAllAuthUsers(): Promise<LocalAuthUser[]> {
   const rows = await db.select().from(schema.authUsers);
   return rows.map(r => ({

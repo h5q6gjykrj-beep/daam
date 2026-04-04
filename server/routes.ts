@@ -6,11 +6,15 @@ import fs from "fs";
 import crypto from "crypto";
 import * as store from "./storage";
 
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "materials");
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const UPLOADS_DIR = process.env.VERCEL
+  ? "/tmp/materials"
+  : path.join(process.cwd(), "public", "uploads", "materials");
+try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
 
-const IMAGES_DIR = path.join(process.cwd(), "public", "uploads", "images");
-if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
+const IMAGES_DIR = process.env.VERCEL
+  ? "/tmp/images"
+  : path.join(process.cwd(), "public", "uploads", "images");
+try { fs.mkdirSync(IMAGES_DIR, { recursive: true }); } catch {}
 
 const pdfStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
@@ -69,6 +73,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // ── Auth Login ────────────────────────────────────────────────────────────
+  const simpleHash = (str: string): string => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+  };
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || password === undefined) return res.status(400).json({ error: 'Email and password required' });
+      const emailLower = (email as string).toLowerCase();
+
+      // Check authUsers first (admins/moderators store password as-is)
+      const authUser = await store.getAuthUserByEmail(emailLower);
+      if (authUser) {
+        if (authUser.passwordHash !== password) return res.status(401).json({ error: 'Incorrect password' });
+        return res.json({ type: 'authUser', authUser });
+      }
+
+      // Check regular student accounts
+      const account = await store.getAccount(emailLower);
+      if (!account) return res.status(404).json({ error: 'Account not registered' });
+      if (!account.verified) return res.status(403).json({ error: 'Please verify your email first' });
+      if (account.banned) return res.status(403).json({ error: 'Your account is banned: ' + (account.bannedReason || '') });
+      if (account.passwordHash !== simpleHash(password)) return res.status(401).json({ error: 'Incorrect password' });
+
+      return res.json({ type: 'account', account });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   // ── Accounts ──────────────────────────────────────────────────────────────

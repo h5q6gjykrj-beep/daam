@@ -1,0 +1,122 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K7:05:43 PM [express] serving on port 5000
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+7:05:50 PM [express] GET /api/data 304 in 36ms :: {"accounts":{"ahmed@utas.edu.om":{"email":"ahmed@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.701Z"},"mohammed@utas.edu.om":{"email":"mohammed@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.704Z"},"fatima@utas.edu.om":{"email":"fatima@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.702Z"},"sara@utas.edu.om":{"email":"sara@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.705Z"},"omar@utas.edu.om":{"email":"omar@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.706Z"},"w.qq89@hotmail.com":{"email":"w.qq89@hotmail.com","passwordHash":"6f4defcb","phone":"11111111","region":{"wilayat":"Manah","governorate":"dakhiliyah"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.707Z"}},"profiles":{"ahmed@utas.edu.om":{"email":"ahmed@utas.edu.om","name":"أحمد محمد","major":"علوم الحاسب","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثالثة","interests":["programming","it","math"],"bio":"مهتم بالبرمجة والذكاء الاصطناعي","followers":[],"following":[],"showFavorites":true,"showInterests":true},"fatima@utas.edu.om":{"email":"fatima@utas.edu.om","name":"فاطمة علي","major":"إدارة الأعمال","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثانية","interests":["business","english","summaries"],"bio":"أحب التعلم ومشاركة المعرفة","followers":[],"following":[],"showFavorites":true,"showInterests":true},"mohammed@utas.edu.om":{"email":"mohammed@utas.edu.om","name":"محمد سالم","major":"الهندسة الميكانيكية","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الرابعة","interests":["engineering","physics","math"],"bio":"مهندس المستقبل","followers":[],"following":[],"showFavorites":true,"showInterests":true},"sara@utas.edu.om":{"email":"sara@utas.edu.om","name":"سارة خالد","major":"الصيدلة","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثالثة","interests":["chemistry","biology","summaries"],"bio":"شغوفة بالعلوم الطبية","followers":[],"following":[],"showFavorites":true,"showInterests":true},"omar@utas.edu.om":{"email":"omar@utas.edu.om","name":"عمر يوسف","major":"التصميم الجرافيكي","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الأولى","interests":["design","media","it"],"bio":"مصمم مبدع","followers":[],"following":[],"showFavorites":true,"showInterests":true},"w.qq89@hotmail.com":{"email":"w.qq89@hotmail.com","name":"وليد","major":"مبتكر","university":"الحياة","level":"الاول","avatarUrl":"/uploads/images/1775219459457-8a956e4f8bfd.jpeg","coverUrl":"/uploads/images/1775219420360-fb2029c26be5.png","interests":[],"bio":"مشرف المنصة","followers":[],"following":[],"showFavorites":true,"showInterests":true}},"posts":[{"id":"f07bacdc-12f7-4e53-9c3c-7a05a417df7b","authorEmail":"w.qq89@hotmail.com","content":"اهلا// تجربة الثانية","postType":"discussion","attachments":[],"likedBy":[],"savedBy":[],"status":"visible","createdAt":"2026-04-03T12:12:14.774Z","replies":[]},{"id":"1a706708-bc89-4db1-b4a7-ecd79acd137e","authorEmail":"w.qq89@hotmail.com","content":"اهلا// تجربة  فتح من عدة اجهزة","postType":"discussion","attachments":[],"likedBy":[],"savedBy":[],"status":"visible","createdAt":"2026-04-03T11:33:29.477Z","updatedAt":"2026-04-03T11:36:38.111Z","replies":[{"id":"1070cee2-048a-48a9-86be-a17364fcbd49","authorEmail":"w.qq89@hotmail.com","content":"نعم شكرا","createdAt":"2026-04-03T11:46:08.772Z"}]}],"reports":[],"moderators":[],"authUsers":[],"auditLog":[{"id":"c4b2fea9-3ec1-4ebf-9c9a-ca715b047a41","action":"moderator.delete","targetType":"moderator","targetId":"e657ffd7-1e19-4101-ad77-ecf1349eecef","byEmail":"w.qq89@hotmail.com","at":1775241612189,"meta":{"email":"w.qq89@uat.om","displayName":"plvhjk"}},{"id":"6cd3a1bb-11a0-46f6-a71b-14eb07ff941b","action":"moderator.create","targetType":"moderator","targetId":"e657ffd7-1e19-4101-ad77-ecf1349eecef","byEmail":"w.qq89@hotmail.com","at":1775241579377,"meta":{"email":"w.qq89@uat.om","displayName":"plvhjk"}},{"id":"750de8eb-5d7f-4ea3-92bf-0854c1ae7c23","action":"domain_removed","targetType":"user","targetId":"yuan.edo.om","byEmail":"w.qq89@hotmail.com","at":1775241509538,"meta":{"displayName":"yuan.edo.om"}},{"id":"9328deba-abbb-43a6-b645-a89c4edb4407","action":"domain_added","targetType":"user","targetId":"yes.om","byEmail":"w.qq89@hotmail.com","at":1775241495671,"meta":{"displayName":"yes.om"}},{"id":"5848ffa9-e282-4b99-a8f7-e288f98c1a57","action":"domain_added","targetType":"user","targetId":"yuan.edo.om","byEmail":"w.qq89@hotmail.com","at":1775241451209,"meta":{"displayName":"yuan.edo.om"}},{"id":"488d40a1-babe-4f7c-9eac-268fcf095962","action":"post_deleted","targetType":"post","targetId":"p2","byEmail":"w.qq89@hotmail.com","at":1775241323458,"meta":{"displayName":"نقاش حول مشروع التخرج"}},{"id":"dc91b684-59d2-4a92-b23b-e171925e9021","action":"file_deleted","targetType":"file","targetId":"f2","byEmail":"w.qq89@hotmail.com","at":1775241292734,"meta":{"displayName":"presentation.pptx"}},{"id":"1c505a6d-2745-416f-bcf0-5ae5dba454a7","action":"post_hidden","targetType":"post","targetId":"p3","byEmail":"w.qq89@hotmail.com","at":1775241242280,"meta":{"displayName":"إعلان: موعد الامتحانات النهائية"}},{"id":"58f39739-6f3d-4ff6-ad3e-10f9f3351740","action":"user_banned","targetType":"user","targetId":"3","byEmail":"w.qq89@hotmail.com","at":1775241137837,"meta":{"displayName":"محمد الكندي"}},{"id":"b743edaf-809d-4d27-984d-65def7dea8bd","action":"user_unbanned","targetType":"user","targetId":"5","byEmail":"w.qq89@hotmail.com","at":1775241112870,"meta":{"displayName":"عمر الراشدي"}},{"id":"249ae32c-3e79-4443-bce2-9eb90235d9a6","action":"report_resolved","targetType":"report","targetId":"r3","byEmail":"w.qq89@hotmail.com","at":1775221229898,"meta":{"details":"open → resolved: تجربه  من لاب توب","displayName":"عمر الراشدي"}},{"id":"28b18317-9be2-4296-9608-d00a5b8f2e1e","action":"report_resolved","targetType":"report","targetId":"r1","byEmail":"w.qq89@hotmail.com","at":1775221169645,"meta":{"details":"open → resolved: تجربه الحل","displayName":"محتوى غير لائق"}}],"mutes":[],"bans":[],"conversations":[],"messages":[],"allowedDomains":["utas.edu.om","yes.om"]}
+7:05:51 PM [express] GET /api/settings/daam_navbar_config_v1 304 in 2ms :: {"key":"daam_navbar_config_v1","value":{"items":[{"icon":"Home","label":{"ar":"الرئيسية","en":"Home"},"order":1,"enabled":true,"routeKey":"home"},{"icon":"MessageSquare","label":{"ar":"ساحة النقاش","en":"Discussion Arena"},"order":2,"enabled":true,"routeKey":"feed"},{"icon":"Mail","label":{"ar":"الرسائل","en":"Messages"},"order":3,"enabled":true,"routeKey":"messages"},{"icon":"Bot","label":{"ar":"المساعد الذكي","en":"AI Tutor"},"order":4,"enabled":false,"routeKey":"ai"},{"icon":"User","label":{"ar":"الملف الشخصي","en":"Profile"},"order":5,"enabled":true,"routeKey":"profile"},{"icon":"Settings","label":{"ar":"الإدارة","en":"Admin"},"order":6,"enabled":true,"routeKey":"admin","adminOnly":true}]}}
+7:06:03 PM [express] GET /api/profile-materials/w.qq89%40hotmail.com 200 in 11ms :: [{"id":"a6ff718c-5b76-4bd8-b2bf-5b3c6e6abec6","email":"w.qq89@hotmail.com","title":"مرحبا","kind":"pdf","url":"/uploads/materials/1775218461856-2ef9f12ca02f.pdf","note":null,"createdAt":1775218480791}]
+7:06:03 PM [express] GET /api/profile-research/w.qq89%40hotmail.com 200 in 11ms :: [{"id":"26fb4ae3-4bae-4478-a817-0852d7dee256","email":"w.qq89@hotmail.com","title":"هل","abstract":"هنا","tags":["يس"],"pdfUrl":"/uploads/materials/1775218553220-4c4a1262e5b9.pdf","pdfName":" lEVAL 2 future plans.pdf","createdAt":1775218554428}]
+7:06:19 PM [express] GET /api/settings/daam_official_pages_v1 200 in 17ms :: {"key":"daam_official_pages_v1","value":[{"id":"privacy","status":"draft","title_ar":"سياسة الخصوصية","title_en":"Privacy Policy","updatedAt":"2026-04-03T18:45:23.854Z","updatedBy":"w.qq89@hotmail.com","content_ar":"تجربة","content_en":"tast"},{"id":"contact","status":"draft","title_ar":"تواصل معنا","title_en":"Contact Us","updatedAt":"","updatedBy":"","content_ar":"","content_en":""},{"id":"terms","status":"draft","title_ar":"الشروط والأحكام","title_en":"Terms & Conditions","updatedAt":"","updatedBy":"","content_ar":"","content_en":""}]}
+7:06:19 PM [express] GET /api/settings/daam_navbar_config_v1 304 in 15ms :: {"key":"daam_navbar_config_v1","value":{"items":[{"icon":"Home","label":{"ar":"الرئيسية","en":"Home"},"order":1,"enabled":true,"routeKey":"home"},{"icon":"MessageSquare","label":{"ar":"ساحة النقاش","en":"Discussion Arena"},"order":2,"enabled":true,"routeKey":"feed"},{"icon":"Mail","label":{"ar":"الرسائل","en":"Messages"},"order":3,"enabled":true,"routeKey":"messages"},{"icon":"Bot","label":{"ar":"المساعد الذكي","en":"AI Tutor"},"order":4,"enabled":false,"routeKey":"ai"},{"icon":"User","label":{"ar":"الملف الشخصي","en":"Profile"},"order":5,"enabled":true,"routeKey":"profile"},{"icon":"Settings","label":{"ar":"الإدارة","en":"Admin"},"order":6,"enabled":true,"routeKey":"admin","adminOnly":true}]}}
+7:06:19 PM [express] GET /api/settings/daam_ai_settings_v1 200 in 21ms :: {"key":"daam_ai_settings_v1","value":null}
+7:06:19 PM [express] GET /api/settings/daam_landing_navbar_config_v1 200 in 23ms :: {"key":"daam_landing_navbar_config_v1","value":null}
+7:06:19 PM [express] GET /api/settings/daam_landing_why_cards_v1 200 in 22ms :: {"key":"daam_landing_why_cards_v1","value":{"why_ai":false,"why_files":true,"why_community":true,"why_discussion":true}}
+7:06:19 PM [express] GET /api/settings/daam_campaigns_v1 200 in 23ms :: {"key":"daam_campaigns_v1","value":null}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:07:09 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin.tsx, /src/index.css[22m
+[2m7:07:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/pages/admin.tsx[22m Could not Fast Refresh ("getWhyDaamCardsSettings" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m7:07:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+7:07:14 PM [express] GET /api/settings/daam_official_pages_v1 304 in 12ms :: {"key":"daam_official_pages_v1","value":[{"id":"privacy","status":"draft","title_ar":"سياسة الخصوصية","title_en":"Privacy Policy","updatedAt":"2026-04-03T18:45:23.854Z","updatedBy":"w.qq89@hotmail.com","content_ar":"تجربة","content_en":"tast"},{"id":"contact","status":"draft","title_ar":"تواصل معنا","title_en":"Contact Us","updatedAt":"","updatedBy":"","content_ar":"","content_en":""},{"id":"terms","status":"draft","title_ar":"الشروط والأحكام","title_en":"Terms & Conditions","updatedAt":"","updatedBy":"","content_ar":"","content_en":""}]}
+7:07:14 PM [express] GET /api/settings/daam_landing_why_cards_v1 304 in 11ms :: {"key":"daam_landing_why_cards_v1","value":{"why_ai":false,"why_files":true,"why_community":true,"why_discussion":true}}
+7:07:15 PM [express] GET /api/settings/daam_navbar_config_v1 304 in 1ms :: {"key":"daam_navbar_config_v1","value":{"items":[{"icon":"Home","label":{"ar":"الرئيسية","en":"Home"},"order":1,"enabled":true,"routeKey":"home"},{"icon":"MessageSquare","label":{"ar":"ساحة النقاش","en":"Discussion Arena"},"order":2,"enabled":true,"routeKey":"feed"},{"icon":"Mail","label":{"ar":"الرسائل","en":"Messages"},"order":3,"enabled":true,"routeKey":"messages"},{"icon":"Bot","label":{"ar":"المساعد الذكي","en":"AI Tutor"},"order":4,"enabled":false,"routeKey":"ai"},{"icon":"User","label":{"ar":"الملف الشخصي","en":"Profile"},"order":5,"enabled":true,"routeKey":"profile"},{"icon":"Settings","label":{"ar":"الإدارة","en":"Admin"},"order":6,"enabled":true,"routeKey":"admin","adminOnly":true}]}}
+7:07:15 PM [express] GET /api/settings/daam_landing_navbar_config_v1 304 in 1ms :: {"key":"daam_landing_navbar_config_v1","value":null}
+7:07:15 PM [express] GET /api/settings/daam_campaigns_v1 304 in 1ms :: {"key":"daam_campaigns_v1","value":null}
+7:07:15 PM [express] GET /api/settings/daam_ai_settings_v1 304 in 1ms :: {"key":"daam_ai_settings_v1","value":null}
+7:07:17 PM [express] GET /api/data 304 in 22ms :: {"accounts":{"ahmed@utas.edu.om":{"email":"ahmed@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.701Z"},"mohammed@utas.edu.om":{"email":"mohammed@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.704Z"},"fatima@utas.edu.om":{"email":"fatima@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.702Z"},"sara@utas.edu.om":{"email":"sara@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.705Z"},"omar@utas.edu.om":{"email":"omar@utas.edu.om","passwordHash":"36d8c0b2","phone":"99999999","region":{"wilayat":"muscat","governorate":"muscat"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.706Z"},"w.qq89@hotmail.com":{"email":"w.qq89@hotmail.com","passwordHash":"6f4defcb","phone":"11111111","region":{"wilayat":"Manah","governorate":"dakhiliyah"},"role":"student","verified":true,"rememberMe":false,"biometricEnabled":false,"banned":false,"isDemo":true,"allowDM":"everyone","createdAt":"2026-04-03T11:27:47.707Z"}},"profiles":{"ahmed@utas.edu.om":{"email":"ahmed@utas.edu.om","name":"أحمد محمد","major":"علوم الحاسب","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثالثة","interests":["programming","it","math"],"bio":"مهتم بالبرمجة والذكاء الاصطناعي","followers":[],"following":[],"showFavorites":true,"showInterests":true},"fatima@utas.edu.om":{"email":"fatima@utas.edu.om","name":"فاطمة علي","major":"إدارة الأعمال","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثانية","interests":["business","english","summaries"],"bio":"أحب التعلم ومشاركة المعرفة","followers":[],"following":[],"showFavorites":true,"showInterests":true},"mohammed@utas.edu.om":{"email":"mohammed@utas.edu.om","name":"محمد سالم","major":"الهندسة الميكانيكية","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الرابعة","interests":["engineering","physics","math"],"bio":"مهندس المستقبل","followers":[],"following":[],"showFavorites":true,"showInterests":true},"sara@utas.edu.om":{"email":"sara@utas.edu.om","name":"سارة خالد","major":"الصيدلة","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الثالثة","interests":["chemistry","biology","summaries"],"bio":"شغوفة بالعلوم الطبية","followers":[],"following":[],"showFavorites":true,"showInterests":true},"omar@utas.edu.om":{"email":"omar@utas.edu.om","name":"عمر يوسف","major":"التصميم الجرافيكي","university":"جامعة التقنية والعلوم التطبيقية","level":"السنة الأولى","interests":["design","media","it"],"bio":"مصمم مبدع","followers":[],"following":[],"showFavorites":true,"showInterests":true},"w.qq89@hotmail.com":{"email":"w.qq89@hotmail.com","name":"وليد","major":"مبتكر","university":"الحياة","level":"الاول","avatarUrl":"/uploads/images/1775219459457-8a956e4f8bfd.jpeg","coverUrl":"/uploads/images/1775219420360-fb2029c26be5.png","interests":[],"bio":"مشرف المنصة","followers":[],"following":[],"showFavorites":true,"showInterests":true}},"posts":[{"id":"f07bacdc-12f7-4e53-9c3c-7a05a417df7b","authorEmail":"w.qq89@hotmail.com","content":"اهلا// تجربة الثانية","postType":"discussion","attachments":[],"likedBy":[],"savedBy":[],"status":"visible","createdAt":"2026-04-03T12:12:14.774Z","replies":[]},{"id":"1a706708-bc89-4db1-b4a7-ecd79acd137e","authorEmail":"w.qq89@hotmail.com","content":"اهلا// تجربة  فتح من عدة اجهزة","postType":"discussion","attachments":[],"likedBy":[],"savedBy":[],"status":"visible","createdAt":"2026-04-03T11:33:29.477Z","updatedAt":"2026-04-03T11:36:38.111Z","replies":[{"id":"1070cee2-048a-48a9-86be-a17364fcbd49","authorEmail":"w.qq89@hotmail.com","content":"نعم شكرا","createdAt":"2026-04-03T11:46:08.772Z"}]}],"reports":[],"moderators":[],"authUsers":[],"auditLog":[{"id":"c4b2fea9-3ec1-4ebf-9c9a-ca715b047a41","action":"moderator.delete","targetType":"moderator","targetId":"e657ffd7-1e19-4101-ad77-ecf1349eecef","byEmail":"w.qq89@hotmail.com","at":1775241612189,"meta":{"email":"w.qq89@uat.om","displayName":"plvhjk"}},{"id":"6cd3a1bb-11a0-46f6-a71b-14eb07ff941b","action":"moderator.create","targetType":"moderator","targetId":"e657ffd7-1e19-4101-ad77-ecf1349eecef","byEmail":"w.qq89@hotmail.com","at":1775241579377,"meta":{"email":"w.qq89@uat.om","displayName":"plvhjk"}},{"id":"750de8eb-5d7f-4ea3-92bf-0854c1ae7c23","action":"domain_removed","targetType":"user","targetId":"yuan.edo.om","byEmail":"w.qq89@hotmail.com","at":1775241509538,"meta":{"displayName":"yuan.edo.om"}},{"id":"9328deba-abbb-43a6-b645-a89c4edb4407","action":"domain_added","targetType":"user","targetId":"yes.om","byEmail":"w.qq89@hotmail.com","at":1775241495671,"meta":{"displayName":"yes.om"}},{"id":"5848ffa9-e282-4b99-a8f7-e288f98c1a57","action":"domain_added","targetType":"user","targetId":"yuan.edo.om","byEmail":"w.qq89@hotmail.com","at":1775241451209,"meta":{"displayName":"yuan.edo.om"}},{"id":"488d40a1-babe-4f7c-9eac-268fcf095962","action":"post_deleted","targetType":"post","targetId":"p2","byEmail":"w.qq89@hotmail.com","at":1775241323458,"meta":{"displayName":"نقاش حول مشروع التخرج"}},{"id":"dc91b684-59d2-4a92-b23b-e171925e9021","action":"file_deleted","targetType":"file","targetId":"f2","byEmail":"w.qq89@hotmail.com","at":1775241292734,"meta":{"displayName":"presentation.pptx"}},{"id":"1c505a6d-2745-416f-bcf0-5ae5dba454a7","action":"post_hidden","targetType":"post","targetId":"p3","byEmail":"w.qq89@hotmail.com","at":1775241242280,"meta":{"displayName":"إعلان: موعد الامتحانات النهائية"}},{"id":"58f39739-6f3d-4ff6-ad3e-10f9f3351740","action":"user_banned","targetType":"user","targetId":"3","byEmail":"w.qq89@hotmail.com","at":1775241137837,"meta":{"displayName":"محمد الكندي"}},{"id":"b743edaf-809d-4d27-984d-65def7dea8bd","action":"user_unbanned","targetType":"user","targetId":"5","byEmail":"w.qq89@hotmail.com","at":1775241112870,"meta":{"displayName":"عمر الراشدي"}},{"id":"249ae32c-3e79-4443-bce2-9eb90235d9a6","action":"report_resolved","targetType":"report","targetId":"r3","byEmail":"w.qq89@hotmail.com","at":1775221229898,"meta":{"details":"open → resolved: تجربه  من لاب توب","displayName":"عمر الراشدي"}},{"id":"28b18317-9be2-4296-9608-d00a5b8f2e1e","action":"report_resolved","targetType":"report","targetId":"r1","byEmail":"w.qq89@hotmail.com","at":1775221169645,"meta":{"details":"open → resolved: تجربه الحل","displayName":"محتوى غير لائق"}}],"mutes":[],"bans":[],"conversations":[],"messages":[],"allowedDomains":["utas.edu.om","yes.om"]}
+7:07:18 PM [express] GET /api/settings/daam_official_pages_v1 304 in 1ms :: {"key":"daam_official_pages_v1","value":[{"id":"privacy","status":"draft","title_ar":"سياسة الخصوصية","title_en":"Privacy Policy","updatedAt":"2026-04-03T18:45:23.854Z","updatedBy":"w.qq89@hotmail.com","content_ar":"تجربة","content_en":"tast"},{"id":"contact","status":"draft","title_ar":"تواصل معنا","title_en":"Contact Us","updatedAt":"","updatedBy":"","content_ar":"","content_en":""},{"id":"terms","status":"draft","title_ar":"الشروط والأحكام","title_en":"Terms & Conditions","updatedAt":"","updatedBy":"","content_ar":"","content_en":""}]}
+7:07:18 PM [express] GET /api/settings/daam_landing_why_cards_v1 304 in 1ms :: {"key":"daam_landing_why_cards_v1","value":{"why_ai":false,"why_files":true,"why_community":true,"why_discussion":true}}
+7:07:18 PM [express] GET /api/settings/daam_landing_navbar_config_v1 304 in 1ms :: {"key":"daam_landing_navbar_config_v1","value":null}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:07:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin.tsx, /src/index.css[22m

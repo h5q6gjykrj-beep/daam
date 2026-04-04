@@ -165,10 +165,10 @@ interface DaamStoreContextType {
   profiles: Record<string, UserProfile>; accounts: Record<string, UserAccount>;
   pendingVerification: PendingVerification | null; isLoading: boolean;
   t: typeof DICTIONARY.en;
-  login: (email: string, password: string, rememberMe?: boolean) => void;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   loginSimple: (email: string) => void;
   logout: () => void;
-  register: (data: RegistrationData) => PendingVerification;
+  register: (data: RegistrationData) => Promise<PendingVerification>;
   resetPassword: (email: string, newPassword: string) => void;
   changePassword: (currentPassword: string, newPassword: string) => void;
   verifyEmail: (token: string) => boolean;
@@ -312,31 +312,40 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const login = (email: string, password: string, rememberMe: boolean = false) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     const emailLower = email.toLowerCase();
-    const account = accounts[emailLower];
+    let result: any;
+    try {
+      result = await api('POST', '/api/auth/login', { email: emailLower, password });
+    } catch (err: any) {
+      // Translate server error messages to the current language
+      const msg: string = err.message || '';
+      if (lang === 'ar') {
+        if (msg.includes('not registered')) throw new Error('هذا الحساب غير مسجل');
+        if (msg.includes('Incorrect password')) throw new Error('كلمة المرور غير صحيحة');
+        if (msg.includes('verify your email')) throw new Error('يرجى تأكيد بريدك الإلكتروني أولاً');
+        if (msg.includes('banned')) throw new Error('حسابك محظور: ' + msg.split(': ').slice(1).join(': '));
+      }
+      throw err;
+    }
 
-    if (!account) {
-      const authUser = authUsers.find(a => a.email.toLowerCase() === emailLower);
-      if (!authUser) throw new Error(lang === 'ar' ? 'هذا الحساب غير مسجل' : 'Account not registered');
-      if (authUser.passwordHash !== password) throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
-      const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+
+    if (result.type === 'authUser') {
+      const authUser = result.authUser;
       const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
       localStorage.setItem('daam_user', email);
+      setAuthUsers(prev => prev.some(a => a.email.toLowerCase() === emailLower) ? prev : [...prev, authUser]);
       setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, profile: profiles[email] });
       return;
     }
 
-    if (!account.verified) throw new Error(lang === 'ar' ? 'يرجى تأكيد بريدك الإلكتروني أولاً' : 'Please verify your email first');
-    if (account.banned) throw new Error(lang === 'ar' ? 'حسابك محظور: ' + account.bannedReason : 'Your account is banned: ' + account.bannedReason);
-    if (account.passwordHash !== simpleHash(password)) throw new Error(lang === 'ar' ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
-
+    // type === 'account'
+    const account: UserAccount = result.account;
     const updatedAcc = { ...account, rememberMe };
-    const updatedAccounts = { ...accounts, [emailLower]: updatedAcc };
-    setAccounts(updatedAccounts);
+    setAccounts(prev => ({ ...prev, [emailLower]: updatedAcc }));
     api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { rememberMe }).catch(() => {});
 
-    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
     const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
     localStorage.setItem('daam_user', email);
     setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, account: updatedAcc, profile: profiles[email] });
@@ -346,7 +355,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     throw new Error(lang === 'ar' ? 'الدخول السريع معطل. يرجى استخدام تسجيل الدخول بكلمة المرور.' : 'Quick login is disabled. Please use password login.');
   };
 
-  const register = (data: RegistrationData): PendingVerification => {
+  const register = async (data: RegistrationData): Promise<PendingVerification> => {
     const emailLower = data.email.toLowerCase();
     if (accounts[emailLower]) throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
     const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
@@ -360,14 +369,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       region: { governorate: data.governorate, wilayat: data.wilayat },
       role: isModerator ? 'moderator' : 'student', verified: true, createdAt: new Date().toISOString()
     };
-    const updatedAccounts = { ...accounts, [emailLower]: newAccount };
-    setAccounts(updatedAccounts);
-    api('POST', '/api/accounts', newAccount).catch(() => {});
+    await api('POST', '/api/accounts', newAccount);
+    setAccounts(prev => ({ ...prev, [emailLower]: newAccount }));
 
     const defaultProfile: UserProfile = { email: data.email, name: data.name, bio: '', major: '', university: 'UTAS', followers: [], following: [] };
-    const updatedProfiles = { ...profiles, [data.email]: defaultProfile };
-    setProfiles(updatedProfiles);
-    api('PATCH', `/api/profiles/${encodeURIComponent(data.email)}`, defaultProfile).catch(() => {});
+    await api('PATCH', `/api/profiles/${encodeURIComponent(data.email)}`, defaultProfile);
+    setProfiles(prev => ({ ...prev, [data.email]: defaultProfile }));
 
     return { email: data.email, token: '', expiry: '' };
   };
