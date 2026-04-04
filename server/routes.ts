@@ -117,6 +117,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Campaigns ────────────────────────────────────────────────────────────
+  app.get('/api/campaigns', async (_req, res) => {
+    try { res.json(await store.getAllCampaigns()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/campaigns', async (req, res) => {
+    try {
+      await store.upsertCampaign(req.body);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch('/api/campaigns/:id', async (req, res) => {
+    try {
+      const existing = await store.getCampaignById(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Not found' });
+      await store.upsertCampaign({ ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() });
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete('/api/campaigns/:id', async (req, res) => {
+    try {
+      await store.deleteCampaignById(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Posts ─────────────────────────────────────────────────────────────────
   app.get('/api/posts', async (_req, res) => {
     try {

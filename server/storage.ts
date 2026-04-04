@@ -383,20 +383,48 @@ export async function setSetting(key: string, value: unknown): Promise<void> {
   });
 }
 
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+export async function getAllCampaigns(): Promise<any[]> {
+  const rows = await db.select().from(schema.campaigns).orderBy(desc(schema.campaigns.updatedAt));
+  return rows.map(r => r.data);
+}
+
+export async function getCampaignById(id: string): Promise<any | undefined> {
+  const rows = await db.select().from(schema.campaigns).where(eq(schema.campaigns.id, id)).limit(1);
+  return rows[0]?.data;
+}
+
+export async function upsertCampaign(campaign: any): Promise<void> {
+  await db.insert(schema.campaigns).values({
+    id: campaign.id,
+    data: campaign,
+    createdAt: campaign.createdAt,
+    updatedAt: campaign.updatedAt,
+  }).onConflictDoUpdate({
+    target: schema.campaigns.id,
+    set: { data: sql`excluded.data`, updatedAt: sql`excluded.updated_at` },
+  });
+}
+
+export async function deleteCampaignById(id: string): Promise<void> {
+  await db.delete(schema.campaigns).where(eq(schema.campaigns.id, id));
+}
+
 export async function loadAllData() {
   const [
     accountsData, profilesData, postsData, reportsData,
     moderatorsData, authUsersData, auditLogData,
-    mutesData, bansData, conversationsData, messagesData, domainsData
+    mutesData, bansData, conversationsData, messagesData, domainsData, campaignsData
   ] = await Promise.all([
     getAllAccounts(), getAllProfiles(), getAllPosts(), getAllReports(),
     getAllModerators(), getAllAuthUsers(), getAuditLog(),
     getAllMutes(), getAllBans(), getConversations(), getAllMessages(), getAllowedDomains(),
+    getAllCampaigns(),
   ]);
   return { accounts: accountsData, profiles: profilesData, posts: postsData, reports: reportsData,
     moderators: moderatorsData, authUsers: authUsersData, auditLog: auditLogData,
     mutes: mutesData, bans: bansData, conversations: conversationsData, messages: messagesData,
-    allowedDomains: domainsData };
+    allowedDomains: domainsData, campaigns: campaignsData };
 }
 
 // ── Profile Materials ──────────────────────────────────────────────────────────

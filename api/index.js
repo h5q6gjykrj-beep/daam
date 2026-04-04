@@ -25,6 +25,7 @@ __export(schema_exports, {
   auditLog: () => auditLog,
   authUsers: () => authUsers,
   bans: () => bans,
+  campaigns: () => campaigns,
   conversations: () => conversations,
   insertAccountSchema: () => insertAccountSchema,
   insertPostSchema: () => insertPostSchema,
@@ -195,6 +196,12 @@ var profileResearch = pgTable("profile_research", {
   pdfUrl: text("pdf_url"),
   pdfName: text("pdf_name"),
   createdAt: bigint("created_at", { mode: "number" }).notNull()
+});
+var campaigns = pgTable("campaigns", {
+  id: text("id").primaryKey(),
+  data: jsonb("data").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
 });
 var insertAccountSchema = createInsertSchema(accounts);
 var insertProfileSchema = createInsertSchema(profiles);
@@ -663,6 +670,28 @@ async function setSetting(key, value) {
     set: { value: sql2`excluded.value` }
   });
 }
+async function getAllCampaigns() {
+  const rows = await db.select().from(campaigns).orderBy(desc(campaigns.updatedAt));
+  return rows.map((r) => r.data);
+}
+async function getCampaignById(id) {
+  const rows = await db.select().from(campaigns).where(eq(campaigns.id, id)).limit(1);
+  return rows[0]?.data;
+}
+async function upsertCampaign(campaign) {
+  await db.insert(campaigns).values({
+    id: campaign.id,
+    data: campaign,
+    createdAt: campaign.createdAt,
+    updatedAt: campaign.updatedAt
+  }).onConflictDoUpdate({
+    target: campaigns.id,
+    set: { data: sql2`excluded.data`, updatedAt: sql2`excluded.updated_at` }
+  });
+}
+async function deleteCampaignById(id) {
+  await db.delete(campaigns).where(eq(campaigns.id, id));
+}
 async function loadAllData() {
   const [
     accountsData,
@@ -676,7 +705,8 @@ async function loadAllData() {
     bansData,
     conversationsData,
     messagesData,
-    domainsData
+    domainsData,
+    campaignsData
   ] = await Promise.all([
     getAllAccounts(),
     getAllProfiles(),
@@ -689,7 +719,8 @@ async function loadAllData() {
     getAllBans(),
     getConversations(),
     getAllMessages(),
-    getAllowedDomains()
+    getAllowedDomains(),
+    getAllCampaigns()
   ]);
   return {
     accounts: accountsData,
@@ -703,7 +734,8 @@ async function loadAllData() {
     bans: bansData,
     conversations: conversationsData,
     messages: messagesData,
-    allowedDomains: domainsData
+    allowedDomains: domainsData,
+    campaigns: campaignsData
   };
 }
 async function getMaterials(email) {
@@ -901,6 +933,39 @@ async function registerRoutes(httpServer2, app2) {
       await upsertProfile(req.params.email, req.body);
       const updated = await getProfile(req.params.email);
       res.json(updated);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.get("/api/campaigns", async (_req, res) => {
+    try {
+      res.json(await getAllCampaigns());
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.post("/api/campaigns", async (req, res) => {
+    try {
+      await upsertCampaign(req.body);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.patch("/api/campaigns/:id", async (req, res) => {
+    try {
+      const existing = await getCampaignById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      await upsertCampaign({ ...existing, ...req.body, id: req.params.id, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.delete("/api/campaigns/:id", async (req, res) => {
+    try {
+      await deleteCampaignById(req.params.id);
+      res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

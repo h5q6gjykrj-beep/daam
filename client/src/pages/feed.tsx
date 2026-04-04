@@ -136,48 +136,53 @@ export default function Feed() {
 
     const newAttachments: Attachment[] = [];
     let totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
-    
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      
-      // Check individual file size
+
       if (file.size > MAX_FILE_SIZE) {
         toast({
           title: lang === 'ar' ? 'الملف كبير جداً' : 'File too large',
-          description: lang === 'ar' 
-            ? `${file.name} أكبر من 2 ميجابايت` 
+          description: lang === 'ar'
+            ? `${file.name} أكبر من 2 ميجابايت`
             : `${file.name} is larger than 2MB`,
           variant: 'destructive'
         });
         continue;
       }
-      
-      // Check total size
+
       if (totalSize + file.size > MAX_TOTAL_SIZE) {
         toast({
           title: lang === 'ar' ? 'تم تجاوز الحد' : 'Limit exceeded',
-          description: lang === 'ar' 
-            ? 'الحد الأقصى للملفات 5 ميجابايت' 
+          description: lang === 'ar'
+            ? 'الحد الأقصى للملفات 5 ميجابايت'
             : 'Maximum total file size is 5MB',
           variant: 'destructive'
         });
         break;
       }
 
-      const reader = new FileReader();
-      
-      const base64 = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Upload failed');
+        const { url } = await res.json();
+        newAttachments.push({
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          url,
+          name: file.name,
+          size: file.size
+        });
+      } catch {
+        toast({
+          title: lang === 'ar' ? 'فشل الرفع' : 'Upload failed',
+          description: lang === 'ar' ? `فشل رفع ${file.name}` : `Failed to upload ${file.name}`,
+          variant: 'destructive'
+        });
+        continue;
+      }
 
-      newAttachments.push({
-        type: file.type.startsWith('image/') ? 'image' : 'file',
-        url: base64,
-        name: file.name,
-        size: file.size
-      });
-      
       totalSize += file.size;
     }
 

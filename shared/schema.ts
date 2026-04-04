@@ -334,6 +334,13 @@ export const profileResearch = pgTable("profile_research", {
   createdAt: bigint("created_at", { mode: 'number' }).notNull(),
 });
 
+export const campaigns = pgTable("campaigns", {
+  id: text("id").primaryKey(),
+  data: jsonb("data").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // ─── Insert Schemas ──────────────────────────────────────────────────────────
 export const insertAccountSchema = createInsertSchema(accounts);
 export const insertProfileSchema = createInsertSchema(profiles);
