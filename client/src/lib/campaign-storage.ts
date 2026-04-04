@@ -213,10 +213,21 @@ export async function attachCampaignVideo(campaignId: string, file: File): Promi
   if (!campaign) throw new Error('Campaign not found');
   const validation = await validateCampaignVideo(file);
   if (!validation.ok) throw new Error(validation.reason);
-  if (campaign.video?.id) { try { await deleteCampaignMedia(campaign.video.id); } catch {} }
-  const mediaId = await saveCampaignMedia(file);
+  // Delete old video from Cloudinary only if it's a legacy IndexedDB key (no https://)
+  if (campaign.video?.id && !campaign.video.id.startsWith('https://')) {
+    try { await deleteCampaignMedia(campaign.video.id); } catch {}
+  }
+  // Upload to Cloudinary via API
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/upload/campaign-video', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Video upload failed');
+  }
+  const { url } = await res.json();
   return updateCampaign(campaignId, {
-    video: { id: mediaId, mime: validation.meta.mime, durationSec: validation.meta.durationSec, sizeBytes: validation.meta.sizeBytes },
+    video: { id: url, mime: validation.meta.mime, durationSec: validation.meta.durationSec, sizeBytes: validation.meta.sizeBytes },
   }) as Promise<Campaign>;
 }
 

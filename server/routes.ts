@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
 import * as store from "./storage";
-import { uploadImageBuffer, uploadPdfBuffer, deleteCloudinaryFile } from "./cloudinary";
+import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile } from "./cloudinary";
 
 // All uploads go to memory then straight to Cloudinary — no local disk needed.
 const pdfUpload = multer({
@@ -12,6 +12,16 @@ const pdfUpload = multer({
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf" && path.extname(file.originalname).toLowerCase() === ".pdf") cb(null, true);
     else cb(new Error("PDF only"));
+  },
+});
+
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_VIDEO_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Videos only (MP4/WebM)"));
   },
 });
 
@@ -510,6 +520,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const url = await uploadPdfBuffer(req.file.buffer, req.file.originalname);
         res.json({ ok: true, url, originalName: req.file.originalname });
       } catch (e: any) { res.status(500).json({ ok: false, error: e.message || "Upload failed" }); }
+    });
+  });
+
+  // ── Campaign Video Upload ─────────────────────────────────────────────────
+  app.post('/api/upload/campaign-video', (req, res) => {
+    videoUpload.single('file')(req, res, async (err) => {
+      if (err) return res.status(400).json({ ok: false, error: err.message || 'Upload failed' });
+      if (!req.file) return res.status(400).json({ ok: false, error: 'No file uploaded' });
+      try {
+        const url = await uploadVideoBuffer(req.file.buffer);
+        res.json({ ok: true, url });
+      } catch (e: any) { res.status(500).json({ ok: false, error: e.message || 'Upload failed' }); }
+    });
+  });
+
+  // ── Campaign File (PDF) Upload ────────────────────────────────────────────
+  app.post('/api/upload/campaign-file', (req, res) => {
+    pdfUpload.single('file')(req, res, async (err) => {
+      if (err) return res.status(400).json({ ok: false, error: err.message || 'Upload failed' });
+      if (!req.file) return res.status(400).json({ ok: false, error: 'No file uploaded' });
+      if (req.file.buffer.slice(0, 4).toString('ascii') !== '%PDF')
+        return res.status(400).json({ ok: false, error: 'Invalid PDF file' });
+      try {
+        const url = await uploadPdfBuffer(req.file.buffer, req.file.originalname);
+        res.json({ ok: true, url });
+      } catch (e: any) { res.status(500).json({ ok: false, error: e.message || 'Upload failed' }); }
     });
   });
 

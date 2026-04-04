@@ -322,21 +322,38 @@ export async function saveCampaignAttachment(file: File): Promise<CampaignAttach
     return { id: url, kind, name: file.name, mime: file.type, sizeBytes: file.size };
   }
 
-  // Videos and files fall back to IndexedDB (device-local)
-  const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-  const mediaId = await saveCampaignMedia(blob);
-
-  let durationSec: number | undefined;
+  // Videos → Cloudinary (resource_type: video)
   if (kind === 'video') {
+    let durationSec: number | undefined;
     try {
       durationSec = await getVideoDuration(file);
       durationSec = Math.round(durationSec * 10) / 10;
-    } catch {
-      // Duration unknown
+    } catch {}
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload/campaign-video', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Video upload failed');
     }
+    const { url } = await res.json();
+    return { id: url, kind, name: file.name, mime: file.type, sizeBytes: file.size, durationSec };
   }
 
-  return { id: mediaId, kind, name: file.name, mime: file.type, sizeBytes: file.size, durationSec };
+  // PDF files → Cloudinary (resource_type: raw)
+  if (kind === 'file') {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload/campaign-file', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'File upload failed');
+    }
+    const { url } = await res.json();
+    return { id: url, kind, name: file.name, mime: file.type, sizeBytes: file.size };
+  }
+
+  throw new Error('Unsupported file type');
 }
 
 export async function getCampaignAttachmentBlob(mediaId: string): Promise<Blob | null> {

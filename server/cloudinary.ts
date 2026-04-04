@@ -19,6 +19,18 @@ export function uploadImageBuffer(buffer: Buffer): Promise<string> {
   });
 }
 
+export function uploadVideoBuffer(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      { folder: 'daam/campaign-videos', resource_type: 'video' },
+      (err, result) => {
+        if (err || !result) return reject(err ?? new Error('Upload failed'));
+        resolve(result.secure_url);
+      }
+    ).end(buffer);
+  });
+}
+
 export function uploadPdfBuffer(buffer: Buffer, originalName: string): Promise<string> {
   const publicId = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
   return new Promise((resolve, reject) => {

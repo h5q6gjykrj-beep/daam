@@ -118,10 +118,16 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       }
 
       if (videoId) {
-        const blob = await getCampaignMedia(videoId);
-        if (blob && !cancelled) {
-          localUrl = URL.createObjectURL(blob);
-          setVideoUrl(localUrl);
+        // New uploads store a Cloudinary URL — use it directly.
+        if (videoId.startsWith('https://') || videoId.startsWith('http://')) {
+          if (!cancelled) setVideoUrl(videoId);
+        } else {
+          // Legacy: IndexedDB key — load blob locally.
+          const blob = await getCampaignMedia(videoId);
+          if (blob && !cancelled) {
+            localUrl = URL.createObjectURL(blob);
+            setVideoUrl(localUrl);
+          }
         }
       }
     };
