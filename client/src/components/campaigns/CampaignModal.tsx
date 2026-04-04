@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ArrowLeft, ExternalLink, AlertCircle } from 'lucide-react';
+import { X, FileText, ClipboardList, Image as ImageIcon, Video, Eye, Download, ExternalLink, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useDaamStore } from '@/hooks/use-daam-store';
@@ -80,7 +80,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
   const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
   const [pdfErrors, setPdfErrors] = useState<Map<string, string>>(new Map());
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
-  const [activePdfId, setActivePdfId] = useState<string | null>(null);
 
   const title = lang === 'ar' ? campaign.title.ar : campaign.title.en;
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
@@ -196,7 +195,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
     if (!open || files.length === 0) {
       setFileUrls(new Map());
       setPdfErrors(new Map());
-      setActivePdfId(null);
       return;
     }
 
@@ -251,7 +249,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
       localUrls.forEach(url => URL.revokeObjectURL(url));
       setFileUrls(new Map());
       setPdfErrors(new Map());
-      setActivePdfId(null);
     };
   }, [open, fileKey, t.invalidPdf, t.pdfNotAvailable]);
 
@@ -343,7 +340,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             </div>
           )}
 
-          {files.length > 0 && !activePdfId && (
+          {files.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <FileText className="w-4 h-4" />
@@ -385,7 +382,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                           variant="outline"
                           onClick={() => {
                             trackClick(campaign.id);
-                            setActivePdfId(file.id);
+                            window.open(fileUrl, '_blank');
                           }}
                           data-testid={`button-preview-file-${file.id}`}
                         >
@@ -400,64 +397,6 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
             </div>
           )}
 
-          {activePdfId && (() => {
-            const activeFile = files.find(f => f.id === activePdfId);
-            const pdfUrl = fileUrls.get(activePdfId);
-            const errorMsg = pdfErrors.get(activePdfId);
-            
-            if (!activeFile) return null;
-            
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    <span className="text-sm font-medium truncate">{activeFile.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {pdfUrl && (
-                      <a
-                        href={pdfUrl}
-                        download={activeFile.name}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border rounded bg-background hover:bg-muted transition-colors"
-                        data-testid="link-download-pdf"
-                      >
-                        <Download className="w-3 h-3" />
-                        {t.download}
-                      </a>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setActivePdfId(null)}
-                      data-testid="button-back-to-files"
-                    >
-                      <ArrowLeft className="w-4 h-4 ltr:mr-1 rtl:ml-1 rtl:rotate-180" />
-                      {t.backToList}
-                    </Button>
-                  </div>
-                </div>
-                
-                {pdfUrl ? (
-                  <iframe
-                    src={pdfUrl}
-                    className="w-full h-[70vh] rounded-lg border bg-white"
-                    title={activeFile.name}
-                    data-testid="pdf-viewer-iframe"
-                  />
-                ) : errorMsg ? (
-                  <div className="w-full h-[70vh] rounded-lg border bg-muted flex flex-col items-center justify-center gap-2">
-                    <AlertCircle className="w-8 h-8 text-destructive" />
-                    <span className="text-destructive font-medium">{errorMsg}</span>
-                  </div>
-                ) : (
-                  <div className="w-full h-[70vh] rounded-lg border bg-muted flex items-center justify-center">
-                    <span className="text-muted-foreground animate-pulse">{t.preparing}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           {campaign.survey?.url && (
             <div className="space-y-2">
