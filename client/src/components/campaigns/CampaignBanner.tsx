@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useDaamStore } from '@/hooks/use-daam-store';
 import { useToast } from '@/hooks/use-toast';
 import type { Campaign, CampaignPlacement } from '@/types/campaign';
-import { getCampaigns, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
+import { loadCampaignsFromApi, hasCampaignBeenSeen, markCampaignAsSeen } from '@/lib/campaign-storage';
 import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { trackImpression, trackDismissal } from '@/lib/campaign-tracking';
 import { isCampaignActive } from '@/lib/campaign-helpers';
@@ -109,58 +109,64 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
   }, [user?.email]);
 
   useEffect(() => {
-    const campaigns = getCampaigns();
-    
-    let lastRejected: { title: string; reason: string } | null = null;
-    let blockedBySeen = 0;
-    
-    const eligibleCampaigns = campaigns.filter(c => {
-      if (c.status !== 'active') {
-        lastRejected = { title: c.title.en || c.title.ar, reason: `status=${c.status}` };
-        return false;
-      }
-      if (c.type !== 'banner') {
-        lastRejected = { title: c.title.en || c.title.ar, reason: `type=${c.type} (not banner)` };
-        return false;
-      }
-      if (c.placement !== placement && c.placement !== 'global') {
-        lastRejected = { title: c.title.en || c.title.ar, reason: `placement=${c.placement} (need ${placement})` };
-        return false;
-      }
-      if (!isCampaignActive(c)) {
-        lastRejected = { title: c.title.en || c.title.ar, reason: `schedule: ${c.startDate} - ${c.endDate}` };
-        return false;
-      }
-      if (hasCampaignBeenSeen(c.id)) {
-        blockedBySeen++;
-        lastRejected = { title: c.title.en || c.title.ar, reason: 'seen (TTL not expired)' };
-        return false;
-      }
-      return true;
-    });
+    let cancelled = false;
 
-    if (isDebugMode) {
-      setDebugInfo({
-        totalCampaigns: campaigns.length,
-        bannerType: campaigns.filter(c => c.type === 'banner').length,
-        active: campaigns.filter(c => c.status === 'active').length,
-        matchingPlacement: campaigns.filter(c => c.placement === placement || c.placement === 'global').length,
-        blockedBySeen,
-        lastRejected: eligibleCampaigns.length === 0 ? lastRejected : null,
+    loadCampaignsFromApi().then(campaigns => {
+      if (cancelled) return;
+
+      let lastRejected: { title: string; reason: string } | null = null;
+      let blockedBySeen = 0;
+
+      const eligibleCampaigns = campaigns.filter(c => {
+        if (c.status !== 'active') {
+          lastRejected = { title: c.title.en || c.title.ar, reason: `status=${c.status}` };
+          return false;
+        }
+        if (c.type !== 'banner') {
+          lastRejected = { title: c.title.en || c.title.ar, reason: `type=${c.type} (not banner)` };
+          return false;
+        }
+        if (c.placement !== placement && c.placement !== 'global') {
+          lastRejected = { title: c.title.en || c.title.ar, reason: `placement=${c.placement} (need ${placement})` };
+          return false;
+        }
+        if (!isCampaignActive(c)) {
+          lastRejected = { title: c.title.en || c.title.ar, reason: `schedule: ${c.startDate} - ${c.endDate}` };
+          return false;
+        }
+        if (hasCampaignBeenSeen(c.id)) {
+          blockedBySeen++;
+          lastRejected = { title: c.title.en || c.title.ar, reason: 'seen (TTL not expired)' };
+          return false;
+        }
+        return true;
       });
-    }
 
-    if (eligibleCampaigns.length === 0) {
-      setCampaign(null);
-      return;
-    }
+      if (isDebugMode) {
+        setDebugInfo({
+          totalCampaigns: campaigns.length,
+          bannerType: campaigns.filter(c => c.type === 'banner').length,
+          active: campaigns.filter(c => c.status === 'active').length,
+          matchingPlacement: campaigns.filter(c => c.placement === placement || c.placement === 'global').length,
+          blockedBySeen,
+          lastRejected: eligibleCampaigns.length === 0 ? lastRejected : null,
+        });
+      }
 
-    const sorted = eligibleCampaigns.sort((a, b) => {
-      if (b.priority !== a.priority) return b.priority - a.priority;
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      if (eligibleCampaigns.length === 0) {
+        setCampaign(null);
+        return;
+      }
+
+      const sorted = eligibleCampaigns.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+
+      setCampaign(sorted[0]);
     });
 
-    setCampaign(sorted[0]);
+    return () => { cancelled = true; };
   }, [placement, isDebugMode]);
 
   useEffect(() => {
