@@ -9,6 +9,8 @@ import express from "express";
 import { createServer } from "http";
 
 // server/routes.ts
+import https from "https";
+import http from "http";
 import multer from "multer";
 import path from "path";
 
@@ -1422,6 +1424,32 @@ async function registerRoutes(httpServer2, app2) {
     } catch {
     }
     res.json({ ok: true });
+  });
+  app2.get("/api/file-proxy", (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ ok: false, error: "Missing url" });
+    }
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ ok: false, error: "Invalid url" });
+    }
+    if (!parsed.hostname.endsWith("cloudinary.com")) {
+      return res.status(403).json({ ok: false, error: "Forbidden" });
+    }
+    const transport = parsed.protocol === "https:" ? https : http;
+    transport.get(url, (upstream) => {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline");
+      if (upstream.headers["content-length"]) {
+        res.setHeader("Content-Length", upstream.headers["content-length"]);
+      }
+      upstream.pipe(res);
+    }).on("error", () => {
+      if (!res.headersSent) res.status(502).json({ ok: false, error: "Failed to fetch file" });
+    });
   });
   return httpServer2;
 }

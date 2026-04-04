@@ -382,7 +382,7 @@ export function CampaignModal({ open, onOpenChange, campaign }: CampaignModalPro
                           variant="outline"
                           onClick={() => {
                             trackClick(campaign.id);
-                            window.open(fileUrl, '_blank');
+                            window.open(`/api/file-proxy?url=${encodeURIComponent(fileUrl)}`, '_blank');
                           }}
                           data-testid={`button-preview-file-${file.id}`}
                         >

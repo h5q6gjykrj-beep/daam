@@ -1,5 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import https from "https";
+import http from "http";
 import multer from "multer";
 import path from "path";
 import * as store from "./storage";
@@ -501,7 +503,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const url = await uploadImageBuffer(req.file.buffer);
         res.json({ ok: true, url });
-      } catch (e) { res.status(500).json({ ok: false, error: e.message || 'Upload failed' }); }
+      } catch (e: any) { res.status(500).json({ ok: false, error: e.message || 'Upload failed' }); }
     });
   });
 
@@ -554,6 +556,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!url || typeof url !== 'string') return res.status(400).json({ ok: false, error: 'Missing url' });
     try { await deleteCloudinaryFile(url, 'raw'); } catch {}
     res.json({ ok: true });
+  });
+
+  // ── File Proxy (PDF inline viewer) ───────────────────────────────────────
+  // Fetches a Cloudinary URL server-side and pipes it to the browser with
+  // Content-Disposition: inline so the browser renders the PDF instead of
+  // downloading it (bypasses Cloudinary's attachment flag on the URL).
+  app.get('/api/file-proxy', (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Missing url' });
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ ok: false, error: 'Invalid url' });
+    }
+
+    // Only allow Cloudinary URLs
+    if (!parsed.hostname.endsWith('cloudinary.com')) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+
+    const transport = parsed.protocol === 'https:' ? https : http;
+    transport.get(url, (upstream) => {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+      if (upstream.headers['content-length']) {
+        res.setHeader('Content-Length', upstream.headers['content-length']);
+      }
+      upstream.pipe(res);
+    }).on('error', () => {
+      if (!res.headersSent) res.status(502).json({ ok: false, error: 'Failed to fetch file' });
+    });
   });
 
   return httpServer;
