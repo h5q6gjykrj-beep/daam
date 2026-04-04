@@ -482,6 +482,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ ok: true });
   });
 
+
+  // ── Campaign Image Upload ─────────────────────────────────────────────────
+  app.post('/api/upload/campaign-image', (req, res) => {
+    imageUpload.single('file')(req, res, async (err) => {
+      if (err) return res.status(400).json({ ok: false, error: err.message || 'Upload failed' });
+      if (!req.file) return res.status(400).json({ ok: false, error: 'No file uploaded' });
+      try {
+        const url = await uploadImageBuffer(req.file.buffer);
+        res.json({ ok: true, url });
+      } catch (e) { res.status(500).json({ ok: false, error: e.message || 'Upload failed' }); }
+    });
+  });
+
   // ── PDF Upload ────────────────────────────────────────────────────────────
   app.post('/api/materials/upload', (req, res) => {
     pdfUpload.single('file')(req, res, async (err) => {
