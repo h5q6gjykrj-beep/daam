@@ -37,9 +37,9 @@ export function uploadPdfBuffer(buffer: Buffer, originalName: string): Promise<s
     cloudinary.uploader.upload_stream(
       {
         folder: 'daam/materials',
-        resource_type: 'raw',
+        resource_type: 'auto',
         public_id: publicId,
-        // preserve original filename as display name
+        flags: 'attachment',
         context: { original_name: originalName },
       },
       (err, result) => {
