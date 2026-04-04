@@ -59,6 +59,17 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  console.log("building api (vercel)...");
+  await esbuild({
+    entryPoints: ["api/index.ts"],
+    platform: "node",
+    bundle: true,
+    format: "esm",
+    outfile: "api/index.js",
+    packages: "external",
+    logLevel: "info",
+  });
 }
 
 buildAll().catch((err) => {
