@@ -307,10 +307,25 @@ export async function saveCampaignAttachment(file: File): Promise<CampaignAttach
   if (!kind) {
     throw new Error('Unsupported file type');
   }
-  
+
+  // Images are uploaded to Cloudinary; the returned URL is used as the id
+  // so it's accessible from any device.
+  if (kind === 'image') {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload/campaign-image', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Image upload failed');
+    }
+    const { url } = await res.json();
+    return { id: url, kind, name: file.name, mime: file.type, sizeBytes: file.size };
+  }
+
+  // Videos and files fall back to IndexedDB (device-local)
   const blob = new Blob([await file.arrayBuffer()], { type: file.type });
   const mediaId = await saveCampaignMedia(blob);
-  
+
   let durationSec: number | undefined;
   if (kind === 'video') {
     try {
@@ -320,15 +335,8 @@ export async function saveCampaignAttachment(file: File): Promise<CampaignAttach
       // Duration unknown
     }
   }
-  
-  return {
-    id: mediaId,
-    kind,
-    name: file.name,
-    mime: file.type,
-    sizeBytes: file.size,
-    durationSec
-  };
+
+  return { id: mediaId, kind, name: file.name, mime: file.type, sizeBytes: file.size, durationSec };
 }
 
 export async function getCampaignAttachmentBlob(mediaId: string): Promise<Blob | null> {

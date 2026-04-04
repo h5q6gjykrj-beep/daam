@@ -1338,6 +1338,18 @@ async function registerRoutes(httpServer2, app2) {
     }
     res.json({ ok: true });
   });
+  app2.post("/api/upload/campaign-image", (req, res) => {
+    imageUpload.single("file")(req, res, async (err) => {
+      if (err) return res.status(400).json({ ok: false, error: err.message || "Upload failed" });
+      if (!req.file) return res.status(400).json({ ok: false, error: "No file uploaded" });
+      try {
+        const url = await uploadImageBuffer(req.file.buffer);
+        res.json({ ok: true, url });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message || "Upload failed" });
+      }
+    });
+  });
   app2.post("/api/materials/upload", (req, res) => {
     pdfUpload.single("file")(req, res, async (err) => {
       if (err) {

@@ -194,6 +194,15 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
 
     const mediaId = imageAtt.id;
 
+    // New uploads store a Cloudinary URL as the id — use it directly.
+    if (mediaId.startsWith('https://') || mediaId.startsWith('http://')) {
+      setThumbUrl(mediaId);
+      setThumbLoading(false);
+      setThumbError(false);
+      return;
+    }
+
+    // Legacy: id is an IndexedDB key — load blob locally.
     if (thumbCache.has(mediaId)) {
       setThumbUrl(thumbCache.get(mediaId)!);
       setThumbLoading(false);
@@ -217,7 +226,6 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
           return;
         }
 
-        // Detect MIME type from filename or use blob type
         let mimeType = blob.type;
         if (!mimeType || mimeType === 'application/octet-stream') {
           const ext = imageAtt.name.toLowerCase().split('.').pop();
@@ -225,9 +233,8 @@ export function InFeedCampaignCard({ placement }: InFeedCampaignCardProps) {
           else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
           else if (ext === 'webp') mimeType = 'image/webp';
           else if (ext === 'gif') mimeType = 'image/gif';
-          else mimeType = 'image/png'; // fallback
+          else mimeType = 'image/png';
         }
-        // Create new blob with correct MIME type
         const typedBlob = new Blob([blob], { type: mimeType });
         const url = URL.createObjectURL(typedBlob);
         thumbCache.set(mediaId, url);
