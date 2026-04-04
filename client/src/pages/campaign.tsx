@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDaamStore } from '@/hooks/use-daam-store';
-import { getCampaignById } from '@/lib/campaign-storage';
+import { getCampaignById, loadCampaignsFromApi } from '@/lib/campaign-storage';
 import { getCampaignAttachmentBlob } from '@/lib/campaign-media';
 import { CampaignModal } from '@/components/campaigns/CampaignModal';
 import type { Campaign } from '@/types/campaign';
@@ -47,13 +47,15 @@ export default function CampaignPage() {
   useEffect(() => {
     if (id) {
       document.title = `DAAM | ${t.pageTitle}`;
-      const found = getCampaignById(id);
-      setCampaign(found || null);
-      setLoading(false);
-
-      if (found) {
-        document.title = `DAAM | ${lang === 'ar' ? found.title.ar : found.title.en}`;
-      }
+      setLoading(true);
+      loadCampaignsFromApi().then(() => {
+        const found = getCampaignById(id);
+        setCampaign(found || null);
+        setLoading(false);
+        if (found) {
+          document.title = `DAAM | ${lang === 'ar' ? found.title.ar : found.title.en}`;
+        }
+      });
     }
   }, [id, lang, t.pageTitle]);
 
