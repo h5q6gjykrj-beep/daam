@@ -1,6 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
-import { registerRoutes } from '../server/routes';
+import { registerRoutes } from './routes';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
