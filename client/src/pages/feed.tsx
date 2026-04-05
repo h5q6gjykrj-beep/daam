@@ -309,20 +309,19 @@ export default function Feed() {
         });
       }
     } else if (isImage) {
-      // Show images in dialog
-      if (blob) {
+      if (attachment.url.startsWith('https://') || attachment.url.startsWith('http://')) {
+        // Cloudinary URL — use directly
+        setViewerContent({ url: attachment.url, blobUrl: attachment.url, name: attachment.name, type: 'image' });
+        setViewerOpen(true);
+      } else if (blob) {
+        // Legacy base64
         const blobUrl = URL.createObjectURL(blob);
-        setViewerContent({
-          url: attachment.url,
-          blobUrl: blobUrl,
-          name: attachment.name,
-          type: 'image'
-        });
+        setViewerContent({ url: attachment.url, blobUrl, name: attachment.name, type: 'image' });
         setViewerOpen(true);
       } else {
         toast({
           title: lang === 'ar' ? 'خطأ' : 'Error',
-          description: lang === 'ar' ? 'تعذر فتح الملف' : 'Could not open file',
+          description: lang === 'ar' ? 'تعذر فتح الصورة' : 'Could not open image',
           variant: 'destructive'
         });
       }
