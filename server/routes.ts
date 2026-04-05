@@ -26,13 +26,13 @@ const videoUpload = multer({
   },
 });
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/tiff', 'image/bmp', 'image/svg+xml'];
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Images only (JPEG/PNG/WebP/GIF)"));
+    else cb(new Error("Images only (JPEG/PNG/WebP/GIF/HEIC/HEIF/TIFF/BMP/SVG)"));
   },
 });
 

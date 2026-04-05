@@ -792,7 +792,13 @@ cloudinary.config({
 function uploadImageBuffer(buffer) {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
-      { folder: "daam/images", resource_type: "image" },
+      {
+        folder: "daam/images",
+        resource_type: "image",
+        transformation: [
+          { quality: "auto", fetch_format: "auto", width: 2e3, crop: "limit" }
+        ]
+      },
       (err, result) => {
         if (err || !result) return reject(err ?? new Error("Upload failed"));
         resolve(result.secure_url);
@@ -875,13 +881,13 @@ var videoUpload = multer({
     else cb(new Error("Videos only (MP4/WebM)"));
   }
 });
-var ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+var ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif", "image/tiff", "image/bmp", "image/svg+xml"];
 var imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Images only (JPEG/PNG/WebP/GIF)"));
+    else cb(new Error("Images only (JPEG/PNG/WebP/GIF/HEIC/HEIF/TIFF/BMP/SVG)"));
   }
 });
 async function registerRoutes(httpServer2, app2) {

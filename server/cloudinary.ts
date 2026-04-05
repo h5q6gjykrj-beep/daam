@@ -10,7 +10,13 @@ cloudinary.config({
 export function uploadImageBuffer(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
-      { folder: 'daam/images', resource_type: 'image' },
+      {
+        folder: 'daam/images',
+        resource_type: 'image',
+        transformation: [
+          { quality: 'auto', fetch_format: 'auto', width: 2000, crop: 'limit' },
+        ],
+      },
       (err, result) => {
         if (err || !result) return reject(err ?? new Error('Upload failed'));
         resolve(result.secure_url);
