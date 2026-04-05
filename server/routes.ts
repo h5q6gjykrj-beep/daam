@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import https from "https";
 import multer from "multer";
 import path from "path";
 import * as store from "./storage";
@@ -581,7 +582,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(400).json({ ok: false, error: 'Could not generate signed URL' });
     }
 
-    res.redirect(302, signedUrl);
+    https.get(signedUrl, (upstream) => {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+      if (upstream.headers['content-length']) {
+        res.setHeader('Content-Length', upstream.headers['content-length']);
+      }
+      upstream.pipe(res);
+    }).on('error', () => {
+      if (!res.headersSent) res.status(502).json({ ok: false, error: 'Failed to fetch file' });
+    });
   });
 
   return httpServer;

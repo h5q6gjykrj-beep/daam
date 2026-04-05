@@ -72,7 +72,6 @@ export function generateSignedUrl(url: string): string | null {
     resource_type: 'raw',
     sign_url: true,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
-    flags: 'inline',
     secure: true,
   });
 }
