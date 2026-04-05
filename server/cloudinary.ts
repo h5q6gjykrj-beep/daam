@@ -68,9 +68,11 @@ export function generateSignedUrl(url: string): string | null {
   const publicId = extractPublicId(url, 'raw');
   if (!publicId) return null;
   return cloudinary.url(publicId, {
+    type: 'upload',
     resource_type: 'raw',
     sign_url: true,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
+    flags: 'inline',
     secure: true,
   });
 }
