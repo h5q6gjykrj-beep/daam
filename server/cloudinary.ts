@@ -37,9 +37,8 @@ export function uploadPdfBuffer(buffer: Buffer, originalName: string): Promise<s
     cloudinary.uploader.upload_stream(
       {
         folder: 'daam/materials',
-        resource_type: 'auto',
+        resource_type: 'raw',
         public_id: publicId,
-        flags: 'attachment',
         context: { original_name: originalName },
       },
       (err, result) => {
@@ -62,6 +61,18 @@ function extractPublicId(url: string, resourceType: 'image' | 'raw'): string | n
     if (resourceType === 'image') id = id.replace(/\.[^/.]+$/, '');
     return id;
   } catch { return null; }
+}
+
+/** Generates a signed Cloudinary URL valid for 1 hour for inline PDF viewing. */
+export function generateSignedUrl(url: string): string | null {
+  const publicId = extractPublicId(url, 'raw');
+  if (!publicId) return null;
+  return cloudinary.url(publicId, {
+    resource_type: 'raw',
+    sign_url: true,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    secure: true,
+  });
 }
 
 export async function deleteCloudinaryFile(url: string, resourceType: 'image' | 'raw'): Promise<void> {

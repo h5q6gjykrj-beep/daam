@@ -9,8 +9,6 @@ import express from "express";
 import { createServer } from "http";
 
 // server/routes.ts
-import https from "https";
-import http from "http";
 import multer from "multer";
 import path from "path";
 
@@ -818,9 +816,8 @@ function uploadPdfBuffer(buffer, originalName) {
     cloudinary.uploader.upload_stream(
       {
         folder: "daam/materials",
-        resource_type: "auto",
+        resource_type: "raw",
         public_id: publicId,
-        flags: "attachment",
         context: { original_name: originalName }
       },
       (err, result) => {
@@ -841,6 +838,16 @@ function extractPublicId(url, resourceType) {
   } catch {
     return null;
   }
+}
+function generateSignedUrl(url) {
+  const publicId = extractPublicId(url, "raw");
+  if (!publicId) return null;
+  return cloudinary.url(publicId, {
+    resource_type: "raw",
+    sign_url: true,
+    expires_at: Math.floor(Date.now() / 1e3) + 3600,
+    secure: true
+  });
 }
 async function deleteCloudinaryFile(url, resourceType) {
   const publicId = extractPublicId(url, resourceType);
@@ -1439,17 +1446,11 @@ async function registerRoutes(httpServer2, app2) {
     if (!parsed.hostname.endsWith("cloudinary.com")) {
       return res.status(403).json({ ok: false, error: "Forbidden" });
     }
-    const transport = parsed.protocol === "https:" ? https : http;
-    transport.get(url, (upstream) => {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline");
-      if (upstream.headers["content-length"]) {
-        res.setHeader("Content-Length", upstream.headers["content-length"]);
-      }
-      upstream.pipe(res);
-    }).on("error", () => {
-      if (!res.headersSent) res.status(502).json({ ok: false, error: "Failed to fetch file" });
-    });
+    const signedUrl = generateSignedUrl(url);
+    if (!signedUrl) {
+      return res.status(400).json({ ok: false, error: "Could not generate signed URL" });
+    }
+    res.redirect(302, signedUrl);
   });
   return httpServer2;
 }

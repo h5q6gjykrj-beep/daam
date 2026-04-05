@@ -1,11 +1,9 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import https from "https";
-import http from "http";
 import multer from "multer";
 import path from "path";
 import * as store from "./storage";
-import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile } from "./cloudinary";
+import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile, generateSignedUrl } from "./cloudinary";
 
 // All uploads go to memory then straight to Cloudinary — no local disk needed.
 const pdfUpload = multer({
@@ -559,9 +557,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── File Proxy (PDF inline viewer) ───────────────────────────────────────
-  // Fetches a Cloudinary URL server-side and pipes it to the browser with
-  // Content-Disposition: inline so the browser renders the PDF instead of
-  // downloading it (bypasses Cloudinary's attachment flag on the URL).
+  // Generates a signed Cloudinary URL (valid 1 hour) and redirects the
+  // browser to it, so the PDF opens inline without exposing the raw URL.
   app.get('/api/file-proxy', (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') {
@@ -575,22 +572,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(400).json({ ok: false, error: 'Invalid url' });
     }
 
-    // Only allow Cloudinary URLs
     if (!parsed.hostname.endsWith('cloudinary.com')) {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
 
-    const transport = parsed.protocol === 'https:' ? https : http;
-    transport.get(url, (upstream) => {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'inline');
-      if (upstream.headers['content-length']) {
-        res.setHeader('Content-Length', upstream.headers['content-length']);
-      }
-      upstream.pipe(res);
-    }).on('error', () => {
-      if (!res.headersSent) res.status(502).json({ ok: false, error: 'Failed to fetch file' });
-    });
+    const signedUrl = generateSignedUrl(url);
+    if (!signedUrl) {
+      return res.status(400).json({ ok: false, error: 'Could not generate signed URL' });
+    }
+
+    res.redirect(302, signedUrl);
   });
 
   return httpServer;
