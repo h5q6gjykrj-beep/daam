@@ -498,7 +498,7 @@ async function deleteModerator(modId) {
   await db.delete(moderators).where(eq(moderators.id, modId));
 }
 async function getAuthUserByEmail(email) {
-  const rows = await db.select().from(authUsers).where(eq(authUsers.email, email.toLowerCase())).limit(1);
+  const rows = await db.select().from(authUsers).where(sql2`LOWER(${authUsers.email}) = LOWER(${email})`).limit(1);
   if (!rows[0]) return void 0;
   const r = rows[0];
   return { id: r.id, email: r.email, passwordHash: r.passwordHash, role: r.role, linkedModeratorId: r.linkedModeratorId ?? void 0, createdAt: Number(r.createdAt) };
@@ -517,7 +517,7 @@ async function getAllAuthUsers() {
 async function createAuthUser(user) {
   await db.insert(authUsers).values({
     id: user.id,
-    email: user.email,
+    email: user.email.toLowerCase(),
     passwordHash: user.passwordHash,
     role: user.role,
     linkedModeratorId: user.linkedModeratorId,

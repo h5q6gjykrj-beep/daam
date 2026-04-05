@@ -231,7 +231,7 @@ export async function deleteModerator(modId: string): Promise<void> {
 }
 
 export async function getAuthUserByEmail(email: string): Promise<LocalAuthUser | undefined> {
-  const rows = await db.select().from(schema.authUsers).where(eq(schema.authUsers.email, email.toLowerCase())).limit(1);
+  const rows = await db.select().from(schema.authUsers).where(sql`LOWER(${schema.authUsers.email}) = LOWER(${email})`).limit(1);
   if (!rows[0]) return undefined;
   const r = rows[0];
   return { id: r.id, email: r.email, passwordHash: r.passwordHash, role: r.role as DaamRole, linkedModeratorId: r.linkedModeratorId ?? undefined, createdAt: Number(r.createdAt) };
@@ -247,7 +247,7 @@ export async function getAllAuthUsers(): Promise<LocalAuthUser[]> {
 
 export async function createAuthUser(user: LocalAuthUser): Promise<void> {
   await db.insert(schema.authUsers).values({
-    id: user.id, email: user.email, passwordHash: user.passwordHash,
+    id: user.id, email: user.email.toLowerCase(), passwordHash: user.passwordHash,
     role: user.role, linkedModeratorId: user.linkedModeratorId, createdAt: user.createdAt,
   }).onConflictDoUpdate({
     target: schema.authUsers.email,
