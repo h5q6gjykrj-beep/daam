@@ -129,6 +129,35 @@ export default function Feed() {
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB per file
   const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB total
+  const COMPRESS_THRESHOLD = 3 * 1024 * 1024; // compress if > 3MB
+  const COMPRESS_MAX_WIDTH = 1920;
+  const COMPRESS_QUALITY = 0.85;
+
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const scale = img.width > COMPRESS_MAX_WIDTH ? COMPRESS_MAX_WIDTH / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file);
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          COMPRESS_QUALITY
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -163,8 +192,11 @@ export default function Feed() {
       }
 
       try {
+        const uploadFile = file.type.startsWith('image/') && file.size > COMPRESS_THRESHOLD
+          ? await compressImage(file)
+          : file;
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', uploadFile);
         const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
