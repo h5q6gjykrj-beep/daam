@@ -196,7 +196,7 @@ export default function PostPage() {
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
-        window.open(attachment.url, '_blank', 'noopener,noreferrer');
+        window.open(`/api/file-proxy?url=${encodeURIComponent(attachment.url)}`, '_blank', 'noopener,noreferrer');
       }
     } else if (isImage && blob) {
       const blobUrl = URL.createObjectURL(blob);

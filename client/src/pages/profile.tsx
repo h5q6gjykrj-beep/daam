@@ -700,13 +700,7 @@ export default function Profile() {
 
   const openPdfFile = (attachment: Attachment) => {
     if (!attachment.url) return;
-    const blob = base64ToBlob(attachment.url, 'application/pdf');
-    if (blob) {
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      window.open(attachment.url, '_blank', 'noopener,noreferrer');
-    }
+    window.open(`/api/file-proxy?url=${encodeURIComponent(attachment.url)}`, '_blank', 'noopener,noreferrer');
   };
 
   const renderPostCard = (post: LocalPost, compact = false) => (
@@ -1048,7 +1042,7 @@ export default function Profile() {
                         if (item.kind === 'note') {
                           setViewingNote(item);
                         } else if (item.url) {
-                          window.open(item.url, '_blank', 'noopener,noreferrer');
+                          window.open(`/api/file-proxy?url=${encodeURIComponent(item.url)}`, '_blank', 'noopener,noreferrer');
                         }
                       }}
                       data-testid={`material-${item.id}`}
@@ -1200,7 +1194,7 @@ export default function Profile() {
                                 <Badge 
                                   variant="outline" 
                                   className="text-xs cursor-pointer gap-1"
-                                  onClick={() => window.open(item.pdfUrl, '_blank', 'noopener,noreferrer')}
+                                  onClick={() => window.open(`/api/file-proxy?url=${encodeURIComponent(item.pdfUrl!)}`, '_blank', 'noopener,noreferrer')}
                                   data-testid={`badge-pdf-research-${item.id}`}
                                 >
                                   <FileText className="w-3 h-3" />
@@ -3505,7 +3499,7 @@ export default function Profile() {
                                 const blobUrl = URL.createObjectURL(blob);
                                 window.open(blobUrl, '_blank');
                               } catch {
-                                window.open(file.url, '_blank');
+                                window.open(`/api/file-proxy?url=${encodeURIComponent(file.url)}`, '_blank');
                               }
                             } else if (file.url) {
                               const link = document.createElement('a');

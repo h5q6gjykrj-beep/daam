@@ -258,10 +258,13 @@ export default function Feed() {
     const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
     
     if (isPdf) {
-      // Open PDF directly in new tab for full viewing with scrolling
       if (blob) {
+        // Legacy base64 attachment
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
+      } else if (attachment.url.startsWith('http')) {
+        // Cloudinary URL — open via proxy for inline display
+        window.open(`/api/file-proxy?url=${encodeURIComponent(attachment.url)}`, '_blank');
       } else {
         toast({
           title: lang === 'ar' ? 'خطأ' : 'Error',
