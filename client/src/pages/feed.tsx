@@ -164,7 +164,7 @@ export default function Feed() {
 
       try {
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('file', file);
         const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
