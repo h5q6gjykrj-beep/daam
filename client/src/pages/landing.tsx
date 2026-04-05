@@ -536,7 +536,7 @@ export default function Landing() {
           </div>
           
           <p className="text-center text-xs text-muted-foreground mt-8">
-            &copy; 2024 DAAM - {lang === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved'}
+            &copy; 2026 DAAM - {lang === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved'}
           </p>
         </div>
       </footer>
