@@ -308,15 +308,6 @@ export default function Landing() {
                 {tr.startNow}
                 {isRTL ? <ArrowLeft className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
               </Button>
-              <Button 
-                size="lg"
-                variant="outline"
-                onClick={() => setLocation('/login')}
-                className="border-white/20 hover:bg-white/5 text-lg h-12 px-8"
-                data-testid="button-enter-arena"
-              >
-                {tr.enterArena}
-              </Button>
             </div>
           </motion.div>
         </div>
