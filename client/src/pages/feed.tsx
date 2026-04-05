@@ -166,7 +166,10 @@ export default function Feed() {
         const formData = new FormData();
         formData.append('image', file);
         const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Upload failed');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Upload failed');
+        }
         const { url } = await res.json();
         newAttachments.push({
           type: file.type.startsWith('image/') ? 'image' : 'file',
@@ -174,10 +177,11 @@ export default function Feed() {
           name: file.name,
           size: file.size
         });
-      } catch {
+      } catch (e: any) {
+        console.error('Image upload error:', e);
         toast({
           title: lang === 'ar' ? 'فشل الرفع' : 'Upload failed',
-          description: lang === 'ar' ? `فشل رفع ${file.name}` : `Failed to upload ${file.name}`,
+          description: e.message || (lang === 'ar' ? `فشل رفع ${file.name}` : `Failed to upload ${file.name}`),
           variant: 'destructive'
         });
         continue;
