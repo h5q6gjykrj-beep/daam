@@ -25,7 +25,7 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 // Attachment validation limits
 export const ATTACHMENT_LIMITS = {
   image: {
-    maxSizeBytes: 2 * 1024 * 1024, // 2MB
+    maxSizeBytes: 10 * 1024 * 1024, // 10MB
     maxCount: 5,
     allowedMimes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
   },
