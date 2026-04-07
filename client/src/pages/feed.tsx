@@ -2011,6 +2011,9 @@ export default function Feed() {
                       className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
                       autoFocus
                       dir={isRTL ? 'rtl' : 'ltr'}
+                      inputMode="text"
+                      autoComplete="off"
+                      autoCorrect="off"
                       data-testid="textarea-composer"
                     />
                   </div>

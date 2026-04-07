@@ -117,7 +117,7 @@ export default function Messages() {
   // Restore focus to input when conversation is open
   useEffect(() => {
     if (selectedConversation && mobileView === 'chat') {
-      requestAnimationFrame(() => messageInputRef.current?.focus());
+      requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     }
   }, [selectedConversation?.id, mobileView]);
 
@@ -160,7 +160,7 @@ export default function Messages() {
     
     if (result.success) {
       setMessageInput("");
-      requestAnimationFrame(() => messageInputRef.current?.focus());
+      requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     } else {
       if (result.error === 'dm_closed') {
         toast({ title: tr.error, description: tr.dmClosed, variant: 'destructive' });
@@ -346,6 +346,9 @@ export default function Messages() {
                   }
                 }}
                 disabled={isSending}
+                inputMode="text"
+                autoComplete="off"
+                autoCorrect="off"
                 data-testid="input-message"
               />
               <Button
