@@ -40,8 +40,7 @@ export default function Messages() {
   const [isSending, setIsSending] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const lastMarkedConvId = useRef<string | null>(null);
-  const messageInputRef = useRef<HTMLInputElement | null>(null);
+const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   const tr = {
     title: lang === 'ar' ? 'الرسائل' : 'Messages',
@@ -101,13 +100,12 @@ export default function Messages() {
   // Get messages for selected conversation
   const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
   
-  // Mark as read when opening conversation (only once per conversation)
+  // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
-    if (selectedConversation && user?.email && lastMarkedConvId.current !== selectedConversation.id) {
-      lastMarkedConvId.current = selectedConversation.id;
+    if (selectedConversation && user?.email) {
       markConversationRead(selectedConversation.id, user.email);
     }
-  }, [selectedConversation?.id, user?.email, markConversationRead]);
+  }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
