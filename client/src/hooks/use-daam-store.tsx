@@ -227,6 +227,7 @@ interface DaamStoreContextType {
   getUnreadConversationCount: (userEmail: string) => number;
   canSendDM: (targetEmail: string) => { allowed: boolean; reason?: string };
   refreshMessages: () => Promise<void>;
+  refreshPosts: () => Promise<void>;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -320,7 +321,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         const fetchedPosts: LocalPost[] = data || [];
         setPosts(prev => {
           if (fetchedPosts.length === prev.length &&
-              fetchedPosts[0]?.id === prev[0]?.id) return prev;
+              fetchedPosts[0]?.id === prev[0]?.id &&
+              fetchedPosts.every((p, i) => (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0))) return prev;
           return fetchedPosts;
         });
       } catch {}
@@ -902,6 +904,19 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  const refreshPosts = useCallback(async (): Promise<void> => {
+    try {
+      const data = await api('GET', '/api/posts');
+      const fetchedPosts: LocalPost[] = data || [];
+      setPosts(prev => {
+        if (fetchedPosts.length === prev.length &&
+            fetchedPosts[0]?.id === prev[0]?.id &&
+            fetchedPosts.every((p, i) => (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0))) return prev;
+        return fetchedPosts;
+      });
+    } catch {}
+  }, []);
+
   const value: DaamStoreContextType = {
     user, lang, theme, posts, profiles, accounts, pendingVerification, isLoading,
     t: DICTIONARY[lang], login, loginSimple, logout, register, resetPassword, changePassword, verifyEmail,
@@ -915,7 +930,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     bans, banUserWithDuration, unbanUserRecord, isUserBanned, getBanRecord,
     conversations, directMessages, getOrCreateConversation, getConversationsForUser,
     getMessages, sendDirectMessage, markConversationRead, getUnreadConversationCount, canSendDM,
-    refreshMessages,
+    refreshMessages, refreshPosts,
   };
 
   return <DaamStoreContext.Provider value={value}>{children}</DaamStoreContext.Provider>;

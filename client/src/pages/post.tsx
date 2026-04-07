@@ -16,18 +16,24 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LocalReply, Attachment } from "@shared/schema";
 
 export default function PostPage() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, editReply, canCurrentUser, addAuditEvent } = useDaamStore();
+  const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, editReply, canCurrentUser, addAuditEvent, refreshPosts } = useDaamStore();
   const { toast } = useToast();
   const isRTL = lang === 'ar';
 
   const post = posts.find(p => p.id === params.id);
+
+  // Poll for new replies every 10 seconds while viewing a post
+  useEffect(() => {
+    const interval = setInterval(() => { refreshPosts(); }, 10_000);
+    return () => clearInterval(interval);
+  }, [refreshPosts]);
 
   const [replyContent, setReplyContent] = useState("");
   const [expandedReplies, setExpandedReplies] = useState(true);
