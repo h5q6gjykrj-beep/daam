@@ -41,6 +41,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  app.get('/api/stats/users-count', async (_req, res) => {
+    try {
+      const accounts = await store.getAllAccounts();
+      const count = Object.keys(accounts).length;
+      res.json({ count });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Load All (initial page load) ──────────────────────────────────────────
   app.get('/api/data', async (_req, res) => {
     try {

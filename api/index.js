@@ -892,6 +892,15 @@ var imageUpload = multer({
 });
 async function registerRoutes(httpServer2, app2) {
   app2.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  app2.get("/api/stats/users-count", async (_req, res) => {
+    try {
+      const accounts2 = await getAllAccounts();
+      const count = Object.keys(accounts2).length;
+      res.json({ count });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
   app2.get("/api/data", async (_req, res) => {
     try {
       const data = await loadAllData();

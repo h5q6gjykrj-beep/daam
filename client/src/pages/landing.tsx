@@ -61,6 +61,14 @@ export default function Landing() {
   // Landing Navbar config - reactive to admin changes
   const [landingNavbarConfig, setLandingNavbarConfig] = useState<LandingNavbarConfig>(getLandingNavbarConfig());
 
+  const [usersCount, setUsersCount] = useState<number | null>(null);
+  useEffect(() => {
+    fetch('/api/stats/users-count')
+      .then(r => r.json())
+      .then(d => setUsersCount(d.count))
+      .catch(() => {});
+  }, []);
+
   const loadFromApi = async () => {
     const [pages, cards, navCfg] = await Promise.all([
       loadSetting<OfficialPage[]>(OFFICIAL_PAGES_KEY, []),
@@ -337,7 +345,7 @@ export default function Landing() {
             >
               <Card className="p-4 text-center bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
                 <Users className="w-8 h-8 mx-auto mb-2 text-blue-400" />
-                <p className="text-2xl font-bold">{Math.max(todayPosts.length * 3, 12)}</p>
+                <p className="text-2xl font-bold">{usersCount ?? '...'}</p>
                 <p className="text-sm text-muted-foreground">{tr.studentsOnline}</p>
               </Card>
             </motion.div>
