@@ -12,6 +12,7 @@ import { createServer } from "http";
 import https from "https";
 import multer from "multer";
 import path from "path";
+import { WebSocketServer, WebSocket } from "ws";
 
 // server/storage.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -864,6 +865,21 @@ async function deleteCloudinaryFile(url, resourceType) {
 }
 
 // server/routes.ts
+var wsClients = /* @__PURE__ */ new Map();
+function wsRegister(email, ws) {
+  if (!wsClients.has(email)) wsClients.set(email, /* @__PURE__ */ new Set());
+  wsClients.get(email).add(ws);
+}
+function wsUnregister(email, ws) {
+  wsClients.get(email)?.delete(ws);
+  if (wsClients.get(email)?.size === 0) wsClients.delete(email);
+}
+function wsBroadcastToUser(email, data) {
+  const payload = JSON.stringify(data);
+  wsClients.get(email.toLowerCase())?.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+  });
+}
 var pdfUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -891,6 +907,18 @@ var imageUpload = multer({
   }
 });
 async function registerRoutes(httpServer2, app2) {
+  const wss = new WebSocketServer({ server: httpServer2, path: "/ws" });
+  wss.on("connection", (ws, req) => {
+    const url = new URL(req.url ?? "/", `ws://localhost`);
+    const email = url.searchParams.get("email")?.toLowerCase();
+    if (!email) {
+      ws.close();
+      return;
+    }
+    wsRegister(email, ws);
+    ws.on("close", () => wsUnregister(email, ws));
+    ws.on("error", () => wsUnregister(email, ws));
+  });
   app2.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app2.get("/api/stats/users-count", async (_req, res) => {
     try {
@@ -1243,8 +1271,14 @@ async function registerRoutes(httpServer2, app2) {
   });
   app2.post("/api/messages", async (req, res) => {
     try {
-      await createMessage(req.body);
+      const msg = req.body;
+      await createMessage(msg);
       res.json({ ok: true });
+      const conv = (await getConversations()).find((c) => c.id === msg.conversationId);
+      if (conv) {
+        const payload = { type: "new_message", message: msg, conversationId: msg.conversationId };
+        conv.participants.forEach((email) => wsBroadcastToUser(email, payload));
+      }
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
