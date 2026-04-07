@@ -904,6 +904,53 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  // ── Global WebSocket for real-time DMs (active for entire session) ────────
+  useEffect(() => {
+    if (!user?.email) return;
+    let destroyed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let ws: WebSocket | null = null;
+
+    function connect() {
+      if (destroyed) return;
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${window.location.host}/ws?email=${encodeURIComponent(user!.email)}`);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'new_message') {
+            const msg: DirectMessage = data.message;
+            setDirectMessages(prev =>
+              prev.some(m => m.id === msg.id) ? prev : [...prev, msg]
+            );
+            setConversations(prev => prev.map(c => {
+              if (c.id !== msg.conversationId) return c;
+              const myEmail = user!.email.toLowerCase();
+              const isOwn = msg.senderEmail === myEmail;
+              const unreadCount = isOwn
+                ? c.unreadCount
+                : { ...c.unreadCount, [myEmail]: (c.unreadCount?.[myEmail] ?? 0) + 1 };
+              return { ...c, lastMessageAt: msg.sentAt, lastMessagePreview: msg.content.slice(0, 50), unreadCount };
+            }));
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        if (!destroyed) reconnectTimer = setTimeout(connect, 5000);
+      };
+      ws.onerror = () => ws?.close();
+    }
+
+    connect();
+    return () => {
+      destroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
+    };
+  }, [user?.email]);
+
   const refreshPosts = useCallback(async (): Promise<void> => {
     try {
       const data = await api('GET', '/api/posts');
