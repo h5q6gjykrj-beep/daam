@@ -119,11 +119,57 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, mobileView]);
 
-  // Poll for new messages every 10 seconds
+  // WebSocket connection for real-time messages (fallback to polling if WS unavailable)
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsConnectedRef = useRef(false);
+
   useEffect(() => {
-    const interval = setInterval(() => { refreshMessages(); }, 10_000);
-    return () => clearInterval(interval);
-  }, [refreshMessages]);
+    if (!user?.email) return;
+
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let destroyed = false;
+
+    function connect() {
+      if (destroyed) return;
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const ws = new WebSocket(`${proto}://${window.location.host}/ws?email=${encodeURIComponent(user!.email)}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => { wsConnectedRef.current = true; };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'new_message') {
+            refreshMessages();
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        wsConnectedRef.current = false;
+        wsRef.current = null;
+        if (!destroyed) reconnectTimer = setTimeout(connect, 5000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+
+    // Fallback polling — runs at reduced frequency when WS is connected
+    const interval = setInterval(() => {
+      if (!wsConnectedRef.current) refreshMessages();
+    }, 10_000);
+
+    return () => {
+      destroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearInterval(interval);
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [user?.email, refreshMessages]);
   
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
