@@ -17,9 +17,9 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 
 export default function Messages() {
-  const { 
-    user, 
-    lang, 
+  const {
+    user,
+    lang,
     getProfile,
     conversations,
     getConversationsForUser,
@@ -27,7 +27,8 @@ export default function Messages() {
     getMessages,
     sendDirectMessage,
     markConversationRead,
-    canSendDM
+    canSendDM,
+    refreshMessages,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -119,6 +120,12 @@ export default function Messages() {
       requestAnimationFrame(() => messageInputRef.current?.focus());
     }
   }, [selectedConversation?.id, mobileView]);
+
+  // Poll for new messages every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => { refreshMessages(); }, 10_000);
+    return () => clearInterval(interval);
+  }, [refreshMessages]);
   
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {

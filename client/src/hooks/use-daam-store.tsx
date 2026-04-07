@@ -226,6 +226,7 @@ interface DaamStoreContextType {
   markConversationRead: (conversationId: string, userEmail: string) => void;
   getUnreadConversationCount: (userEmail: string) => number;
   canSendDM: (targetEmail: string) => { allowed: boolean; reason?: string };
+  refreshMessages: () => Promise<void>;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -310,6 +311,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
   }, [lang]);
+
+  // ── Posts polling (every 30s) ─────────────────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const data = await api('GET', '/api/posts');
+        const fetchedPosts: LocalPost[] = data || [];
+        setPosts(prev => {
+          if (fetchedPosts.length === prev.length &&
+              fetchedPosts[0]?.id === prev[0]?.id) return prev;
+          return fetchedPosts;
+        });
+      } catch {}
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
@@ -874,6 +891,17 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return conversations.filter(c => c.participants.includes(email) && (c.unreadCount?.[email] ?? 0) > 0).length;
   }, [conversations]);
 
+  const refreshMessages = useCallback(async (): Promise<void> => {
+    try {
+      const [convData, msgData] = await Promise.all([
+        api('GET', '/api/conversations'),
+        api('GET', '/api/messages'),
+      ]);
+      setConversations(convData || []);
+      setDirectMessages(msgData || []);
+    } catch {}
+  }, []);
+
   const value: DaamStoreContextType = {
     user, lang, theme, posts, profiles, accounts, pendingVerification, isLoading,
     t: DICTIONARY[lang], login, loginSimple, logout, register, resetPassword, changePassword, verifyEmail,
@@ -887,6 +915,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     bans, banUserWithDuration, unbanUserRecord, isUserBanned, getBanRecord,
     conversations, directMessages, getOrCreateConversation, getConversationsForUser,
     getMessages, sendDirectMessage, markConversationRead, getUnreadConversationCount, canSendDM,
+    refreshMessages,
   };
 
   return <DaamStoreContext.Provider value={value}>{children}</DaamStoreContext.Provider>;
