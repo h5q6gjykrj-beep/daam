@@ -903,7 +903,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         api('GET', '/api/messages'),
       ]);
       const activeId = activeConversationIdRef.current;
-      const userEmail = JSON.parse(localStorage.getItem('daam_user') || 'null')?.email?.toLowerCase();
+      const userEmail = (localStorage.getItem('daam_user') || '').toLowerCase() || undefined;
       const fetchedConvs: Conversation[] = (convData || []).map((c: Conversation) => {
         // Don't increment unread for the currently open conversation
         if (activeId && c.id === activeId && userEmail) {
