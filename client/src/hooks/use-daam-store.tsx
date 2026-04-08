@@ -904,13 +904,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       ]);
       const activeId = activeConversationIdRef.current;
       const userEmail = JSON.parse(localStorage.getItem('daam_user') || 'null')?.email?.toLowerCase();
-      setConversations((convData || []).map((c: Conversation) => {
+      const fetchedConvs: Conversation[] = (convData || []).map((c: Conversation) => {
         if (activeId && c.id === activeId && userEmail) {
           return { ...c, unreadCount: { ...c.unreadCount, [userEmail]: 0 } };
         }
         return c;
-      }));
-      setDirectMessages(msgData || []);
+      });
+      const fetchedMsgs: DirectMessage[] = msgData || [];
+      console.log('[refreshMessages] convs:', fetchedConvs.length, 'msgs:', fetchedMsgs.length, 'activeConv:', activeId);
+      setConversations(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(fetchedConvs)) return prev;
+        return fetchedConvs;
+      });
+      setDirectMessages(prev => {
+        if (prev.length === fetchedMsgs.length && fetchedMsgs[fetchedMsgs.length - 1]?.id === prev[prev.length - 1]?.id) return prev;
+        return fetchedMsgs;
+      });
     } catch {}
   }, []);
 
@@ -938,8 +947,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
               if (c.id !== msg.conversationId) return c;
               const myEmail = user!.email.toLowerCase();
               const isOwn = msg.senderEmail === myEmail;
-              const unreadCount = isOwn
-                ? c.unreadCount
+              const isActive = activeConversationIdRef.current === c.id;
+              const unreadCount = (isOwn || isActive)
+                ? { ...c.unreadCount, [myEmail]: 0 }
                 : { ...c.unreadCount, [myEmail]: (c.unreadCount?.[myEmail] ?? 0) + 1 };
               return { ...c, lastMessageAt: msg.sentAt, lastMessagePreview: msg.content.slice(0, 50), unreadCount };
             }));
