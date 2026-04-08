@@ -905,76 +905,38 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       const activeId = activeConversationIdRef.current;
       const userEmail = JSON.parse(localStorage.getItem('daam_user') || 'null')?.email?.toLowerCase();
       const fetchedConvs: Conversation[] = (convData || []).map((c: Conversation) => {
+        // Don't increment unread for the currently open conversation
         if (activeId && c.id === activeId && userEmail) {
           return { ...c, unreadCount: { ...c.unreadCount, [userEmail]: 0 } };
         }
         return c;
       });
       const fetchedMsgs: DirectMessage[] = msgData || [];
-      console.log('[refreshMessages] convs:', fetchedConvs.length, 'msgs:', fetchedMsgs.length, 'activeConv:', activeId);
       setConversations(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(fetchedConvs)) return prev;
-        return fetchedConvs;
+        // Update if count, ordering, unreadCount, or lastMessageAt changed
+        if (prev.length !== fetchedConvs.length) return fetchedConvs;
+        const changed = fetchedConvs.some((c, i) => {
+          const p = prev[i];
+          return c.id !== p.id
+            || c.lastMessageAt !== p.lastMessageAt
+            || JSON.stringify(c.unreadCount) !== JSON.stringify(p.unreadCount);
+        });
+        return changed ? fetchedConvs : prev;
       });
       setDirectMessages(prev => {
-        if (prev.length === fetchedMsgs.length && fetchedMsgs[fetchedMsgs.length - 1]?.id === prev[prev.length - 1]?.id) return prev;
+        if (prev.length === fetchedMsgs.length
+          && fetchedMsgs[fetchedMsgs.length - 1]?.id === prev[prev.length - 1]?.id) return prev;
         return fetchedMsgs;
       });
     } catch {}
   }, []);
 
-  // ── Global WebSocket for real-time DMs (active for entire session) ────────
+
+
+  // ── Messages polling (every 3s, active from any page after login) ──────────
   useEffect(() => {
     if (!user?.email) return;
-    let destroyed = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let ws: WebSocket | null = null;
-
-    function connect() {
-      if (destroyed) return;
-      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${window.location.host}/ws?email=${encodeURIComponent(user!.email)}`);
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'new_message') {
-            const msg: DirectMessage = data.message;
-            setDirectMessages(prev =>
-              prev.some(m => m.id === msg.id) ? prev : [...prev, msg]
-            );
-            setConversations(prev => prev.map(c => {
-              if (c.id !== msg.conversationId) return c;
-              const myEmail = user!.email.toLowerCase();
-              const isOwn = msg.senderEmail === myEmail;
-              const isActive = activeConversationIdRef.current === c.id;
-              const unreadCount = (isOwn || isActive)
-                ? { ...c.unreadCount, [myEmail]: 0 }
-                : { ...c.unreadCount, [myEmail]: (c.unreadCount?.[myEmail] ?? 0) + 1 };
-              return { ...c, lastMessageAt: msg.sentAt, lastMessagePreview: msg.content.slice(0, 50), unreadCount };
-            }));
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        if (!destroyed) reconnectTimer = setTimeout(connect, 5000);
-      };
-      ws.onerror = () => ws?.close();
-    }
-
-    connect();
-    return () => {
-      destroyed = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      ws?.close();
-    };
-  }, [user?.email]);
-
-  // ── Messages polling fallback (every 3s, works from any page) ────────────
-  useEffect(() => {
-    if (!user?.email) return;
-    const interval = setInterval(() => { refreshMessages(); }, 3_000);
+    const interval = setInterval(refreshMessages, 3_000);
     return () => clearInterval(interval);
   }, [user?.email, refreshMessages]);
 

@@ -3,72 +3,11 @@ import { createServer, type Server } from "http";
 import https from "https";
 import multer from "multer";
 import path from "path";
-import { WebSocketServer, WebSocket } from "ws";
 import * as store from "./storage";
 import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile, generateSignedUrl } from "./cloudinary";
 
-// ── WebSocket: track connected clients by email ───────────────────────────────
-const wsClients = new Map<string, Set<WebSocket>>();
-
-function wsRegister(email: string, ws: WebSocket) {
-  if (!wsClients.has(email)) wsClients.set(email, new Set());
-  wsClients.get(email)!.add(ws);
-}
-
-function wsUnregister(email: string, ws: WebSocket) {
-  wsClients.get(email)?.delete(ws);
-  if (wsClients.get(email)?.size === 0) wsClients.delete(email);
-}
-
-export function wsBroadcastToUser(email: string, data: object) {
-  const payload = JSON.stringify(data);
-  wsClients.get(email.toLowerCase())?.forEach(ws => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-  });
-}
-
-// All uploads go to memory then straight to Cloudinary — no local disk needed.
-const pdfUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf" && path.extname(file.originalname).toLowerCase() === ".pdf") cb(null, true);
-    else cb(new Error("PDF only"));
-  },
-});
-
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
-const videoUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_VIDEO_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Videos only (MP4/WebM)"));
-  },
-});
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/tiff', 'image/bmp', 'image/svg+xml'];
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Images only (JPEG/PNG/WebP/GIF/HEIC/HEIF/TIFF/BMP/SVG)"));
-  },
-});
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-
-  // ── WebSocket Server ──────────────────────────────────────────────────────
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  wss.on('connection', (ws, req) => {
-    const url = new URL(req.url ?? '/', `ws://localhost`);
-    const email = url.searchParams.get('email')?.toLowerCase();
-    if (!email) { ws.close(); return; }
-    wsRegister(email, ws);
-    ws.on('close', () => wsUnregister(email, ws));
-    ws.on('error', () => wsUnregister(email, ws));
-  });
 
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
@@ -406,15 +345,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post('/api/messages', async (req, res) => {
     try {
-      const msg = req.body;
-      await store.createMessage(msg);
+      await store.createMessage(req.body);
       res.json({ ok: true });
-      // Notify both participants in real-time
-      const conv = (await store.getConversations()).find((c: any) => c.id === msg.conversationId);
-      if (conv) {
-        const payload = { type: 'new_message', message: msg, conversationId: msg.conversationId };
-        (conv.participants as string[]).forEach((email: string) => wsBroadcastToUser(email, payload));
-      }
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
