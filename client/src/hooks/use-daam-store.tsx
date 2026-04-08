@@ -951,6 +951,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.email]);
 
+  // ── Messages polling fallback (every 3s, works from any page) ────────────
+  useEffect(() => {
+    if (!user?.email) return;
+    const interval = setInterval(() => { refreshMessages(); }, 3_000);
+    return () => clearInterval(interval);
+  }, [user?.email, refreshMessages]);
+
   const refreshPosts = useCallback(async (): Promise<void> => {
     try {
       const data = await api('GET', '/api/posts');

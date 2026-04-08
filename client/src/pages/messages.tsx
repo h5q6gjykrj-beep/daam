@@ -28,7 +28,6 @@ export default function Messages() {
     sendDirectMessage,
     markConversationRead,
     canSendDM,
-    refreshMessages,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -119,12 +118,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, mobileView]);
 
-  // Fallback polling — in case WebSocket is unavailable (e.g. Vercel serverless)
-  useEffect(() => {
-    const interval = setInterval(() => { refreshMessages(); }, 10_000);
-    return () => clearInterval(interval);
-  }, [refreshMessages]);
-  
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
     const otherEmail = conv.participants.find(p => p !== user?.email?.toLowerCase());
