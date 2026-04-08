@@ -28,6 +28,7 @@ export default function Messages() {
     sendDirectMessage,
     markConversationRead,
     canSendDM,
+    setActiveConversationId,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -166,13 +167,21 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   const handleSelectConversation = (conv: Conversation) => {
     setSelectedConversation(conv);
     setMobileView('chat');
+    setActiveConversationId(conv.id);
+    if (user?.email) markConversationRead(conv.id, user.email);
   };
   
   const handleBackToList = () => {
     setMobileView('list');
     setSelectedConversation(null);
+    setActiveConversationId(null);
   };
   
+  // Clear active conversation on page unmount
+  useEffect(() => {
+    return () => { setActiveConversationId(null); };
+  }, [setActiveConversationId]);
+
   // Redirect if not logged in
   if (!user) {
     navigate('/login');

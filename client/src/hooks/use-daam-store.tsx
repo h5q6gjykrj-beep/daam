@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from "react";
 import { type LocalPost, type LocalReply, type PostType, type PostStatus, type UserProfile, type Attachment, type UserAccount, type UserRole, type Region } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -228,6 +228,7 @@ interface DaamStoreContextType {
   canSendDM: (targetEmail: string) => { allowed: boolean; reason?: string };
   refreshMessages: () => Promise<void>;
   refreshPosts: () => Promise<void>;
+  setActiveConversationId: (id: string | null) => void;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -259,6 +260,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [bans, setBans] = useState<BanRecord[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const setActiveConversationId = (id: string | null) => { activeConversationIdRef.current = id; };
 
   // ── Initialize from API ───────────────────────────────────────────────────
   useEffect(() => {
@@ -899,7 +902,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         api('GET', '/api/conversations'),
         api('GET', '/api/messages'),
       ]);
-      setConversations(convData || []);
+      const activeId = activeConversationIdRef.current;
+      const userEmail = JSON.parse(localStorage.getItem('daam_user') || 'null')?.email?.toLowerCase();
+      setConversations((convData || []).map((c: Conversation) => {
+        if (activeId && c.id === activeId && userEmail) {
+          return { ...c, unreadCount: { ...c.unreadCount, [userEmail]: 0 } };
+        }
+        return c;
+      }));
       setDirectMessages(msgData || []);
     } catch {}
   }, []);
@@ -984,7 +994,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     bans, banUserWithDuration, unbanUserRecord, isUserBanned, getBanRecord,
     conversations, directMessages, getOrCreateConversation, getConversationsForUser,
     getMessages, sendDirectMessage, markConversationRead, getUnreadConversationCount, canSendDM,
-    refreshMessages, refreshPosts,
+    refreshMessages, refreshPosts, setActiveConversationId,
   };
 
   return <DaamStoreContext.Provider value={value}>{children}</DaamStoreContext.Provider>;
