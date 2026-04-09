@@ -261,6 +261,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
+  const messagesCache = useRef<Record<string, DirectMessage[]>>({});
   const setActiveConversationId = (id: string | null) => { activeConversationIdRef.current = id; };
 
   // ── Initialize from API ───────────────────────────────────────────────────
@@ -858,7 +859,16 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, [conversations]);
 
   const getMessages = useCallback((conversationId: string): DirectMessage[] => {
-    return directMessages.filter(m => m.conversationId === conversationId).sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+    const filtered = directMessages
+      .filter(m => m.conversationId === conversationId)
+      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+    const prev = messagesCache.current[conversationId];
+    if (prev && prev.length === filtered.length &&
+        filtered[filtered.length - 1]?.id === prev[prev.length - 1]?.id) {
+      return prev;
+    }
+    messagesCache.current[conversationId] = filtered;
+    return filtered;
   }, [directMessages]);
 
   const sendDirectMessage = useCallback((conversationId: string, senderEmail: string, content: string): { success: boolean; error?: string } => {
