@@ -356,6 +356,12 @@ export async function markMessagesRead(conversationId: string, userEmail: string
     if (!readBy.includes(userEmail))
       await db.update(schema.messages).set({ readBy: [...readBy, userEmail] }).where(eq(schema.messages.id, msg.id));
   }
+  // Zero out unreadCount for this user in the conversations table
+  const convRows = await db.select().from(schema.conversations).where(eq(schema.conversations.id, conversationId)).limit(1);
+  if (convRows[0]) {
+    const unreadCount = { ...((convRows[0].unreadCount as Record<string, number>) || {}), [userEmail]: 0 };
+    await db.update(schema.conversations).set({ unreadCount }).where(eq(schema.conversations.id, conversationId));
+  }
 }
 
 export async function getAllowedDomains(): Promise<string[]> {

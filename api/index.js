@@ -648,6 +648,11 @@ async function markMessagesRead(conversationId, userEmail) {
     if (!readBy.includes(userEmail))
       await db.update(messages).set({ readBy: [...readBy, userEmail] }).where(eq(messages.id, msg.id));
   }
+  const convRows = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+  if (convRows[0]) {
+    const unreadCount = { ...convRows[0].unreadCount || {}, [userEmail]: 0 };
+    await db.update(conversations).set({ unreadCount }).where(eq(conversations.id, conversationId));
+  }
 }
 async function getAllowedDomains() {
   const rows = await db.select().from(allowedDomains);
