@@ -261,6 +261,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
+  const directMessagesRef = useRef<DirectMessage[]>([]);
+  const conversationsRef = useRef<Conversation[]>([]);
   const messagesCache = useRef<Record<string, DirectMessage[]>>({});
   const convsCache = useRef<Record<string, Conversation[]>>({});
   const setActiveConversationId = (id: string | null) => { activeConversationIdRef.current = id; };
@@ -856,7 +858,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   const getConversationsForUser = useCallback((userEmail: string): Conversation[] => {
     const email = userEmail.toLowerCase();
-    const filtered = conversations
+    const filtered = conversationsRef.current
       .filter(c => c.participants.includes(email))
       .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
     const prev = convsCache.current[email];
@@ -868,10 +870,10 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     }
     convsCache.current[email] = filtered;
     return filtered;
-  }, [conversations]);
+  }, []);
 
   const getMessages = useCallback((conversationId: string): DirectMessage[] => {
-    const filtered = directMessages
+    const filtered = directMessagesRef.current
       .filter(m => m.conversationId === conversationId)
       .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
     const prev = messagesCache.current[conversationId];
@@ -881,7 +883,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     }
     messagesCache.current[conversationId] = filtered;
     return filtered;
-  }, [directMessages]);
+  }, []);
 
   const sendDirectMessage = useCallback((conversationId: string, senderEmail: string, content: string): { success: boolean; error?: string } => {
     const sender = senderEmail.toLowerCase();
@@ -954,6 +956,10 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
+
+  // ── Keep refs in sync with state ─────────────────────────────────────────
+  useEffect(() => { directMessagesRef.current = directMessages; }, [directMessages]);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
   // ── Messages polling (every 3s, active from any page after login) ──────────
   useEffect(() => {
