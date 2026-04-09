@@ -30,6 +30,9 @@ export default function Messages() {
     markConversationRead,
     canSendDM,
     setActiveConversationId,
+    posts,
+    mutes,
+    bans,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -102,6 +105,9 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       directMessagesLength: directMessages.length,
       markConversationRead,
       getMessages,
+      postsLength: posts.length,
+      mutesLength: mutes.length,
+      bansLength: bans.length,
     };
     const changes: string[] = [];
     Object.keys(current).forEach(key => {
