@@ -22,6 +22,7 @@ export default function Messages() {
     lang,
     getProfile,
     conversations,
+    directMessages,
     getConversationsForUser,
     getOrCreateConversation,
     getMessages,
@@ -96,6 +97,11 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       messageInput,
       userConvsLength: userConversations.length,
       currentConvLastMsg: currentConv?.lastMessageAt,
+      userEmail: user?.email,
+      conversationsLength: conversations.length,
+      directMessagesLength: directMessages.length,
+      markConversationRead,
+      getMessages,
     };
     const changes: string[] = [];
     Object.keys(current).forEach(key => {
