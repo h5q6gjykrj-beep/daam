@@ -262,6 +262,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
   const messagesCache = useRef<Record<string, DirectMessage[]>>({});
+  const convsCache = useRef<Record<string, Conversation[]>>({});
   const setActiveConversationId = (id: string | null) => { activeConversationIdRef.current = id; };
 
   // ── Initialize from API ───────────────────────────────────────────────────
@@ -855,7 +856,18 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   const getConversationsForUser = useCallback((userEmail: string): Conversation[] => {
     const email = userEmail.toLowerCase();
-    return conversations.filter(c => c.participants.includes(email)).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    const filtered = conversations
+      .filter(c => c.participants.includes(email))
+      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    const prev = convsCache.current[email];
+    if (prev && prev.length === filtered.length &&
+        filtered.every((c, i) => c.id === prev[i].id
+          && c.lastMessageAt === prev[i].lastMessageAt
+          && JSON.stringify(c.unreadCount) === JSON.stringify(prev[i].unreadCount))) {
+      return prev;
+    }
+    convsCache.current[email] = filtered;
+    return filtered;
   }, [conversations]);
 
   const getMessages = useCallback((conversationId: string): DirectMessage[] => {
