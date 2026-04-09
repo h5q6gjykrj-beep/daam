@@ -334,7 +334,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
             <div className="flex gap-2">
               <Input
                 ref={messageInputRef}
-                autoFocus
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={tr.typeMessage}
@@ -367,6 +366,18 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   return (
     <div className="h-full flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      {/* Fixed back button on mobile when chat is open */}
+      {mobileView === 'chat' && (
+        <Button
+          size="icon"
+          variant="secondary"
+          onClick={handleBackToList}
+          className="md:hidden fixed bottom-20 left-4 z-50 rounded-full shadow-lg w-10 h-10"
+          data-testid="button-back-fixed"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+      )}
       {/* Desktop layout: two columns */}
       <div className="hidden md:flex w-full">
         {/* Left column: conversation list */}
