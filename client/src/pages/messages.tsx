@@ -107,10 +107,14 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll only when a new message is added (not on data updates)
+  const prevMessagesLengthRef = useRef(0);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > prevMessagesLengthRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages.length]);
   
 
   // Get other participant's info
