@@ -83,6 +83,18 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Get messages for selected conversation
   const messages = currentConv ? getMessages(currentConv.id) : [];
+
+  // DEBUG: track re-renders
+  const renderCount = useRef(0);
+  useEffect(() => {
+    renderCount.current += 1;
+    console.log('[messages page render]', renderCount.current, {
+      selectedConvId: selectedConversation?.id,
+      messagesLength: messages.length,
+      mobileView,
+      messageInput
+    });
+  });
   
   // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
