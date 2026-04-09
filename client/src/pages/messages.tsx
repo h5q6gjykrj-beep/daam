@@ -112,12 +112,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  // Restore focus to input when conversation is open
-  useEffect(() => {
-    if (selectedConversation && mobileView === 'chat') {
-      requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
-    }
-  }, [selectedConversation?.id, mobileView]);
 
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
