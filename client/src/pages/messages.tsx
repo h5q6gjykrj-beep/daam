@@ -78,34 +78,18 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   // Get user's conversations
   const userConversations = user?.email ? getConversationsForUser(user.email) : [];
   
-  // Keep selectedConversation in sync with updated conversations state
-  // Use selectedConversationId ref to avoid infinite loops
-  const selectedConvId = selectedConversation?.id;
-  useEffect(() => {
-    if (selectedConvId) {
-      const updatedConv = conversations.find(c => c.id === selectedConvId);
-      if (updatedConv) {
-        setSelectedConversation(prev => {
-          if (!prev) return updatedConv;
-          if (prev.lastMessageAt !== updatedConv.lastMessageAt ||
-              prev.lastMessagePreview !== updatedConv.lastMessagePreview) {
-            return updatedConv;
-          }
-          return prev;
-        });
-      }
-    }
-  }, [conversations, selectedConvId]);
-  
+  // Derive latest conversation data from store without a sync useEffect
+  const currentConv = conversations.find(c => c.id === selectedConversation?.id) || selectedConversation;
+
   // Get messages for selected conversation
-  const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
+  const messages = currentConv ? getMessages(currentConv.id) : [];
   
   // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
-    if (selectedConversation && user?.email) {
-      markConversationRead(selectedConversation.id, user.email);
+    if (currentConv && user?.email) {
+      markConversationRead(currentConv.id, user.email);
     }
-  }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
+  }, [currentConv?.id, messages.length, user?.email, markConversationRead]);
   
   // Auto-scroll only when a new message is added (not on data updates)
   const prevMessagesLengthRef = useRef(0);
@@ -142,10 +126,10 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   };
   
   const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConversation || !user?.email) return;
+    if (!messageInput.trim() || !currentConv || !user?.email) return;
     
     setIsSending(true);
-    const result = sendDirectMessage(selectedConversation.id, user.email, messageInput.trim());
+    const result = sendDirectMessage(currentConv.id, user.email, messageInput.trim());
     setIsSending(false);
     
     if (result.success) {
@@ -251,7 +235,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Chat view component
   const ChatView = () => {
-    if (!selectedConversation) {
+    if (!currentConv) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
           <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
@@ -260,7 +244,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       );
     }
     
-    const other = getOtherParticipant(selectedConversation);
+    const other = getOtherParticipant(currentConv);
     const dmAllowed = other ? canSendDM(other.email) : { allowed: true };
     
     return (
