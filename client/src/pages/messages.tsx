@@ -22,7 +22,6 @@ export default function Messages() {
     lang,
     getProfile,
     conversations,
-    directMessages,
     getConversationsForUser,
     getOrCreateConversation,
     getMessages,
@@ -30,9 +29,6 @@ export default function Messages() {
     markConversationRead,
     canSendDM,
     setActiveConversationId,
-    posts,
-    mutes,
-    bans,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -82,58 +78,39 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   // Get user's conversations
   const userConversations = user?.email ? getConversationsForUser(user.email) : [];
   
-  // Derive latest conversation data from store without a sync useEffect
-  const currentConv = conversations.find(c => c.id === selectedConversation?.id) || selectedConversation;
-
-  // Get messages for selected conversation
-  const messages = currentConv ? getMessages(currentConv.id) : [];
-
-  // DEBUG: track re-renders and show what changed
-  const renderCount = useRef(0);
-  const prevProps = useRef<any>({});
+  // Keep selectedConversation in sync with updated conversations state
+  // Use selectedConversationId ref to avoid infinite loops
+  const selectedConvId = selectedConversation?.id;
   useEffect(() => {
-    renderCount.current += 1;
-    const current = {
-      selectedConvId: selectedConversation?.id,
-      messagesLength: messages.length,
-      mobileView,
-      messageInput,
-      userConvsLength: userConversations.length,
-      currentConvLastMsg: currentConv?.lastMessageAt,
-      userEmail: user?.email,
-      conversationsLength: conversations.length,
-      directMessagesLength: directMessages.length,
-      markConversationRead,
-      getMessages,
-      postsLength: posts.length,
-      mutesLength: mutes.length,
-      bansLength: bans.length,
-    };
-    const changes: string[] = [];
-    Object.keys(current).forEach(key => {
-      if ((current as any)[key] !== prevProps.current[key]) {
-        changes.push(`${key}: ${prevProps.current[key]} → ${(current as any)[key]}`);
+    if (selectedConvId) {
+      const updatedConv = conversations.find(c => c.id === selectedConvId);
+      if (updatedConv) {
+        setSelectedConversation(prev => {
+          if (!prev) return updatedConv;
+          if (prev.lastMessageAt !== updatedConv.lastMessageAt ||
+              prev.lastMessagePreview !== updatedConv.lastMessagePreview) {
+            return updatedConv;
+          }
+          return prev;
+        });
       }
-    });
-    console.log('[messages page render]', renderCount.current, changes.join(', ') || 'NO CHANGES');
-    prevProps.current = current;
-  });
+    }
+  }, [conversations, selectedConvId]);
+  
+  // Get messages for selected conversation
+  const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
   
   // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
-    if (currentConv && user?.email) {
-      markConversationRead(currentConv.id, user.email);
+    if (selectedConversation && user?.email) {
+      markConversationRead(selectedConversation.id, user.email);
     }
-  }, [currentConv?.id, messages.length, user?.email, markConversationRead]);
+  }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Auto-scroll only when a new message is added (not on data updates)
-  const prevMessagesLengthRef = useRef(0);
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length > prevMessagesLengthRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages.length]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
   
 
   // Get other participant's info
@@ -161,10 +138,10 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   };
   
   const handleSendMessage = () => {
-    if (!messageInput.trim() || !currentConv || !user?.email) return;
+    if (!messageInput.trim() || !selectedConversation || !user?.email) return;
     
     setIsSending(true);
-    const result = sendDirectMessage(currentConv.id, user.email, messageInput.trim());
+    const result = sendDirectMessage(selectedConversation.id, user.email, messageInput.trim());
     setIsSending(false);
     
     if (result.success) {
@@ -270,7 +247,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Chat view component
   const ChatView = () => {
-    if (!currentConv) {
+    if (!selectedConversation) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
           <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
@@ -279,7 +256,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       );
     }
     
-    const other = getOtherParticipant(currentConv);
+    const other = getOtherParticipant(selectedConversation);
     const dmAllowed = other ? canSendDM(other.email) : { allowed: true };
     
     return (

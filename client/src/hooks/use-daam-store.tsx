@@ -261,10 +261,6 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
-  const directMessagesRef = useRef<DirectMessage[]>([]);
-  const conversationsRef = useRef<Conversation[]>([]);
-  const messagesCache = useRef<Record<string, DirectMessage[]>>({});
-  const convsCache = useRef<Record<string, Conversation[]>>({});
   const setActiveConversationId = (id: string | null) => { activeConversationIdRef.current = id; };
 
   // ── Initialize from API ───────────────────────────────────────────────────
@@ -858,32 +854,12 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   const getConversationsForUser = useCallback((userEmail: string): Conversation[] => {
     const email = userEmail.toLowerCase();
-    const filtered = conversationsRef.current
-      .filter(c => c.participants.includes(email))
-      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-    const prev = convsCache.current[email];
-    if (prev && prev.length === filtered.length &&
-        filtered.every((c, i) => c.id === prev[i].id
-          && c.lastMessageAt === prev[i].lastMessageAt
-          && JSON.stringify(c.unreadCount) === JSON.stringify(prev[i].unreadCount))) {
-      return prev;
-    }
-    convsCache.current[email] = filtered;
-    return filtered;
-  }, []);
+    return conversations.filter(c => c.participants.includes(email)).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }, [conversations]);
 
   const getMessages = useCallback((conversationId: string): DirectMessage[] => {
-    const filtered = directMessagesRef.current
-      .filter(m => m.conversationId === conversationId)
-      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
-    const prev = messagesCache.current[conversationId];
-    if (prev && prev.length === filtered.length &&
-        filtered[filtered.length - 1]?.id === prev[prev.length - 1]?.id) {
-      return prev;
-    }
-    messagesCache.current[conversationId] = filtered;
-    return filtered;
-  }, []);
+    return directMessages.filter(m => m.conversationId === conversationId).sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  }, [directMessages]);
 
   const sendDirectMessage = useCallback((conversationId: string, senderEmail: string, content: string): { success: boolean; error?: string } => {
     const sender = senderEmail.toLowerCase();
@@ -956,10 +932,6 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
-
-  // ── Keep refs in sync with state ─────────────────────────────────────────
-  useEffect(() => { directMessagesRef.current = directMessages; }, [directMessages]);
-  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
   // ── Messages polling (every 3s, active from any page after login) ──────────
   useEffect(() => {
