@@ -28,7 +28,7 @@ export default function Messages() {
     sendDirectMessage,
     markConversationRead,
     canSendDM,
-    setActiveConversationId,
+    refreshMessages,
   } = useDaamStore();
   
   const [, navigate] = useLocation();
@@ -38,7 +38,6 @@ export default function Messages() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 const messageInputRef = useRef<HTMLInputElement | null>(null);
@@ -100,12 +99,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Get messages for selected conversation
   const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
-
-  // Freeze display while typing to prevent emoji/keyboard closing on polling re-render
-  const frozenMessages = useRef<typeof messages | null>(null);
-  const frozenUserConvs = useRef<typeof userConversations | null>(null);
-  const displayMessages = isTyping && frozenMessages.current !== null ? frozenMessages.current : messages;
-  const displayUserConvs = isTyping && frozenUserConvs.current !== null ? frozenUserConvs.current : userConversations;
   
   // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
@@ -114,14 +107,23 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Auto-scroll only when a new message is added
-  const prevMessagesLengthRef = useRef(0);
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length > prevMessagesLengthRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
+  // Restore focus to input when conversation is open
+  useEffect(() => {
+    if (selectedConversation && mobileView === 'chat') {
+      requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages.length]);
+  }, [selectedConversation?.id, mobileView]);
+
+  // Poll for new messages every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => { refreshMessages(); }, 10_000);
+    return () => clearInterval(interval);
+  }, [refreshMessages]);
   
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
@@ -171,21 +173,13 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   const handleSelectConversation = (conv: Conversation) => {
     setSelectedConversation(conv);
     setMobileView('chat');
-    setActiveConversationId(conv.id);
-    if (user?.email) markConversationRead(conv.id, user.email);
   };
   
   const handleBackToList = () => {
     setMobileView('list');
     setSelectedConversation(null);
-    setActiveConversationId(null);
   };
   
-  // Clear active conversation on page unmount
-  useEffect(() => {
-    return () => { setActiveConversationId(null); };
-  }, [setActiveConversationId]);
-
   // Redirect if not logged in
   if (!user) {
     navigate('/login');
@@ -203,7 +197,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       </div>
       
       <div className="flex-1 overflow-y-auto">
-        {displayUserConvs.length === 0 ? (
+        {userConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground">
             <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
             <p className="font-medium">{tr.noConversations}</p>
@@ -211,7 +205,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
           </div>
         ) : (
           <div className="divide-y divide-white/10">
-            {displayUserConvs.map(conv => {
+            {userConversations.map(conv => {
               const other = getOtherParticipant(conv);
               const unread = conv.unreadCount[user?.email?.toLowerCase() || ''] || 0;
               const isSelected = selectedConversation?.id === conv.id;
@@ -295,12 +289,12 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {displayMessages.length === 0 ? (
+          {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
             </div>
           ) : (
-            displayMessages.map(msg => {
+            messages.map(msg => {
               const isOwn = msg.senderEmail === user?.email?.toLowerCase();
               return (
                 <div
@@ -338,6 +332,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
             <div className="flex gap-2">
               <Input
                 ref={messageInputRef}
+                autoFocus
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={tr.typeMessage}
@@ -352,16 +347,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
                 inputMode="text"
                 autoComplete="off"
                 autoCorrect="off"
-                onFocus={() => {
-                  setIsTyping(true);
-                  frozenMessages.current = messages;
-                  frozenUserConvs.current = userConversations;
-                }}
-                onBlur={() => {
-                  setIsTyping(false);
-                  frozenMessages.current = null;
-                  frozenUserConvs.current = null;
-                }}
                 data-testid="input-message"
               />
               <Button
@@ -380,18 +365,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   return (
     <div className="h-full flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      {/* Fixed back button on mobile when chat is open */}
-      {mobileView === 'chat' && (
-        <Button
-          size="icon"
-          variant="secondary"
-          onClick={handleBackToList}
-          className="md:hidden fixed bottom-20 left-4 z-50 rounded-full shadow-lg w-10 h-10"
-          data-testid="button-back-fixed"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-      )}
       {/* Desktop layout: two columns */}
       <div className="hidden md:flex w-full">
         {/* Left column: conversation list */}
