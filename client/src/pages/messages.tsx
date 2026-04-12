@@ -133,7 +133,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
 
     lastConvIdRef.current = convId;
     lastMessagesLengthRef.current = curLen;
-  }, [messages, selectedConversation?.id]);
+  }, [messages.length, selectedConversation?.id]);
   
 
   // Get other participant's info
