@@ -135,12 +135,6 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     lastMessagesLengthRef.current = curLen;
   }, [messages, selectedConversation?.id]);
   
-  // Restore focus to input when conversation is open
-  useEffect(() => {
-    if (selectedConversation && mobileView === 'chat') {
-      requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
-    }
-  }, [selectedConversation?.id, mobileView]);
 
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
