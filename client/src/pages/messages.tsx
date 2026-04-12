@@ -268,7 +268,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     return (
       <div className="flex flex-col h-full">
         {/* Chat header */}
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
+        <div className="sticky top-0 z-10 bg-background p-4 border-b border-white/10 flex items-center gap-3">
           <Button
             size="icon"
             variant="ghost"
@@ -368,13 +368,13 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   return (
     <div className="h-full flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {/* Desktop layout: two columns */}
-      <div className="hidden md:flex w-full">
+      <div className="hidden md:flex w-full h-full">
         {/* Left column: conversation list */}
-        <div className="w-80 border-r border-white/10 bg-card/50">
+        <div className="w-80 border-r border-white/10 bg-card/50 h-full overflow-y-auto">
           <ConversationList />
         </div>
         {/* Right column: chat */}
-        <div className="flex-1 bg-background">
+        <div className="flex-1 bg-background h-full overflow-y-hidden">
           <ChatView />
         </div>
       </div>
