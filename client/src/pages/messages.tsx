@@ -40,7 +40,10 @@ export default function Messages() {
   const [isSending, setIsSending] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
 const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const lastConvIdRef = useRef<string | null>(null);
+  const lastMessagesLengthRef = useRef<number>(0);
   
   const tr = {
     title: lang === 'ar' ? 'الرسائل' : 'Messages',
@@ -107,10 +110,30 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Auto-scroll to bottom when messages change
+  // Smart scroll: instant on conversation open, smooth only when near bottom on new message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const convId = selectedConversation?.id ?? null;
+    const prevConvId = lastConvIdRef.current;
+    const prevLen = lastMessagesLengthRef.current;
+    const curLen = messages.length;
+
+    if (convId !== prevConvId) {
+      // New conversation opened — scroll instantly to bottom
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+    } else if (curLen > prevLen) {
+      // New message arrived — only scroll if user is near bottom (within 150px)
+      const area = messagesAreaRef.current;
+      if (area) {
+        const distFromBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
+        if (distFromBottom <= 150) {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+
+    lastConvIdRef.current = convId;
+    lastMessagesLengthRef.current = curLen;
+  }, [messages, selectedConversation?.id]);
   
   // Restore focus to input when conversation is open
   useEffect(() => {
@@ -290,7 +313,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
         
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 pt-20 space-y-3">
+        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-20 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
