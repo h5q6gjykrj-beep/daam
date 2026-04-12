@@ -366,15 +366,15 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   };
   
   return (
-    <div className="h-full flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-[calc(100vh-4rem)] flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {/* Desktop layout: two columns */}
-      <div className="hidden md:flex w-full h-full">
+      <div className="hidden md:flex w-full h-[calc(100vh-4rem)]">
         {/* Left column: conversation list */}
-        <div className="w-80 border-r border-white/10 bg-card/50 h-full overflow-y-auto">
+        <div className="w-80 border-r border-white/10 bg-card/50 h-[calc(100vh-4rem)] overflow-y-auto">
           <ConversationList />
         </div>
         {/* Right column: chat */}
-        <div className="flex-1 bg-background h-full overflow-y-hidden">
+        <div className="flex-1 bg-background h-[calc(100vh-4rem)] overflow-y-hidden">
           <ChatView />
         </div>
       </div>
