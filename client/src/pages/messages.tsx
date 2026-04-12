@@ -268,7 +268,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     return (
       <div className="flex flex-col h-full">
         {/* Chat header */}
-        <div className="sticky top-16 z-10 bg-background p-4 border-b border-white/10 flex items-center gap-3">
+        <div className="sticky top-[56px] z-10 bg-background p-4 border-b border-white/10 flex items-center gap-3">
           <Button
             size="icon"
             variant="ghost"
