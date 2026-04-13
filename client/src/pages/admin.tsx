@@ -218,11 +218,6 @@ interface Report {
 
 
 
-const initialFiles: AdminFile[] = [
-  { id: 'f1', filename: 'project_proposal.pdf', uploader: 'أحمد الحارثي', uploaderEmail: 'ahmed@utas.edu.om', postId: 'p1', postTitle: 'كيف أحسن مستواي في البرمجة؟', size: '2.5 MB', type: 'PDF', uploadedAt: '2024-12-01' },
-  { id: 'f2', filename: 'presentation.pptx', uploader: 'فاطمة البلوشي', uploaderEmail: 'fatima@utas.edu.om', postId: 'p2', postTitle: 'نقاش حول مشروع التخرج', size: '5.1 MB', type: 'PPTX', uploadedAt: '2024-12-05' },
-  { id: 'f3', filename: 'exam_schedule.pdf', uploader: 'المشرف العام', uploaderEmail: 'w.qq89@hotmail.com', postId: 'p3', postTitle: 'إعلان: موعد الامتحانات النهائية', size: '1.2 MB', type: 'PDF', uploadedAt: '2024-12-10' },
-];
 
 
 const getReasonLabel = (reason: string, lang: string): string => {
@@ -337,7 +332,23 @@ export default function Admin() {
   const [aiSettingsMessage, setAiSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [aiSettingsErrors, setAiSettingsErrors] = useState<Record<string, string>>({});
   
-  const [files, setFiles] = useState<AdminFile[]>(initialFiles);
+  const files: AdminFile[] = useMemo(() => {
+    return storePosts.flatMap(p =>
+      (p.attachments || [])
+        .filter(a => a.type !== 'image')
+        .map((a, i) => ({
+          id: `${p.id}-${i}`,
+          filename: a.name,
+          uploader: profiles[p.authorEmail]?.displayName || p.authorEmail,
+          uploaderEmail: p.authorEmail,
+          postId: p.id,
+          postTitle: p.subject || p.content.substring(0, 60),
+          size: a.size ? `${(a.size / 1024).toFixed(1)} KB` : '—',
+          type: a.name.split('.').pop()?.toUpperCase() || 'FILE',
+          uploadedAt: p.createdAt,
+        }))
+    );
+  }, [storePosts, profiles]);
 
   const users: AdminUser[] = useMemo(() => {
     return Object.entries(accounts).map(([email, account]) => {
