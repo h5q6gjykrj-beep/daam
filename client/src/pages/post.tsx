@@ -342,35 +342,62 @@ export default function PostPage() {
 
             <p className="text-foreground whitespace-pre-wrap mb-4">{post.content}</p>
 
-            {post.imageUrl && (
-              <div className="mt-3 aspect-square overflow-hidden rounded-xl bg-muted">
-                <img
-                  src={post.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover object-center"
-                  loading="lazy"
-                />
-              </div>
-            )}
+            {(() => {
+              const imgs: { url: string; name: string; attachment?: typeof post.attachments[0] }[] = [];
+              if (post.imageUrl) imgs.push({ url: post.imageUrl, name: 'post-image.png' });
+              if (post.attachments) post.attachments.filter(a => a.type === 'image').forEach(a => imgs.push({ url: a.url, name: a.name, attachment: a }));
+              if (imgs.length === 0) return null;
+              const openImg = (item: typeof imgs[0]) => item.attachment
+                ? openAttachment(item.attachment)
+                : openAttachment({ url: item.url, name: item.name, type: 'image', size: 0 } as typeof post.attachments[0]);
+              if (imgs.length === 1) return (
+                <div className="mt-3 overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={() => openImg(imgs[0])}>
+                  <img src={imgs[0].url} alt="" className="w-full object-cover object-center" style={{ maxHeight: 300 }} loading="lazy" />
+                </div>
+              );
+              if (imgs.length === 2) return (
+                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
+                  {imgs.map((img, i) => (
+                    <button key={i} onClick={() => openImg(img)} className="h-48 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
+                      <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              );
+              if (imgs.length === 3) return (
+                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
+                  <button onClick={() => openImg(imgs[0])} className="row-span-2 h-full min-h-[192px] overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
+                    <img src={imgs[0].url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
+                  </button>
+                  {imgs.slice(1).map((img, i) => (
+                    <button key={i} onClick={() => openImg(img)} className="h-24 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
+                      <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              );
+              const visible = imgs.slice(0, 4);
+              const extra = imgs.length - 4;
+              return (
+                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
+                  {visible.map((img, i) => (
+                    <button key={i} onClick={() => openImg(img)} className="relative h-40 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
+                      <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
+                      {i === 3 && extra > 0 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white text-xl font-bold">+{extra}</span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             {post.attachments && post.attachments.length > 0 && (
               <div className="mt-3 space-y-2">
                 {post.attachments.map((attachment, idx) => (
-                  attachment.type === 'image' ? (
-                    <button
-                      key={idx}
-                      onClick={() => openAttachment(attachment)}
-                      className="w-full aspect-square overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity"
-                      data-testid={`button-attachment-${idx}`}
-                    >
-                      <img
-                        src={attachment.url}
-                        alt={attachment.name}
-                        className="w-full h-full object-cover object-center"
-                        loading="lazy"
-                      />
-                    </button>
-                  ) : (
+                  attachment.type === 'image' ? null : (
                     <button
                       key={idx}
                       onClick={() => openAttachment(attachment)}
