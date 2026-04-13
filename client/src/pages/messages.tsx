@@ -80,28 +80,12 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Get user's conversations
   const userConversations = user?.email ? getConversationsForUser(user.email) : [];
-  
-  // Keep selectedConversation in sync with updated conversations state
-  // Use selectedConversationId ref to avoid infinite loops
-  const selectedConvId = selectedConversation?.id;
-  useEffect(() => {
-    if (selectedConvId) {
-      const updatedConv = conversations.find(c => c.id === selectedConvId);
-      if (updatedConv) {
-        setSelectedConversation(prev => {
-          if (!prev) return updatedConv;
-          if (prev.lastMessageAt !== updatedConv.lastMessageAt ||
-              prev.lastMessagePreview !== updatedConv.lastMessagePreview) {
-            return updatedConv;
-          }
-          return prev;
-        });
-      }
-    }
-  }, [conversations, selectedConvId]);
-  
+
+  // Always derive current conversation from store (stays fresh on every poll)
+  const currentConv = conversations.find(c => c.id === selectedConversation?.id) || selectedConversation;
+
   // Get messages for selected conversation
-  const messages = selectedConversation ? getMessages(selectedConversation.id) : [];
+  const messages = currentConv ? getMessages(currentConv.id) : [];
   
   // Mark as read whenever the open conversation receives new messages
   useEffect(() => {
@@ -270,7 +254,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Chat view component
   const ChatView = () => {
-    if (!selectedConversation) {
+    if (!currentConv) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
           <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
@@ -278,8 +262,8 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
       );
     }
-    
-    const other = getOtherParticipant(selectedConversation);
+
+    const other = getOtherParticipant(currentConv);
     const dmAllowed = other ? canSendDM(other.email) : { allowed: true };
     
     return (
