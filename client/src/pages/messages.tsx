@@ -312,6 +312,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
             <div className="flex gap-2">
               <Input
                 ref={messageInputRef}
+                autoFocus
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={tr.typeMessage}
