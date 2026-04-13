@@ -204,9 +204,13 @@ export default function PostPage() {
       } else {
         window.open(`/api/file-proxy?url=${encodeURIComponent(attachment.url)}`, '_blank', 'noopener,noreferrer');
       }
-    } else if (isImage && blob) {
-      const blobUrl = URL.createObjectURL(blob);
-      setViewerContent({ url: attachment.url, blobUrl, name: attachment.name });
+    } else if (isImage) {
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        setViewerContent({ url: attachment.url, blobUrl, name: attachment.name });
+      } else {
+        setViewerContent({ url: attachment.url, blobUrl: attachment.url, name: attachment.name });
+      }
       setViewerOpen(true);
     } else {
       downloadAttachment(attachment);
@@ -343,13 +347,13 @@ export default function PostPage() {
             <p className="text-foreground whitespace-pre-wrap mb-4">{post.content}</p>
 
             {(() => {
-              const imgs: { url: string; name: string; attachment?: typeof post.attachments[0] }[] = [];
+              const imgs: { url: string; name: string; attachment?: Attachment }[] = [];
               if (post.imageUrl) imgs.push({ url: post.imageUrl, name: 'post-image.png' });
               if (post.attachments) post.attachments.filter(a => a.type === 'image').forEach(a => imgs.push({ url: a.url, name: a.name, attachment: a }));
               if (imgs.length === 0) return null;
               const openImg = (item: typeof imgs[0]) => item.attachment
                 ? openAttachment(item.attachment)
-                : openAttachment({ url: item.url, name: item.name, type: 'image', size: 0 } as typeof post.attachments[0]);
+                : openAttachment({ url: item.url, name: item.name, type: 'image', size: 0 } as Attachment);
               if (imgs.length === 1) return (
                 <button className="w-full mt-3 overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={(e) => { e.stopPropagation(); openImg(imgs[0]); }}>
                   <img src={imgs[0].url} alt="" className="w-full h-64 object-cover object-center" loading="lazy" />
