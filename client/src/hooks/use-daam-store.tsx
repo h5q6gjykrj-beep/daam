@@ -329,7 +329,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
           return fetchedPosts;
         });
       } catch {}
-    }, 30_000);
+    }, 10_000);
     return () => clearInterval(interval);
   }, []);
 
