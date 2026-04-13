@@ -1737,11 +1737,7 @@ export default function Feed() {
 
       <Dialog open={viewerOpen} onOpenChange={(open) => !open && closeViewer()}>
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-4 border-b flex-shrink-0">
-            <DialogTitle className="truncate pe-8">
-              {viewerContent?.name}
-            </DialogTitle>
-          </DialogHeader>
+          <DialogTitle className="sr-only">صورة</DialogTitle>
           <div className="flex-1 min-h-0 p-4 bg-muted/30 overflow-auto">
             {viewerContent?.type === 'image' && (
               <div className="flex items-center justify-center min-h-[300px]">
