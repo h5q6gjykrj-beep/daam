@@ -596,6 +596,7 @@ export default function PostPage() {
 
       <Dialog open={viewerOpen} onOpenChange={(open) => !open && closeViewer()}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogTitle className="sr-only">صورة</DialogTitle>
           <div className="relative">
             <Button
               variant="ghost"
