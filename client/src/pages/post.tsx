@@ -352,36 +352,17 @@ export default function PostPage() {
                 : openAttachment({ url: item.url, name: item.name, type: 'image', size: 0 } as typeof post.attachments[0]);
               if (imgs.length === 1) return (
                 <div className="mt-3 overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={() => openImg(imgs[0])}>
-                  <img src={imgs[0].url} alt="" className="w-full object-cover object-center" style={{ maxHeight: 300 }} loading="lazy" />
+                  <img src={imgs[0].url} alt="" className="w-full h-64 object-cover object-center" loading="lazy" />
                 </div>
               );
-              if (imgs.length === 2) return (
-                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
-                  {imgs.map((img, i) => (
-                    <button key={i} onClick={() => openImg(img)} className="h-48 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
-                      <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
-                    </button>
-                  ))}
-                </div>
-              );
-              if (imgs.length === 3) return (
-                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
-                  <button onClick={() => openImg(imgs[0])} className="row-span-2 h-full min-h-[192px] overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
-                    <img src={imgs[0].url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
-                  </button>
-                  {imgs.slice(1).map((img, i) => (
-                    <button key={i} onClick={() => openImg(img)} className="h-24 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
-                      <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
-                    </button>
-                  ))}
-                </div>
-              );
+              const cols = imgs.length === 2 ? 'grid-cols-2' : imgs.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
+              const h = imgs.length <= 3 ? 'h-48' : 'h-40';
               const visible = imgs.slice(0, 4);
               const extra = imgs.length - 4;
               return (
-                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden">
+                <div className={`mt-3 grid ${cols} gap-1 rounded-xl overflow-hidden`}>
                   {visible.map((img, i) => (
-                    <button key={i} onClick={() => openImg(img)} className="relative h-40 overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity">
+                    <button key={i} onClick={() => openImg(img)} className={`relative ${h} overflow-hidden rounded bg-muted cursor-pointer hover:opacity-90 transition-opacity`}>
                       <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
                       {i === 3 && extra > 0 && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
