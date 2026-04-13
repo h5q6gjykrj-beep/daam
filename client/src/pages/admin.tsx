@@ -333,21 +333,31 @@ export default function Admin() {
   const [aiSettingsErrors, setAiSettingsErrors] = useState<Record<string, string>>({});
   
   const files: AdminFile[] = useMemo(() => {
-    return storePosts.flatMap(p =>
-      (p.attachments || [])
-        .filter(a => a.type !== 'image')
-        .map((a, i) => ({
+    return storePosts.flatMap(p => {
+      const items: AdminFile[] = [];
+      const uploader = profiles[p.authorEmail]?.displayName || p.authorEmail;
+      const postTitle = p.subject || p.content.substring(0, 60);
+      // imageUrl الرئيسي
+      if (p.imageUrl) {
+        const name = p.imageUrl.split('/').pop()?.split('?')[0] || 'image';
+        items.push({ id: `${p.id}-img`, filename: name, uploader, uploaderEmail: p.authorEmail, postId: p.id, postTitle, size: '—', type: 'IMAGE', uploadedAt: p.createdAt });
+      }
+      // attachments
+      (p.attachments || []).forEach((a, i) => {
+        items.push({
           id: `${p.id}-${i}`,
           filename: a.name,
-          uploader: profiles[p.authorEmail]?.displayName || p.authorEmail,
+          uploader,
           uploaderEmail: p.authorEmail,
           postId: p.id,
-          postTitle: p.subject || p.content.substring(0, 60),
+          postTitle,
           size: a.size ? `${(a.size / 1024).toFixed(1)} KB` : '—',
-          type: a.name.split('.').pop()?.toUpperCase() || 'FILE',
+          type: a.type === 'image' ? 'IMAGE' : (a.name.split('.').pop()?.toUpperCase() || 'FILE'),
           uploadedAt: p.createdAt,
-        }))
-    );
+        });
+      });
+      return items;
+    });
   }, [storePosts, profiles]);
 
   const users: AdminUser[] = useMemo(() => {
