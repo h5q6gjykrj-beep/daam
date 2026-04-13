@@ -368,7 +368,7 @@ export default function PostPage() {
               return (
                 <div className={`mt-3 grid ${cols} gap-1 rounded-xl overflow-hidden`}>
                   {visible.map((img, i) => (
-                    <button key={i} onClick={() => openImg(img)} className={`relative ${h} overflow-hidden rounded bg-muted cursor-pointer hover:opacity-90 transition-opacity`}>
+                    <button key={i} onClick={(e) => { console.log('[button clicked]', i); e.stopPropagation(); openImg(img); }} className={`relative ${h} overflow-hidden rounded bg-muted cursor-pointer hover:opacity-90 transition-opacity`}>
                       <img src={img.url} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
                       {i === 3 && extra > 0 && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
