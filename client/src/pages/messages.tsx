@@ -302,7 +302,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
         
         {/* Input area */}
-        <div className="sticky bottom-0 p-4 border-t border-white/10 bg-background">
+        <div className="p-4 border-t border-white/10 bg-background">
           {!dmAllowed.allowed ? (
             <div className="flex items-center gap-2 text-amber-500 bg-amber-500/10 p-3 rounded-lg">
               <AlertCircle className="w-5 h-5 shrink-0" />
