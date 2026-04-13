@@ -351,9 +351,9 @@ export default function PostPage() {
                 ? openAttachment(item.attachment)
                 : openAttachment({ url: item.url, name: item.name, type: 'image', size: 0 } as typeof post.attachments[0]);
               if (imgs.length === 1) return (
-                <div className="mt-3 overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={() => openImg(imgs[0])}>
+                <button className="w-full mt-3 overflow-hidden rounded-xl bg-muted cursor-pointer hover:opacity-90 transition-opacity" onClick={(e) => { e.stopPropagation(); openImg(imgs[0]); }}>
                   <img src={imgs[0].url} alt="" className="w-full h-64 object-cover object-center" loading="lazy" />
-                </div>
+                </button>
               );
               const cols = imgs.length === 2 ? 'grid-cols-2' : imgs.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
               const h = imgs.length <= 3 ? 'h-48' : 'h-40';
