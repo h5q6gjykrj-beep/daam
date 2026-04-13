@@ -325,7 +325,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         setPosts(prev => {
           if (fetchedPosts.length === prev.length &&
               fetchedPosts[0]?.id === prev[0]?.id &&
-              fetchedPosts.every((p, i) => (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0))) return prev;
+              fetchedPosts.every((p, i) =>
+            (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0) &&
+            (p.likedBy?.length ?? 0) === (prev[i]?.likedBy?.length ?? 0))) return prev;
           return fetchedPosts;
         });
       } catch {}
@@ -947,7 +949,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
       setPosts(prev => {
         if (fetchedPosts.length === prev.length &&
             fetchedPosts[0]?.id === prev[0]?.id &&
-            fetchedPosts.every((p, i) => (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0))) return prev;
+            fetchedPosts.every((p, i) =>
+            (p.replies?.length ?? 0) === (prev[i]?.replies?.length ?? 0) &&
+            (p.likedBy?.length ?? 0) === (prev[i]?.likedBy?.length ?? 0))) return prev;
         return fetchedPosts;
       });
     } catch {}
