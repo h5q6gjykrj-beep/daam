@@ -358,7 +358,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       </div>
       
       {/* Mobile layout: switchable views - subtract bottom nav height */}
-      <div className="md:hidden w-full h-[calc(100%-4rem)]">
+      <div className="md:hidden w-full h-full">
         {mobileView === 'list' ? (
           <ConversationList />
         ) : (
