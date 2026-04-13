@@ -196,6 +196,7 @@ export default function PostPage() {
                   (attachment as any).type === 'pdf';
     const isImage = attachment.type === 'image';
     const blob = base64ToBlob(attachment.url, isPdf ? 'application/pdf' : undefined);
+    console.log('[openAttachment]', { isImage, hasBlob: !!blob, url: attachment.url });
 
     if (isPdf) {
       if (blob) {
@@ -212,6 +213,7 @@ export default function PostPage() {
         setViewerContent({ url: attachment.url, blobUrl: attachment.url, name: attachment.name });
       }
       setViewerOpen(true);
+      console.log('[viewer opened]', viewerContent);
     } else {
       downloadAttachment(attachment);
     }
