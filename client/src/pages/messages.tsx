@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   ArrowLeft, 
   Send, 
@@ -105,7 +105,8 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     return {
       email: otherEmail,
       name: profile?.name || otherEmail.split('@')[0],
-      avatarColor: profile?.avatarColor || '#6366f1'
+      avatarColor: profile?.avatarColor || '#6366f1',
+      avatarUrl: profile?.avatarUrl || undefined,
     };
   };
   
@@ -210,6 +211,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
                   data-testid={`conversation-${conv.id}`}
                 >
                   <Avatar className="w-12 h-12">
+                    {other?.avatarUrl && <AvatarImage src={other.avatarUrl} alt={other.name} />}
                     <AvatarFallback style={{ backgroundColor: other?.avatarColor }}>
                       {other?.name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
@@ -266,11 +268,14 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <Avatar className="w-10 h-10">
-            <AvatarFallback style={{ backgroundColor: other?.avatarColor }}>
-              {other?.name.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <button onClick={() => other && navigate(`/profile/${encodeURIComponent(other.email)}`)} className="shrink-0">
+            <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
+              {other?.avatarUrl && <AvatarImage src={other.avatarUrl} alt={other.name} />}
+              <AvatarFallback style={{ backgroundColor: other?.avatarColor }}>
+                {other?.name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </button>
           <div className="flex-1">
             <p className="font-medium">{other?.name}</p>
             <p className="text-xs text-muted-foreground">{other?.email}</p>
