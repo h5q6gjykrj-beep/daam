@@ -34,6 +34,7 @@ interface LayoutShellProps {
 export function LayoutShell({ children }: LayoutShellProps) {
   const { user, logout, t, lang, toggleLang, theme, toggleTheme, getUnreadConversationCount } = useDaamStore();
   const [location, setLocation] = useLocation();
+  const isMessagesPage = location === '/messages';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [navbarConfig, setNavbarConfig] = useState(getNavbarConfig());
@@ -333,7 +334,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         </motion.div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/95 backdrop-blur-md safe-area-bottom md:hidden">
+      <nav className={`fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/95 backdrop-blur-md safe-area-bottom md:hidden ${isMessagesPage ? 'hidden' : ''}`}>
         <div className="container mx-auto px-2">
           <div className="flex items-center justify-around h-16">
             {navItems.map((item) => {
