@@ -112,7 +112,6 @@ export default function Feed() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sheetScrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const isRTL = lang === 'ar';
@@ -1939,7 +1938,7 @@ export default function Feed() {
       {/* FAB Button */}
       <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] md:bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
         <Button
-          onClick={() => { setShowCreateForm(true); document.body.classList.add('form-open'); setTimeout(() => { sheetScrollRef.current?.scrollTo({ top: 0 }); }, 100); }}
+          onClick={() => { setShowCreateForm(true); document.body.classList.add('form-open'); }}
           className="rounded-full bg-[#865994] border-[#865994] text-white shadow-lg shadow-[#865994]/30 p-4"
           aria-label={isRTL ? 'اكتب منشورًا' : 'Write post'}
           data-testid="button-fab-create-post"
@@ -1996,7 +1995,7 @@ export default function Feed() {
               </div>
               
               {/* B) Scrollable Body */}
-              <div ref={sheetScrollRef} className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex gap-3 mb-4">
                   <Avatar className="w-10 h-10 flex-shrink-0">
                     <AvatarImage src={user ? getProfile(user.email)?.avatarUrl : undefined} />
