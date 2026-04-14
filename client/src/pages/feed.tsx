@@ -1979,7 +1979,7 @@ export default function Feed() {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden"
               style={{ touchAction: 'pan-x pinch-zoom' }}
-              dir={isRTL ? 'rtl' : 'ltr'}
+              
               data-testid="sheet-composer"
               onTouchStart={(e) => { swipeTouchStartY.current = e.touches[0].clientY; }}
               onTouchMove={(e) => {
@@ -2030,7 +2030,7 @@ export default function Feed() {
                       onChange={(e) => setContent(e.target.value)}
                       className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
                       autoFocus
-                      dir={isRTL ? 'rtl' : 'ltr'}
+                      
                       inputMode="text"
                       autoComplete="off"
                       autoCorrect="off"
