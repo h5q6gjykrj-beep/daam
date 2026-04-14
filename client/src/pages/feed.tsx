@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount, type DaamPermission } from "@/hooks/use-daam-store";
 import { isAdminEmail } from "@/config/admin";
@@ -74,6 +74,14 @@ export default function Feed() {
   
   const [content, setContent] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  useEffect(() => {
+    if (showCreateForm) {
+      document.body.classList.add('form-open');
+    } else {
+      document.body.classList.remove('form-open');
+    }
+    return () => { document.body.classList.remove('form-open'); };
+  }, [showCreateForm]);
   const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
