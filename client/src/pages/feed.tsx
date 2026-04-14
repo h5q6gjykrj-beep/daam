@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useDaamStore, ADMIN_EMAILS, type ReportReason, type ModeratorAccount, type DaamPermission } from "@/hooks/use-daam-store";
 import { isAdminEmail } from "@/config/admin";
@@ -252,7 +252,7 @@ export default function Feed() {
     
     createPost(content, newPostType, newPostSubject || undefined, undefined, attachments.length > 0 ? attachments : undefined);
     setContent("");
-    setShowCreateForm(false);
+    setShowCreateForm(false); document.body.classList.remove('form-open');
     setNewPostType('discussion');
     setNewPostSubject('');
     setAttachments([]);
@@ -1938,7 +1938,7 @@ export default function Feed() {
       {/* FAB Button */}
       <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] md:bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
         <Button
-          onClick={() => setShowCreateForm(true)}
+          onClick={() => { setShowCreateForm(true); document.body.classList.add('form-open'); }}
           className="rounded-full bg-[#865994] border-[#865994] text-white shadow-lg shadow-[#865994]/30 p-4"
           aria-label={isRTL ? 'اكتب منشورًا' : 'Write post'}
           data-testid="button-fab-create-post"
@@ -1956,7 +1956,7 @@ export default function Feed() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCreateForm(false)}
+              onClick={() => { setShowCreateForm(false); document.body.classList.remove('form-open'); }}
               className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
               data-testid="backdrop-composer"
             />
@@ -1986,7 +1986,7 @@ export default function Feed() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setShowCreateForm(false)}
+                    onClick={() => { setShowCreateForm(false); document.body.classList.remove('form-open'); }}
                     data-testid="button-close-composer"
                   >
                     <X className="w-5 h-5" />
