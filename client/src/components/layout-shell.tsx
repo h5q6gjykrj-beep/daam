@@ -322,7 +322,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 container mx-auto px-4 py-4 md:py-6 max-w-4xl relative pb-20 md:pb-6 [body.chat-open_&]:pb-0 [body.form-open_&]:pb-0">
+      <main className="flex-1 container mx-auto px-4 py-4 md:py-6 max-w-4xl relative pb-20 md:pb-6 [body.chat-open_&]:pb-0 [body.form-open_&]:pb-0 [body.form-open_&]:py-0 [body.form-open_&]:px-0 [body.form-open_&]:min-h-0">
         <motion.div
           key={location}
           initial={{ opacity: 0, y: 10 }}
