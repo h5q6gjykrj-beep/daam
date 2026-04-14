@@ -1939,7 +1939,7 @@ export default function Feed() {
       {/* FAB Button */}
       <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] md:bottom-6 z-50 ${isRTL ? 'right-6' : 'left-6'}`}>
         <Button
-          onClick={() => { setShowCreateForm(true); document.body.classList.add('form-open'); requestAnimationFrame(() => { sheetContentRef.current?.scrollTo({ top: 0 }); }); }}
+          onClick={() => { setShowCreateForm(true); document.body.classList.add('form-open'); setTimeout(() => { sheetContentRef.current?.scrollTo({ top: 0 }); }, 300); }}
           className="rounded-full bg-[#865994] border-[#865994] text-white shadow-lg shadow-[#865994]/30 p-4"
           aria-label={isRTL ? 'اكتب منشورًا' : 'Write post'}
           data-testid="button-fab-create-post"
