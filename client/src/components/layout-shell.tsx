@@ -323,7 +323,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 container mx-auto px-4 py-4 md:py-6 max-w-4xl relative pb-20 md:pb-6">
+      <main className={`flex-1 container mx-auto px-4 py-4 md:py-6 max-w-4xl relative md:pb-6 ${isMessagesPage ? 'pb-0' : 'pb-20'}`}>
         <motion.div
           key={location}
           initial={{ opacity: 0, y: 10 }}
