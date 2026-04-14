@@ -112,19 +112,9 @@ export default function Feed() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const swipeTouchStartY = useRef<number>(0);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const isRTL = lang === 'ar';
-
-  useEffect(() => {
-    if (showCreateForm) {
-      document.body.classList.add('form-open');
-    } else {
-      document.body.classList.remove('form-open');
-    }
-    return () => { document.body.classList.remove('form-open'); };
-  }, [showCreateForm]);
 
   // Date helpers for filtering
   const today = useMemo(() => {
