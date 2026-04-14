@@ -1979,7 +1979,7 @@ export default function Feed() {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden"
               style={{ touchAction: 'pan-x pinch-zoom' }}
-              dir="ltr"
+              
               data-testid="sheet-composer"
               onTouchStart={(e) => { swipeTouchStartY.current = e.touches[0].clientY; }}
               onTouchMove={(e) => {
@@ -1991,7 +1991,6 @@ export default function Feed() {
                 if (delta > 100) setShowCreateForm(false);
               }}
             >
-              <div dir={isRTL ? 'rtl' : 'ltr'} className="w-full h-full flex flex-col">
               {/* A) Fixed Header */}
               <div className="flex-shrink-0">
                 {/* Handle bar — swipe indicator */}
@@ -2148,7 +2147,6 @@ export default function Feed() {
                   <Send className="w-4 h-4" />
                   {lang === 'ar' ? 'نشر' : 'Post'}
                 </Button>
-              </div>
               </div>
             </motion.div>
           </>
