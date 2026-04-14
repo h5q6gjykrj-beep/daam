@@ -1966,6 +1966,7 @@ export default function Feed() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowCreateForm(false)}
+              onTouchMove={(e) => e.preventDefault()}
               className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
               data-testid="backdrop-composer"
             />
@@ -1976,10 +1977,15 @@ export default function Feed() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col"
+              className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden"
+              style={{ touchAction: 'pan-x pinch-zoom' }}
               dir={isRTL ? 'rtl' : 'ltr'}
               data-testid="sheet-composer"
               onTouchStart={(e) => { swipeTouchStartY.current = e.touches[0].clientY; }}
+              onTouchMove={(e) => {
+                const delta = e.touches[0].clientY - swipeTouchStartY.current;
+                if (delta > 0) e.preventDefault();
+              }}
               onTouchEnd={(e) => {
                 const delta = e.changedTouches[0].clientY - swipeTouchStartY.current;
                 if (delta > 100) setShowCreateForm(false);
