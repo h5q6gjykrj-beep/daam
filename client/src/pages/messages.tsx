@@ -160,6 +160,16 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     return () => { setActiveConversationId(null); };
   }, [setActiveConversationId]);
 
+  // Add/remove chat-open class on body for bottom nav visibility
+  useEffect(() => {
+    if (mobileView === 'chat') {
+      document.body.classList.add('chat-open');
+    } else {
+      document.body.classList.remove('chat-open');
+    }
+    return () => { document.body.classList.remove('chat-open'); };
+  }, [mobileView]);
+
   // Redirect if not logged in
   if (!user) {
     navigate('/login');
