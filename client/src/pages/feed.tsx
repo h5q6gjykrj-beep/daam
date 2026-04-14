@@ -74,6 +74,7 @@ export default function Feed() {
   
   const [content, setContent] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const swipeTouchStartY = useRef<number>(0);
   useEffect(() => {
     if (showCreateForm) {
       document.body.classList.add('form-open');
@@ -1978,11 +1979,16 @@ export default function Feed() {
               className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col"
               dir={isRTL ? 'rtl' : 'ltr'}
               data-testid="sheet-composer"
+              onTouchStart={(e) => { swipeTouchStartY.current = e.touches[0].clientY; }}
+              onTouchEnd={(e) => {
+                const delta = e.changedTouches[0].clientY - swipeTouchStartY.current;
+                if (delta > 100) setShowCreateForm(false);
+              }}
             >
               {/* A) Fixed Header */}
               <div className="flex-shrink-0">
-                {/* Handle bar */}
-                <div className="flex justify-center py-2">
+                {/* Handle bar — swipe indicator */}
+                <div className="flex justify-center py-2 cursor-grab">
                   <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
                 </div>
                 
