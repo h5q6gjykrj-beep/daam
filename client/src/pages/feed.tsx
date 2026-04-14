@@ -1977,7 +1977,7 @@ export default function Feed() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden"
               style={{ touchAction: 'pan-x pinch-zoom' }}
               dir={isRTL ? 'rtl' : 'ltr'}
               data-testid="sheet-composer"
