@@ -2010,7 +2010,6 @@ export default function Feed() {
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
                       className="min-h-[100px] bg-background/50 border-white/10 resize-none text-base"
-                      autoFocus
                       dir={isRTL ? 'rtl' : 'ltr'}
                       inputMode="text"
                       autoComplete="off"
