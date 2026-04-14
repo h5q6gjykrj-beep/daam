@@ -40,6 +40,7 @@ export default function Messages() {
   const [isSending, setIsSending] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
 const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   const tr = {
@@ -95,7 +96,22 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
   }, [selectedConversation?.id]);
-  
+
+  // Compensate for viewport shrink when keyboard opens so messages don't jump
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let prevHeight = vv.height;
+    const handleResize = () => {
+      const el = messagesAreaRef.current;
+      if (!el) return;
+      const diff = prevHeight - vv.height;
+      prevHeight = vv.height;
+      if (diff !== 0) el.scrollTop += diff;
+    };
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, [selectedConversation?.id]);
 
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
@@ -283,7 +299,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
         
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 pt-16 space-y-3">
+        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
