@@ -100,10 +100,13 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Scroll to bottom smoothly when new messages arrive (send or receive)
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length]);
+    const timer = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
@@ -311,7 +314,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
         
         {/* Messages area */}
-        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-20 space-y-3">
+        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
