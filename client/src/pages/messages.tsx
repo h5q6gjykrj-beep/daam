@@ -100,9 +100,10 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Scroll to bottom smoothly when new messages arrive (send or receive)
   useEffect(() => {
-    if (!selectedConversation?.id) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, selectedConversation?.id]);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
