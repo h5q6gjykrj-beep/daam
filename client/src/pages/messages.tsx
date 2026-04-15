@@ -95,7 +95,14 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   // Scroll to bottom instantly when opening a new conversation
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+    if (!selectedConversation?.id) return;
+    const t1 = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }, 100);
+    const t2 = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }, 500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [selectedConversation?.id]);
 
   // Scroll to bottom when new messages arrive (send or receive)
