@@ -83,6 +83,7 @@ export default function Feed() {
   
   const [content, setContent] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [expandedReplies, setExpandedReplies] = useState<string[]>([]);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
@@ -1539,9 +1540,19 @@ export default function Feed() {
                             </Badge>
                           </div>
                           
-                          <p className="text-base leading-relaxed mt-3 whitespace-pre-wrap">
-                            {post.content}
-                          </p>
+                          <div className="mt-3">
+                            <p className={`text-base leading-relaxed whitespace-pre-wrap ${!expandedPosts.has(post.id) && post.content.length > 300 ? 'line-clamp-4' : ''}`}>
+                              {post.content}
+                            </p>
+                            {post.content.length > 300 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setExpandedPosts(prev => { const next = new Set(prev); next.has(post.id) ? next.delete(post.id) : next.add(post.id); return next; }); }}
+                                className="text-primary text-sm mt-1 hover:underline"
+                              >
+                                {expandedPosts.has(post.id) ? (lang === 'ar' ? 'عرض أقل' : 'Show less') : (lang === 'ar' ? '... اقرأ المزيد' : '... Read more')}
+                              </button>
+                            )}
+                          </div>
                         </>
                       )}
 
