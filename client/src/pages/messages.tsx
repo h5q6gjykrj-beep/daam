@@ -162,6 +162,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     
     if (result.success) {
       setMessageInput("");
+      setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, 150);
       requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     } else {
       if (result.error === 'dm_closed') {
