@@ -42,7 +42,7 @@ export default function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
   const justSentMessageRef = useRef(false);
-const messageInputRef = useRef<HTMLInputElement | null>(null);
+const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   
   const tr = {
     title: lang === 'ar' ? 'الرسائل' : 'Messages',
@@ -153,6 +153,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     
     if (result.success) {
       setMessageInput("");
+      if (messageInputRef.current) messageInputRef.current.style.height = 'auto';
       requestAnimationFrame(() => {
         if (messagesAreaRef.current) messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
       });
@@ -349,20 +350,25 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
               <p className="text-sm">{tr.dmClosed}</p>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Input
+            <div className="flex gap-2 items-end">
+              <textarea
                 ref={messageInputRef}
-                autoFocus
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder={tr.typeMessage}
-                className="flex-1 bg-black/20 border-white/10"
+                onChange={(e) => {
+                  setMessageInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
                   }
                 }}
+                placeholder={tr.typeMessage}
+                rows={1}
+                style={{ height: 'auto', resize: 'none', overflowY: 'auto' }}
+                className="flex-1 bg-black/20 border border-white/10 rounded-md text-sm outline-none px-3 py-2 max-h-[120px] min-h-[40px] leading-relaxed"
                 disabled={isSending}
                 inputMode="text"
                 autoComplete="off"
