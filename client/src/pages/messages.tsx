@@ -98,13 +98,13 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
   }, [selectedConversation?.id]);
 
-  // Scroll to bottom smoothly when new messages arrive (send or receive)
+  // Scroll to bottom when new messages arrive (send or receive)
   useEffect(() => {
+    const el = messagesAreaRef.current;
+    if (!el) return;
     const timer = setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
+      el.scrollTop = el.scrollHeight;
+    }, 50);
     return () => clearTimeout(timer);
   }, [messages]);
 
@@ -162,7 +162,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     
     if (result.success) {
       setMessageInput("");
-      setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, 150);
+      setTimeout(() => { if (messagesAreaRef.current) messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight; }, 50);
       requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     } else {
       if (result.error === 'dm_closed') {
