@@ -307,7 +307,7 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
         </div>
         
         {/* Messages area */}
-        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-4 space-y-3">
+        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-20 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
