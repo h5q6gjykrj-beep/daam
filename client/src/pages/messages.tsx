@@ -97,18 +97,21 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
   }, [selectedConversation?.id]);
 
-  // When keyboard opens, restore scroll position to what it was before focus
-  const savedScrollTopRef = useRef<number>(0);
-  const handleInputFocus = () => {
-    const el = messagesAreaRef.current;
-    if (!el) return;
-    savedScrollTopRef.current = el.scrollTop;
-    setTimeout(() => {
-      if (messagesAreaRef.current) {
-        messagesAreaRef.current.scrollTop = savedScrollTopRef.current;
-      }
-    }, 350);
-  };
+  // Compensate for viewport shrink when keyboard opens so messages don't jump
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let prevHeight = vv.height;
+    const handleResize = () => {
+      const el = messagesAreaRef.current;
+      if (!el) return;
+      const diff = prevHeight - vv.height;
+      prevHeight = vv.height;
+      if (diff !== 0) el.scrollTop += diff;
+    };
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, [selectedConversation?.id]);
 
   // Get other participant's info
   const getOtherParticipant = (conv: Conversation) => {
@@ -340,11 +343,11 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
             <div className="flex gap-2">
               <Input
                 ref={messageInputRef}
+                autoFocus
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={tr.typeMessage}
                 className="flex-1 bg-black/20 border-white/10"
-                onFocus={handleInputFocus}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
