@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+
+const toUTC = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  if (dateStr.endsWith('Z') || dateStr.includes('+')) return new Date(dateStr);
+  return new Date(dateStr.replace(' ', 'T') + 'Z');
+};
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LocalReply, Attachment } from "@shared/schema";
@@ -338,7 +344,7 @@ export default function PostPage() {
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(post.createdAt), {
+                  {formatDistanceToNow(toUTC(post.createdAt), {
                     addSuffix: true,
                     locale: lang === 'ar' ? ar : enUS
                   })}
@@ -407,7 +413,7 @@ export default function PostPage() {
               <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground/70">
                 <Pencil className="w-3 h-3" />
                 <span>
-                  {tr.edited} · {formatDistanceToNow(new Date(post.updatedAt), {
+                  {tr.edited} · {formatDistanceToNow(toUTC(post.updatedAt), {
                     addSuffix: true,
                     locale: lang === 'ar' ? ar : enUS
                   })}
@@ -508,7 +514,7 @@ export default function PostPage() {
                                 <Shield className="w-3 h-3 text-primary" />
                               )}
                               <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(reply.createdAt), {
+                                {formatDistanceToNow(toUTC(reply.createdAt), {
                                   addSuffix: true,
                                   locale: lang === 'ar' ? ar : enUS
                                 })}

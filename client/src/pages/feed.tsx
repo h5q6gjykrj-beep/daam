@@ -26,6 +26,15 @@ import {
 import { type LocalReply, type PostType, type Attachment, type PostStatus } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+
+// Ensure date strings from server (no timezone suffix) are treated as UTC
+const toUTC = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  // If already has Z or +offset, parse as-is
+  if (dateStr.endsWith('Z') || dateStr.includes('+')) return new Date(dateStr);
+  // Add Z to force UTC interpretation
+  return new Date(dateStr.replace(' ', 'T') + 'Z');
+};
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { COLLEGES, getCollegeLabel, getCollegeColor } from "@/lib/colleges";
@@ -688,7 +697,7 @@ export default function Feed() {
                     />
                   )}
                   <span className="text-[10px] text-muted-foreground">
-                    {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: false, locale: lang === 'ar' ? ar : enUS })}
+                    {formatDistanceToNow(toUTC(reply.createdAt), { addSuffix: false, locale: lang === 'ar' ? ar : enUS })}
                   </span>
                   
                   <DropdownMenu>
@@ -918,12 +927,12 @@ export default function Feed() {
     // Apply URL filter param
     if (filterParam === 'today') {
       // Posts created today
-      result = result.filter(post => new Date(post.createdAt) >= today);
+      result = result.filter(post => toUTC(post.createdAt) >= today);
     } else if (filterParam === 'active') {
       // Active discussions: posts with replies in last 60 minutes OR created in last 60 minutes
       result = result.filter(post => {
-        const postCreatedRecently = new Date(post.createdAt) >= sixtyMinutesAgo;
-        const hasRecentReplies = post.replies?.some(r => new Date(r.createdAt) >= sixtyMinutesAgo);
+        const postCreatedRecently = toUTC(post.createdAt) >= sixtyMinutesAgo;
+        const hasRecentReplies = post.replies?.some(r => toUTC(r.createdAt) >= sixtyMinutesAgo);
         return postCreatedRecently || hasRecentReplies;
       });
     }
@@ -1444,7 +1453,7 @@ export default function Feed() {
                           </span>
                         )}
                         <span>
-                          {formatDistanceToNow(new Date(post.createdAt), { 
+                          {formatDistanceToNow(toUTC(post.createdAt), { 
                             addSuffix: true,
                             locale: lang === 'ar' ? ar : enUS 
                           })}
@@ -1600,7 +1609,7 @@ export default function Feed() {
                         <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground/70">
                           <Pencil className="w-3 h-3" />
                           <span>
-                            {lang === 'ar' ? 'تم تعديل' : 'Edited'} · {formatDistanceToNow(new Date(post.updatedAt), { 
+                            {lang === 'ar' ? 'تم تعديل' : 'Edited'} · {formatDistanceToNow(toUTC(post.updatedAt), { 
                               addSuffix: true,
                               locale: lang === 'ar' ? ar : enUS 
                             })}
