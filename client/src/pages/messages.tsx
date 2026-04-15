@@ -380,20 +380,20 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
       <div className="hidden md:flex w-full h-[calc(100vh-4rem)]">
         {/* Left column: conversation list */}
         <div className="w-80 border-r border-white/10 bg-card/50 h-[calc(100vh-4rem)] overflow-y-auto">
-          <ConversationList />
+          {ConversationList()}
         </div>
         {/* Right column: chat */}
         <div className="flex-1 bg-background h-[calc(100vh-4rem)] overflow-y-hidden">
-          <ChatView />
+          {ChatView()}
         </div>
       </div>
-      
+
       {/* Mobile layout: switchable views - subtract bottom nav height */}
       <div className="md:hidden w-full h-full">
         {mobileView === 'list' ? (
-          <ConversationList />
+          ConversationList()
         ) : (
-          <ChatView />
+          ChatView()
         )}
       </div>
     </div>
