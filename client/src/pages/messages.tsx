@@ -95,14 +95,10 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   
   // Scroll to bottom when conversation opens or messages change
   useEffect(() => {
-    console.log('messages changed, count:', messages.length);
-    console.log('messagesAreaRef:', messagesAreaRef.current);
-    console.log('scrollHeight:', messagesAreaRef.current?.scrollHeight);
-    console.log('clientHeight:', messagesAreaRef.current?.clientHeight);
     if (messagesAreaRef.current) {
       messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, selectedConversation?.id]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
@@ -287,7 +283,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
     const dmAllowed = other ? canSendDM(other.email) : { allowed: true };
     
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         {/* Chat header */}
         <div className="sticky top-[56px] z-10 bg-background p-4 border-b border-white/10 flex items-center gap-3">
           <Button
@@ -403,7 +399,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
           {ConversationList()}
         </div>
         {/* Right column: chat */}
-        <div className="flex-1 bg-background h-[calc(100vh-4rem)] overflow-y-hidden">
+        <div className="flex-1 bg-background h-[calc(100vh-4rem)] flex flex-col min-h-0">
           {ChatView()}
         </div>
       </div>
