@@ -97,20 +97,28 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
   }, [selectedConversation?.id]);
 
-  // Compensate for viewport shrink when keyboard opens so messages don't jump
+  // Restore scroll position after keyboard opens (iOS fires multiple resize events during animation)
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    let prevHeight = vv.height;
+    let savedScrollTop: number | null = null;
+    let restoreTimer: ReturnType<typeof setTimeout>;
     const handleResize = () => {
       const el = messagesAreaRef.current;
       if (!el) return;
-      const diff = prevHeight - vv.height;
-      prevHeight = vv.height;
-      if (diff !== 0) el.scrollTop += diff;
+      // Capture position at first resize event before browser adjusts anything
+      if (savedScrollTop === null) savedScrollTop = el.scrollTop;
+      // Debounce: restore after animation fully settles
+      clearTimeout(restoreTimer);
+      restoreTimer = setTimeout(() => {
+        if (el && savedScrollTop !== null) {
+          el.scrollTop = savedScrollTop;
+          savedScrollTop = null;
+        }
+      }, 150);
     };
     vv.addEventListener('resize', handleResize);
-    return () => vv.removeEventListener('resize', handleResize);
+    return () => { vv.removeEventListener('resize', handleResize); clearTimeout(restoreTimer); };
   }, [selectedConversation?.id]);
 
   // Get other participant's info
