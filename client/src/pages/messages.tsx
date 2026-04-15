@@ -95,9 +95,14 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   
   // Scroll to bottom when conversation opens or messages change
   useEffect(() => {
-    if (!messagesAreaRef.current) return;
-    messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
-  }, [messages, selectedConversation?.id]);
+    console.log('messages changed, count:', messages.length);
+    console.log('messagesAreaRef:', messagesAreaRef.current);
+    console.log('scrollHeight:', messagesAreaRef.current?.scrollHeight);
+    console.log('clientHeight:', messagesAreaRef.current?.clientHeight);
+    if (messagesAreaRef.current) {
+      messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
