@@ -93,27 +93,11 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Scroll to bottom instantly when opening a new conversation
+  // Scroll to bottom when conversation opens or messages change
   useEffect(() => {
-    if (!selectedConversation?.id) return;
-    const t1 = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-    }, 100);
-    const t2 = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-    }, 500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [selectedConversation?.id]);
-
-  // Scroll to bottom when new messages arrive (send or receive)
-  useEffect(() => {
-    const el = messagesAreaRef.current;
-    if (!el) return;
-    const timer = setTimeout(() => {
-      el.scrollTop = el.scrollHeight;
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [messages]);
+    if (!messagesAreaRef.current) return;
+    messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
+  }, [messages, selectedConversation?.id]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
@@ -169,7 +153,9 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     
     if (result.success) {
       setMessageInput("");
-      setTimeout(() => { if (messagesAreaRef.current) messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight; }, 50);
+      requestAnimationFrame(() => {
+        if (messagesAreaRef.current) messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
+      });
       requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     } else {
       if (result.error === 'dm_closed') {
