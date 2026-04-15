@@ -92,10 +92,16 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     }
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
-  // Scroll to bottom only when opening a new conversation
+  // Scroll to bottom instantly when opening a new conversation
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
   }, [selectedConversation?.id]);
+
+  // Scroll to bottom smoothly when new messages arrive (send or receive)
+  useEffect(() => {
+    if (!selectedConversation?.id) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, selectedConversation?.id]);
 
   // Restore scroll position after keyboard opens (iOS fires multiple resize events during animation)
   useEffect(() => {
