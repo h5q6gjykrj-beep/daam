@@ -41,6 +41,7 @@ export default function Messages() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const justSentMessageRef = useRef(false);
 const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   const tr = {
@@ -103,28 +104,21 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, selectedConversation?.id]);
 
-  // Restore scroll position after keyboard opens (iOS fires multiple resize events during animation)
+  // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    let savedScrollTop: number | null = null;
-    let restoreTimer: ReturnType<typeof setTimeout>;
+    let scrollTimer: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      const el = messagesAreaRef.current;
-      if (!el) return;
-      // Capture position at first resize event before browser adjusts anything
-      if (savedScrollTop === null) savedScrollTop = el.scrollTop;
-      // Debounce: restore after animation fully settles
-      clearTimeout(restoreTimer);
-      restoreTimer = setTimeout(() => {
-        if (el && savedScrollTop !== null) {
-          el.scrollTop = savedScrollTop;
-          savedScrollTop = null;
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        if (justSentMessageRef.current) {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-      }, 150);
+      }, 200);
     };
     vv.addEventListener('resize', handleResize);
-    return () => { vv.removeEventListener('resize', handleResize); clearTimeout(restoreTimer); };
+    return () => { vv.removeEventListener('resize', handleResize); clearTimeout(scrollTimer); };
   }, [selectedConversation?.id]);
 
   // Get other participant's info
@@ -154,7 +148,10 @@ const messageInputRef = useRef<HTMLInputElement | null>(null);
   
   const handleSendMessage = () => {
     if (!messageInput.trim() || !selectedConversation || !user?.email) return;
-    
+
+    justSentMessageRef.current = true;
+    setTimeout(() => { justSentMessageRef.current = false; }, 500);
+
     setIsSending(true);
     const result = sendDirectMessage(selectedConversation.id, user.email, messageInput.trim());
     setIsSending(false);
