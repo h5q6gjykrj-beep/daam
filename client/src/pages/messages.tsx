@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  ArrowLeft, 
-  Send, 
+import {
+  ChevronRight,
+  Send,
   MessageSquare,
   AlertCircle
 } from "lucide-react";
@@ -297,7 +297,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
             className="md:hidden"
             data-testid="button-back-to-list"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5" />
           </Button>
           <button onClick={() => other && navigate(`/profile/${encodeURIComponent(other.email)}`)} className="shrink-0">
             <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
