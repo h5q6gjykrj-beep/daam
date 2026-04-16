@@ -382,6 +382,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
               />
               <Button
                 onClick={handleSendMessage}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={!messageInput.trim() || isSending}
                 data-testid="button-send-message"
               >
