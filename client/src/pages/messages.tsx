@@ -41,7 +41,15 @@ export default function Messages() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const messagesAreaDesktopRef = useRef<HTMLDivElement>(null);
   const justSentMessageRef = useRef(false);
+
+  // Helper: scroll the visible messages container to bottom
+  const scrollToBottom = () => {
+    const isDesktop = window.innerWidth >= 768;
+    const el = isDesktop ? messagesAreaDesktopRef.current : messagesAreaRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
 const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   
   const tr = {
@@ -94,12 +102,8 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
   // Scroll to bottom when conversation opens or messages change
-  // useLayoutEffect fires synchronously after DOM updates — fixes desktop where
-  // async useEffect runs before the browser has computed flex heights
   useLayoutEffect(() => {
-    if (messagesAreaRef.current) {
-      messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, selectedConversation?.id]);
 
   // When keyboard opens: scroll to bottom if user just sent a message, otherwise do nothing
@@ -111,7 +115,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
         if (justSentMessageRef.current) {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          scrollToBottom();
         }
       }, 200);
     };
@@ -157,9 +161,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
     if (result.success) {
       setMessageInput("");
       if (messageInputRef.current) messageInputRef.current.style.height = 'auto';
-      requestAnimationFrame(() => {
-        if (messagesAreaRef.current) messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
-      });
+      requestAnimationFrame(() => { scrollToBottom(); });
       requestAnimationFrame(() => messageInputRef.current?.focus({ preventScroll: true }));
     } else {
       if (result.error === 'dm_closed') {
@@ -271,7 +273,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   );
   
   // Chat view component
-  const ChatView = () => {
+  const ChatView = ({ areaRef = messagesAreaRef }: { areaRef?: React.RefObject<HTMLDivElement> } = {}) => {
     if (!currentConv) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -312,7 +314,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
         </div>
         
         {/* Messages area */}
-        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-4 space-y-3">
+        <div ref={areaRef} className="flex-1 overflow-y-auto p-4 pt-16 pb-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <p>{lang === 'ar' ? 'لا توجد رسائل بعد' : 'No messages yet'}</p>
@@ -402,7 +404,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
         </div>
         {/* Right column: chat */}
         <div className="flex-1 bg-background h-[calc(100vh-4rem)] flex flex-col min-h-0">
-          {ChatView()}
+          {ChatView({ areaRef: messagesAreaDesktopRef })}
         </div>
       </div>
 
