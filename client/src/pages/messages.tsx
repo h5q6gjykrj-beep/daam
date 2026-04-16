@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ChevronRight,
+  ChevronLeft,
   Send,
   MessageSquare,
   AlertCircle
@@ -34,6 +35,8 @@ export default function Messages() {
   const [, navigate] = useLocation();
   const searchParams = useSearch();
   const { toast } = useToast();
+  const isRTL = lang === 'ar';
+  const BackIcon = isRTL ? ChevronRight : ChevronLeft;
   
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
@@ -297,7 +300,7 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
             className="md:hidden"
             data-testid="button-back-to-list"
           >
-            <ChevronRight className="w-5 h-5" />
+            <BackIcon className="w-5 h-5" />
           </Button>
           <button onClick={() => other && navigate(`/profile/${encodeURIComponent(other.email)}`)} className="shrink-0">
             <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
-import { AlertCircle, Megaphone, ChevronRight } from 'lucide-react';
+import { AlertCircle, Megaphone, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ export default function CampaignPage() {
   const { lang, user } = useDaamStore();
   const t = translations[lang];
   const isRTL = lang === 'ar';
+  const BackIcon = isRTL ? ChevronRight : ChevronLeft;
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,7 +121,7 @@ export default function CampaignPage() {
             <h1 className="text-xl font-semibold mb-2">{t.notFound}</h1>
             <p className="text-muted-foreground mb-6">{t.notFoundDesc}</p>
             <Button onClick={handleBack} data-testid="button-back-home">
-              <ChevronRight className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
+              <BackIcon className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
               {t.backHome}
             </Button>
           </CardContent>

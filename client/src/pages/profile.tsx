@@ -149,6 +149,7 @@ import {
   Pencil,
   Trash2,
   ChevronRight,
+  ChevronLeft,
   Library,
   FolderOpen,
   BookOpen,
@@ -244,6 +245,7 @@ export default function Profile() {
   const { toast } = useToast();
   
   const isRTL = lang === 'ar';
+  const BackIcon = isRTL ? ChevronRight : ChevronLeft;
   const profileEmail = params?.email ? decodeURIComponent(params.email) : user?.email;
   const isOwnProfile = user?.email === profileEmail;
   
@@ -807,7 +809,7 @@ export default function Profile() {
     return (
       <div data-testid="profile-page" key={profileEmail ?? "me"}>
         <Button variant="ghost" size="sm" onClick={goBack} className="mb-3" data-testid="button-back">
-          <ChevronRight className="w-4 h-4 mr-2" />
+          <BackIcon className="w-4 h-4 mr-2" />
           {isRTL ? 'رجوع' : 'Back'}
         </Button>
         {/* Hidden file inputs for edit dialog */}
@@ -3130,7 +3132,7 @@ export default function Profile() {
             className="gap-1.5 mb-4"
             data-testid="button-back-to-profile"
           >
-            <ChevronRight className="w-4 h-4" />
+            <BackIcon className="w-4 h-4" />
             {lang === 'ar' ? 'رجوع للملف' : 'Back to Profile'}
           </Button>
         )}

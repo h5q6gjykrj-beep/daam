@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  ChevronRight, Heart, MessageSquare, Bookmark, FileText,
+  ChevronRight, ChevronLeft, Heart, MessageSquare, Bookmark, FileText,
   ExternalLink, Pencil, Shield, Flag, Send, X, MoreVertical, Trash2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -32,6 +32,7 @@ export default function PostPage() {
   const { posts, lang, user, getProfile, toggleLike, toggleSave, addReply, submitReport, moderators, isUserMuted, getMuteRecord, deleteReply, editReply, canCurrentUser, addAuditEvent, refreshPosts } = useDaamStore();
   const { toast } = useToast();
   const isRTL = lang === 'ar';
+  const BackIcon = isRTL ? ChevronRight : ChevronLeft;
 
   const post = posts.find(p => p.id === params.id);
 
@@ -297,7 +298,7 @@ export default function PostPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
         <p className="text-muted-foreground mb-4">{tr.notFound}</p>
         <Button onClick={goBack} variant="outline" data-testid="button-go-back">
-          <ChevronRight className="w-4 h-4 mr-2" />
+          <BackIcon className="w-4 h-4 mr-2" />
           {tr.goBack}
         </Button>
       </div>
@@ -316,7 +317,7 @@ export default function PostPage() {
           className="mb-4"
           data-testid="button-back"
         >
-          <ChevronRight className="w-4 h-4 mr-2" />
+          <BackIcon className="w-4 h-4 mr-2" />
           {tr.back}
         </Button>
 

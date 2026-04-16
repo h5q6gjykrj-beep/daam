@@ -1,11 +1,14 @@
 import { useDaamStore } from "@/hooks/use-daam-store";
-import { ShieldX, ChevronRight } from "lucide-react";
+import { ShieldX, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
 export function Forbidden() {
   const { lang } = useDaamStore();
   const [, setLocation] = useLocation();
+
+  const isRTL = lang === 'ar';
+  const BackIcon = isRTL ? ChevronRight : ChevronLeft;
 
   const tr = {
     title: lang === 'ar' ? 'غير مصرح' : 'Access Denied',
@@ -45,7 +48,7 @@ export function Forbidden() {
         className="gap-2"
         data-testid="button-back-home"
       >
-        <ChevronRight className="w-4 h-4" />
+        <BackIcon className="w-4 h-4" />
         {tr.backHome}
       </Button>
     </div>
