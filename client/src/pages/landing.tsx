@@ -209,12 +209,12 @@ export default function Landing() {
   );
 
   return (
-    <div className={`min-h-screen bg-background ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className={`min-h-screen bg-background overflow-x-hidden ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src={daamLogo} alt="DAAM" className="h-10" data-testid="img-logo-nav" />
+        <div className="container mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <img src={daamLogo} alt="DAAM" className="h-9 sm:h-10 shrink-0" data-testid="img-logo-nav" />
             <span className="font-bold text-lg hidden sm:block">دام</span>
           </div>
           
@@ -231,7 +231,7 @@ export default function Landing() {
             ))}
           </nav>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {actionItems.map(item => {
               // Theme toggle
               if (item.action === 'toggle:theme') {
@@ -499,13 +499,13 @@ export default function Landing() {
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 bg-card/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex items-center gap-3">
               <img src={daamLogo} alt="DAAM" className="h-8" />
               <span className="font-bold">دام - DAAM</span>
             </div>
-            
-            <nav className="flex items-center gap-6 text-sm text-muted-foreground">
+
+            <nav className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 text-sm text-muted-foreground">
               <Button 
                 variant="ghost" 
                 size="sm"
