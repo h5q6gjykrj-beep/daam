@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useDaamStore, type Conversation } from "@/hooks/use-daam-store";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,7 +94,9 @@ const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   }, [selectedConversation?.id, messages.length, user?.email, markConversationRead]);
   
   // Scroll to bottom when conversation opens or messages change
-  useEffect(() => {
+  // useLayoutEffect fires synchronously after DOM updates — fixes desktop where
+  // async useEffect runs before the browser has computed flex heights
+  useLayoutEffect(() => {
     if (messagesAreaRef.current) {
       messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
     }
