@@ -121,8 +121,8 @@ export default function Login() {
   };
   
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
-      <div className="absolute top-4 left-4 rtl:left-auto rtl:right-4">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 pt-16 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
+      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-4 rtl:left-auto rtl:right-4">
         <Button 
           variant="ghost" 
           onClick={() => setLocation('/')}
@@ -133,7 +133,7 @@ export default function Login() {
           {tr.home}
         </Button>
       </div>
-      <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 flex items-center gap-2">
+      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 rtl:right-auto rtl:left-4 flex items-center gap-2">
         <Button 
           variant="outline" 
           size="icon"
