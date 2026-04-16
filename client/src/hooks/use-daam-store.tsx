@@ -380,27 +380,22 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (data: RegistrationData): Promise<PendingVerification> => {
-    const emailLower = data.email.toLowerCase();
-    if (accounts[emailLower]) throw new Error(lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered');
-    const isModerator = emailLower === MODERATOR_EMAIL.toLowerCase();
-    const emailDomain = emailLower.split('@')[1];
-    const isDomainAllowed = emailDomain && allowedDomains.includes(emailDomain);
-    if (!isModerator && !isDomainAllowed) throw new Error(lang === 'ar' ? 'يرجى استخدام بريد جامعي معتمد' : 'Please use an approved university email');
-    if (!isModerator && data.email.toLowerCase().includes('@hotmail.')) throw new Error(lang === 'ar' ? 'بريد Hotmail غير مسموح به' : 'Hotmail emails are not allowed');
-
-    const newAccount: UserAccount = {
-      email: data.email, passwordHash: simpleHash(data.password), phone: data.phone,
-      region: { governorate: data.governorate, wilayat: data.wilayat },
-      role: isModerator ? 'moderator' : 'student', verified: true, createdAt: new Date().toISOString()
-    };
-    await api('POST', '/api/accounts', newAccount);
-    setAccounts(prev => ({ ...prev, [emailLower]: newAccount }));
-
-    const defaultProfile: UserProfile = { email: data.email, name: data.name, bio: '', major: '', university: 'UTAS', followers: [], following: [] };
-    await api('PATCH', `/api/profiles/${encodeURIComponent(data.email)}`, defaultProfile);
-    setProfiles(prev => ({ ...prev, [data.email]: defaultProfile }));
-
-    return { email: data.email, token: '', expiry: '' };
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: data.email, password: data.password, name: data.name,
+        phone: data.phone, governorate: data.governorate, wilayat: data.wilayat,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const msg = body.error || (res.status === 409
+        ? (lang === 'ar' ? 'هذا البريد مسجل مسبقاً' : 'Email already registered')
+        : (lang === 'ar' ? 'حدث خطأ أثناء التسجيل' : 'Registration failed'));
+      throw new Error(msg);
+    }
+    return { email: data.email.toLowerCase(), token: '', expiry: '' };
   };
 
   const changePassword = (currentPassword: string, newPassword: string) => {
@@ -434,17 +429,15 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { passwordHash: simpleHash(newPassword) }).catch(() => {});
   };
 
-  const verifyEmail = (token: string): boolean => {
-    const accountEntry = Object.entries(accounts).find(([_, acc]) => acc.verificationToken === token);
-    if (!accountEntry) return false;
-    const [email, account] = accountEntry;
-    if (account.verificationExpiry && new Date(account.verificationExpiry) < new Date()) return false;
-    const updatedAcc = { ...account, verified: true, verificationToken: undefined, verificationExpiry: undefined };
-    const updatedAccounts = { ...accounts, [email]: updatedAcc };
-    setAccounts(updatedAccounts);
-    api('PATCH', `/api/accounts/${encodeURIComponent(email)}`, { verified: true, verificationToken: null, verificationExpiry: null }).catch(() => {});
-    setPendingVerification(null);
-    return true;
+  const verifyEmail = async (token: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/verify-email?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return false;
+      setPendingVerification(null);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const logout = () => {

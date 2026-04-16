@@ -31,13 +31,10 @@ export default function Verify() {
       return;
     }
 
-    const timer = setTimeout(() => {
-      const success = verifyEmail(token);
+    verifyEmail(token).then(success => {
       setStatus(success ? 'success' : 'error');
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [token, verifyEmail]);
+    });
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">

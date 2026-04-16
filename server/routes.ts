@@ -3,8 +3,10 @@ import { createServer, type Server } from "http";
 import https from "https";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 import * as store from "./storage";
 import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile, generateSignedUrl } from "./cloudinary";
+import { Resend } from "resend";
 
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
@@ -63,6 +65,129 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (account.passwordHash !== simpleHash(password)) return res.status(401).json({ error: 'Incorrect password' });
 
       return res.json({ type: 'account', account });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Register with email verification ─────────────────────────────────────
+  app.post('/api/register', async (req, res) => {
+    try {
+      const { email, password, name, phone, governorate, wilayat } = req.body;
+      if (!email || !password || !name) return res.status(400).json({ error: 'Missing required fields' });
+
+      const emailLower = (email as string).toLowerCase();
+      const isModerator = emailLower === 'w.qq89@hotmail.com';
+
+      const existing = await store.getAccount(emailLower);
+      if (existing) return res.status(409).json({ error: 'Email already registered' });
+
+      if (!isModerator) {
+        if (emailLower.includes('@hotmail.')) return res.status(400).json({ error: 'Hotmail emails are not allowed' });
+        const allowedDomains = await store.getAllowedDomains();
+        const domain = emailLower.split('@')[1];
+        if (!domain || !allowedDomains.includes(domain)) {
+          return res.status(400).json({ error: 'Please use an approved university email' });
+        }
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await store.upsertAccount({
+        email: emailLower,
+        passwordHash: simpleHash(password as string),
+        phone: phone || '',
+        region: { governorate: governorate || '', wilayat: wilayat || '' },
+        role: isModerator ? 'moderator' : 'student',
+        verified: false,
+        verificationToken: token,
+        verificationExpiry: expiry,
+        createdAt: new Date().toISOString(),
+      } as any);
+
+      await store.upsertProfile(emailLower, {
+        email: emailLower, name: name as string,
+        bio: '', major: '', university: 'UTAS', followers: [], following: [],
+      });
+
+      // Send verification email
+      const verifyUrl = `https://daamtaaleem.com/verify?token=${token}`;
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: 'noreply@daamtaaleem.com',
+          to: emailLower,
+          subject: 'تأكيد حسابك في منصة دام | Verify your DAAM account',
+          html: `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:Arial,sans-serif;direction:rtl">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:40px 20px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:16px;overflow:hidden;border:1px solid #2a2a2a;max-width:100%">
+        <tr><td style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:32px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:28px;font-weight:bold">منصة دام</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">DAAM Student Platform</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <h2 style="color:#e2e8f0;margin:0 0 16px;font-size:20px">مرحباً، ${name}!</h2>
+          <p style="color:#94a3b8;line-height:1.7;margin:0 0 24px;font-size:15px">
+            شكراً لتسجيلك في منصة دام. لتفعيل حسابك والبدء في النقاش مع زملائك، اضغط على الزر أدناه:
+          </p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:bold">
+              تفعيل الحساب
+            </a>
+          </div>
+          <hr style="border:none;border-top:1px solid #2a2a2a;margin:24px 0">
+          <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 8px;direction:ltr;text-align:left">
+            <strong style="color:#94a3b8">Hello, ${name}!</strong><br>
+            Thank you for registering on DAAM Platform. Click the button above or the link below to verify your account:
+          </p>
+          <p style="margin:12px 0 0;direction:ltr;text-align:left">
+            <a href="${verifyUrl}" style="color:#7c3aed;font-size:12px;word-break:break-all">${verifyUrl}</a>
+          </p>
+          <p style="color:#475569;font-size:12px;margin:16px 0 0;text-align:center">
+            هذا الرابط صالح لمدة 24 ساعة · This link expires in 24 hours
+          </p>
+        </td></tr>
+        <tr><td style="background:#111;padding:20px;text-align:center">
+          <p style="color:#475569;font-size:12px;margin:0">© 2026 DAAM · daamtaaleem.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
+        });
+      } catch (emailErr: any) {
+        console.error('Failed to send verification email:', emailErr.message);
+        // Don't fail the registration if email fails — token is in DB
+      }
+
+      return res.json({ ok: true, email: emailLower });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Verify Email ──────────────────────────────────────────────────────────
+  app.get('/api/verify-email', async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) return res.status(400).json({ error: 'Token required' });
+
+      const allAccounts = await store.getAllAccounts();
+      const entry = Object.entries(allAccounts).find(([, acc]) => acc.verificationToken === token);
+      if (!entry) return res.status(400).json({ error: 'Invalid or already used token' });
+
+      const [email, account] = entry;
+      if (account.verificationExpiry && new Date(account.verificationExpiry) < new Date()) {
+        return res.status(400).json({ error: 'Verification link has expired' });
+      }
+
+      await store.upsertAccount({
+        ...account, verified: true,
+        verificationToken: undefined, verificationExpiry: undefined,
+      } as any);
+
+      return res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

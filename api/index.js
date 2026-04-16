@@ -10,6 +10,7 @@ import { createServer } from "http";
 
 // server/routes.ts
 import https from "https";
+import crypto2 from "crypto";
 
 // server/storage.ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -867,6 +868,7 @@ async function deleteCloudinaryFile(url, resourceType) {
 }
 
 // server/routes.ts
+import { Resend } from "resend";
 async function registerRoutes(httpServer2, app2) {
   app2.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app2.get("/api/stats/users-count", async (_req, res) => {
@@ -911,6 +913,122 @@ async function registerRoutes(httpServer2, app2) {
       if (account.banned) return res.status(403).json({ error: "Your account is banned: " + (account.bannedReason || "") });
       if (account.passwordHash !== simpleHash(password)) return res.status(401).json({ error: "Incorrect password" });
       return res.json({ type: "account", account });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.post("/api/register", async (req, res) => {
+    try {
+      const { email, password, name, phone, governorate, wilayat } = req.body;
+      if (!email || !password || !name) return res.status(400).json({ error: "Missing required fields" });
+      const emailLower = email.toLowerCase();
+      const isModerator = emailLower === "w.qq89@hotmail.com";
+      const existing = await getAccount(emailLower);
+      if (existing) return res.status(409).json({ error: "Email already registered" });
+      if (!isModerator) {
+        if (emailLower.includes("@hotmail.")) return res.status(400).json({ error: "Hotmail emails are not allowed" });
+        const allowedDomains2 = await getAllowedDomains();
+        const domain = emailLower.split("@")[1];
+        if (!domain || !allowedDomains2.includes(domain)) {
+          return res.status(400).json({ error: "Please use an approved university email" });
+        }
+      }
+      const token = crypto2.randomBytes(32).toString("hex");
+      const expiry = new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString();
+      await upsertAccount({
+        email: emailLower,
+        passwordHash: simpleHash(password),
+        phone: phone || "",
+        region: { governorate: governorate || "", wilayat: wilayat || "" },
+        role: isModerator ? "moderator" : "student",
+        verified: false,
+        verificationToken: token,
+        verificationExpiry: expiry,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      await upsertProfile(emailLower, {
+        email: emailLower,
+        name,
+        bio: "",
+        major: "",
+        university: "UTAS",
+        followers: [],
+        following: []
+      });
+      const verifyUrl = `https://daamtaaleem.com/verify?token=${token}`;
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: "noreply@daamtaaleem.com",
+          to: emailLower,
+          subject: "\u062A\u0623\u0643\u064A\u062F \u062D\u0633\u0627\u0628\u0643 \u0641\u064A \u0645\u0646\u0635\u0629 \u062F\u0627\u0645 | Verify your DAAM account",
+          html: `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:Arial,sans-serif;direction:rtl">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:40px 20px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:16px;overflow:hidden;border:1px solid #2a2a2a;max-width:100%">
+        <tr><td style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:32px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:28px;font-weight:bold">\u0645\u0646\u0635\u0629 \u062F\u0627\u0645</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">DAAM Student Platform</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <h2 style="color:#e2e8f0;margin:0 0 16px;font-size:20px">\u0645\u0631\u062D\u0628\u0627\u064B\u060C ${name}!</h2>
+          <p style="color:#94a3b8;line-height:1.7;margin:0 0 24px;font-size:15px">
+            \u0634\u0643\u0631\u0627\u064B \u0644\u062A\u0633\u062C\u064A\u0644\u0643 \u0641\u064A \u0645\u0646\u0635\u0629 \u062F\u0627\u0645. \u0644\u062A\u0641\u0639\u064A\u0644 \u062D\u0633\u0627\u0628\u0643 \u0648\u0627\u0644\u0628\u062F\u0621 \u0641\u064A \u0627\u0644\u0646\u0642\u0627\u0634 \u0645\u0639 \u0632\u0645\u0644\u0627\u0626\u0643\u060C \u0627\u0636\u063A\u0637 \u0639\u0644\u0649 \u0627\u0644\u0632\u0631 \u0623\u062F\u0646\u0627\u0647:
+          </p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:bold">
+              \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062D\u0633\u0627\u0628
+            </a>
+          </div>
+          <hr style="border:none;border-top:1px solid #2a2a2a;margin:24px 0">
+          <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 8px;direction:ltr;text-align:left">
+            <strong style="color:#94a3b8">Hello, ${name}!</strong><br>
+            Thank you for registering on DAAM Platform. Click the button above or the link below to verify your account:
+          </p>
+          <p style="margin:12px 0 0;direction:ltr;text-align:left">
+            <a href="${verifyUrl}" style="color:#7c3aed;font-size:12px;word-break:break-all">${verifyUrl}</a>
+          </p>
+          <p style="color:#475569;font-size:12px;margin:16px 0 0;text-align:center">
+            \u0647\u0630\u0627 \u0627\u0644\u0631\u0627\u0628\u0637 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 24 \u0633\u0627\u0639\u0629 \xB7 This link expires in 24 hours
+          </p>
+        </td></tr>
+        <tr><td style="background:#111;padding:20px;text-align:center">
+          <p style="color:#475569;font-size:12px;margin:0">\xA9 2026 DAAM \xB7 daamtaaleem.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+        });
+      } catch (emailErr) {
+        console.error("Failed to send verification email:", emailErr.message);
+      }
+      return res.json({ ok: true, email: emailLower });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.get("/api/verify-email", async (req, res) => {
+    try {
+      const token = req.query.token;
+      if (!token) return res.status(400).json({ error: "Token required" });
+      const allAccounts = await getAllAccounts();
+      const entry = Object.entries(allAccounts).find(([, acc]) => acc.verificationToken === token);
+      if (!entry) return res.status(400).json({ error: "Invalid or already used token" });
+      const [email, account] = entry;
+      if (account.verificationExpiry && new Date(account.verificationExpiry) < /* @__PURE__ */ new Date()) {
+        return res.status(400).json({ error: "Verification link has expired" });
+      }
+      await upsertAccount({
+        ...account,
+        verified: true,
+        verificationToken: void 0,
+        verificationExpiry: void 0
+      });
+      return res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
