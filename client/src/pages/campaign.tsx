@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
-import { AlertCircle, Megaphone, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Megaphone, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -120,7 +120,7 @@ export default function CampaignPage() {
             <h1 className="text-xl font-semibold mb-2">{t.notFound}</h1>
             <p className="text-muted-foreground mb-6">{t.notFoundDesc}</p>
             <Button onClick={handleBack} data-testid="button-back-home">
-              <ArrowLeft className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
+              <ChevronRight className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
               {t.backHome}
             </Button>
           </CardContent>
@@ -133,18 +133,18 @@ export default function CampaignPage() {
   const content = lang === 'ar' ? campaign.content.ar : campaign.content.en;
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-background flex items-center justify-center p-4"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       <div className="w-full max-w-lg">
-        <Button 
-          variant="ghost" 
-          onClick={handleBack} 
+        <Button
+          variant="ghost"
+          onClick={handleBack}
           className="mb-4"
           data-testid="button-back"
         >
-          <ArrowLeft className="w-4 h-4 ltr:mr-2 rtl:ml-2 rtl:rotate-180" />
+          <ChevronRight className="w-4 h-4 ltr:mr-2 rtl:ml-2" />
           {t.backHome}
         </Button>
 

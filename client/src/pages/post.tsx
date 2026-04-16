@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  ArrowLeft, ArrowRight, Heart, MessageSquare, Bookmark, FileText,
+  ChevronRight, Heart, MessageSquare, Bookmark, FileText,
   ExternalLink, Pencil, Shield, Flag, Send, X, MoreVertical, Trash2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -297,7 +297,7 @@ export default function PostPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
         <p className="text-muted-foreground mb-4">{tr.notFound}</p>
         <Button onClick={goBack} variant="outline" data-testid="button-go-back">
-          {isRTL ? <ArrowRight className="w-4 h-4 mr-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+          <ChevronRight className="w-4 h-4 mr-2" />
           {tr.goBack}
         </Button>
       </div>
@@ -316,7 +316,7 @@ export default function PostPage() {
           className="mb-4"
           data-testid="button-back"
         >
-          {isRTL ? <ArrowRight className="w-4 h-4 mr-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+          <ChevronRight className="w-4 h-4 mr-2" />
           {tr.back}
         </Button>
 

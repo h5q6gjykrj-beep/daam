@@ -1,5 +1,5 @@
 import { useDaamStore } from "@/hooks/use-daam-store";
-import { ShieldX, ArrowLeft } from "lucide-react";
+import { ShieldX, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
@@ -45,7 +45,7 @@ export function Forbidden() {
         className="gap-2"
         data-testid="button-back-home"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ChevronRight className="w-4 h-4" />
         {tr.backHome}
       </Button>
     </div>

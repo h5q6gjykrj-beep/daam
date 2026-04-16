@@ -152,8 +152,6 @@ import {
   Library,
   FolderOpen,
   BookOpen,
-  ArrowLeft,
-  ArrowRight,
   Link2,
   StickyNote,
   FlaskConical,
@@ -809,7 +807,7 @@ export default function Profile() {
     return (
       <div data-testid="profile-page" key={profileEmail ?? "me"}>
         <Button variant="ghost" size="sm" onClick={goBack} className="mb-3" data-testid="button-back">
-          {isRTL ? <ArrowRight className="w-4 h-4 mr-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+          <ChevronRight className="w-4 h-4 mr-2" />
           {isRTL ? 'رجوع' : 'Back'}
         </Button>
         {/* Hidden file inputs for edit dialog */}
@@ -3132,7 +3130,7 @@ export default function Profile() {
             className="gap-1.5 mb-4"
             data-testid="button-back-to-profile"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" />
             {lang === 'ar' ? 'رجوع للملف' : 'Back to Profile'}
           </Button>
         )}

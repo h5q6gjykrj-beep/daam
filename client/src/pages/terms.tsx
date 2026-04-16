@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
+import { ChevronRight, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { loadSetting } from "@/lib/settings-api";
 
@@ -49,7 +49,7 @@ export default function Terms() {
     pageUnderConstruction: lang === 'ar' ? 'هذه الصفحة قيد الإعداد' : 'This page is under construction',
   };
 
-  const BackIcon = isRTL ? ArrowRight : ArrowLeft;
+  const BackIcon = ChevronRight;
 
   return (
     <div 
