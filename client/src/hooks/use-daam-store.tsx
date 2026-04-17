@@ -266,7 +266,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   // ── Initialize from API ───────────────────────────────────────────────────
   useEffect(() => {
     const storedLang = localStorage.getItem('daam_lang') as Language;
-    const storedUser = localStorage.getItem('daam_user');
+    const storedUser = sessionStorage.getItem('daam_user') || localStorage.getItem('daam_user');
     if (storedLang) { setLang(storedLang); document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr'; document.documentElement.lang = storedLang; }
     const initialTheme = getInitialTheme();
     setTheme(initialTheme);
@@ -362,7 +362,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (result.type === 'authUser') {
       const authUser = result.authUser;
       const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
-      localStorage.setItem('daam_user', email);
+      if (rememberMe) { localStorage.setItem('daam_user', email); } else { sessionStorage.setItem('daam_user', email); }
       setAuthUsers(prev => prev.some(a => a.email.toLowerCase() === emailLower) ? prev : [...prev, authUser]);
       setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, profile: profiles[email] });
       return;
@@ -375,7 +375,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { rememberMe }).catch(() => {});
 
     const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
-    localStorage.setItem('daam_user', email);
+    if (rememberMe) { localStorage.setItem('daam_user', email); } else { sessionStorage.setItem('daam_user', email); }
     setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, account: updatedAcc, profile: profiles[email] });
   };
 
@@ -446,6 +446,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('daam_user');
+    sessionStorage.removeItem('daam_user');
     setUser(null);
   };
 
@@ -902,7 +903,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         api('GET', '/api/messages'),
       ]);
       const activeId = activeConversationIdRef.current;
-      const userEmail = (localStorage.getItem('daam_user') || '').toLowerCase() || undefined;
+      const userEmail = (sessionStorage.getItem('daam_user') || localStorage.getItem('daam_user') || '').toLowerCase() || undefined;
       const fetchedConvs: Conversation[] = (convData || []).map((c: Conversation) => {
         // Don't increment unread for the currently open conversation
         if (activeId && c.id === activeId && userEmail) {
