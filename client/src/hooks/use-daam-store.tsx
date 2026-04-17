@@ -171,7 +171,7 @@ interface DaamStoreContextType {
   register: (data: RegistrationData) => Promise<PendingVerification>;
   resetPassword: (email: string, newPassword: string) => void;
   changePassword: (currentPassword: string, newPassword: string) => void;
-  verifyEmail: (token: string) => boolean;
+  verifyEmail: (token: string) => Promise<boolean>;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, content: string, postType?: PostType, subject?: string) => void;
@@ -344,10 +344,14 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       // Translate server error messages to the current language
       const msg: string = err.message || '';
+      if (msg.includes('verify your email') || msg.includes('verify')) {
+        throw new Error(lang === 'ar'
+          ? 'يرجى تفعيل حسابك عبر الإيميل أولاً'
+          : 'Please verify your email before logging in');
+      }
       if (lang === 'ar') {
         if (msg.includes('not registered')) throw new Error('هذا الحساب غير مسجل');
         if (msg.includes('Incorrect password')) throw new Error('كلمة المرور غير صحيحة');
-        if (msg.includes('verify your email')) throw new Error('يرجى تأكيد بريدك الإلكتروني أولاً');
         if (msg.includes('banned')) throw new Error('حسابك محظور: ' + msg.split(': ').slice(1).join(': '));
       }
       throw err;

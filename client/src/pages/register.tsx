@@ -214,8 +214,10 @@ export default function Register() {
     try {
       await register(formData);
       toast({
-        title: lang === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration Successful!',
-        description: lang === 'ar' ? 'يمكنك الآن تسجيل الدخول' : 'You can now login',
+        title: lang === 'ar' ? 'تم إنشاء حسابك!' : 'Account Created!',
+        description: lang === 'ar'
+          ? 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني، يرجى التحقق منه قبل تسجيل الدخول'
+          : 'A verification link has been sent to your email. Please verify before logging in.',
       });
       setLocation('/login');
     } catch (error: any) {
