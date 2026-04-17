@@ -7,7 +7,31 @@ import crypto from "crypto";
 import * as store from "./storage";
 import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile, generateSignedUrl } from "./cloudinary";
 import { Resend } from "resend";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
+import type { AuthenticatorTransportFuture } from "@simplewebauthn/types";
 
+
+// ── WebAuthn config ───────────────────────────────────────────────────────────
+const RP_NAME = "منصة دام";
+const RP_ID = process.env.WEBAUTHN_RP_ID || "localhost";
+const ORIGIN = process.env.WEBAUTHN_ORIGIN || `http://localhost:5000`;
+// Temporary in-memory challenge store (TTL ~5 min)
+const webAuthnChallenges = new Map<string, { challenge: string; expiresAt: number }>();
+function setChallenge(key: string, challenge: string) {
+  webAuthnChallenges.set(key, { challenge, expiresAt: Date.now() + 5 * 60 * 1000 });
+}
+function getChallenge(key: string): string | undefined {
+  const entry = webAuthnChallenges.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) { webAuthnChallenges.delete(key); return undefined; }
+  webAuthnChallenges.delete(key);
+  return entry.challenge;
+}
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -177,7 +201,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const entry = Object.entries(allAccounts).find(([, acc]) => acc.verificationToken === token);
       if (!entry) return res.status(400).json({ error: 'Invalid or already used token' });
 
-      const [email, account] = entry;
+      const [, account] = entry;
       if (account.verificationExpiry && new Date(account.verificationExpiry) < new Date()) {
         return res.status(400).json({ error: 'Verification link has expired' });
       }
@@ -186,6 +210,108 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ...account, verified: true,
         verificationToken: undefined, verificationExpiry: undefined,
       } as any);
+
+      return res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Forgot Password ───────────────────────────────────────────────────────
+  app.post('/api/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: 'Email required' });
+      const emailLower = (email as string).toLowerCase();
+
+      const account = await store.getAccount(emailLower);
+      // Always return ok to prevent email enumeration
+      if (!account) return res.json({ ok: true });
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+      await store.upsertAccount({ ...account, resetToken: token, resetTokenExpiry: expiry });
+
+      const resetUrl = `https://daamtaaleem.com/reset-password?token=${token}`;
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: 'noreply@daamtaaleem.com',
+          to: emailLower,
+          subject: 'إعادة تعيين كلمة المرور | Reset your DAAM password',
+          html: `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:Arial,sans-serif;direction:rtl">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:40px 20px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:16px;overflow:hidden;border:1px solid #2a2a2a;max-width:100%">
+        <tr><td style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:32px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:28px;font-weight:bold">منصة دام</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">DAAM Student Platform</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <h2 style="color:#e2e8f0;margin:0 0 16px;font-size:20px">إعادة تعيين كلمة المرور</h2>
+          <p style="color:#94a3b8;line-height:1.7;margin:0 0 24px;font-size:15px">
+            تلقينا طلباً لإعادة تعيين كلمة مرور حسابك في منصة دام. اضغط على الزر أدناه لإنشاء كلمة مرور جديدة:
+          </p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:bold">
+              إعادة تعيين كلمة المرور
+            </a>
+          </div>
+          <p style="color:#64748b;font-size:13px;text-align:center;margin:0 0 16px">
+            هذا الرابط صالح لمدة ساعة واحدة فقط
+          </p>
+          <hr style="border:none;border-top:1px solid #2a2a2a;margin:24px 0">
+          <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 8px;direction:ltr;text-align:left">
+            <strong style="color:#94a3b8">Password Reset Request</strong><br>
+            Click the button above or use the link below to reset your password. This link expires in 1 hour.
+          </p>
+          <p style="margin:8px 0 0;direction:ltr;text-align:left">
+            <a href="${resetUrl}" style="color:#7c3aed;font-size:12px;word-break:break-all">${resetUrl}</a>
+          </p>
+          <p style="color:#475569;font-size:12px;margin:16px 0 0;text-align:center">
+            إذا لم تطلب إعادة التعيين، تجاهل هذا البريد · If you did not request this, ignore this email.
+          </p>
+        </td></tr>
+        <tr><td style="background:#111;padding:20px;text-align:center">
+          <p style="color:#475569;font-size:12px;margin:0">© 2026 DAAM · daamtaaleem.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
+        });
+      } catch (emailErr: any) {
+        console.error('Failed to send reset email:', emailErr.message);
+      }
+
+      return res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Reset Password ────────────────────────────────────────────────────────
+  app.post('/api/reset-password', async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
+      if ((password as string).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+      const allAccounts = await store.getAllAccounts();
+      const entry = Object.entries(allAccounts).find(([, acc]) => acc.resetToken === token);
+      if (!entry) return res.status(400).json({ error: 'Invalid or expired reset link' });
+
+      const [, account] = entry;
+      if (account.resetTokenExpiry && new Date(account.resetTokenExpiry) < new Date()) {
+        return res.status(400).json({ error: 'Reset link has expired' });
+      }
+
+      await store.upsertAccount({
+        ...account,
+        passwordHash: simpleHash(password as string),
+        resetToken: undefined,
+        resetTokenExpiry: undefined,
+      });
 
       return res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -697,6 +823,147 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }).on('error', () => {
       if (!res.headersSent) res.status(502).json({ ok: false, error: 'Failed to fetch file' });
     });
+  });
+
+  // ── WebAuthn ──────────────────────────────────────────────────────────────
+
+  // POST /api/webauthn/register/begin  — requires logged-in user (email in body)
+  app.post('/api/webauthn/register/begin', async (req, res) => {
+    try {
+      const { email } = req.body as { email: string };
+      if (!email) return res.status(400).json({ error: 'email required' });
+      const emailLower = email.toLowerCase();
+      const account = await store.getAccount(emailLower);
+      if (!account) return res.status(404).json({ error: 'Account not found' });
+
+      const existingCreds = await store.getWebAuthnCredentials(emailLower);
+      const excludeCredentials = existingCreds.map(c => ({
+        id: c.credentialId,
+        transports: c.transports as AuthenticatorTransportFuture[],
+      }));
+
+      const options = await generateRegistrationOptions({
+        rpName: RP_NAME,
+        rpID: RP_ID,
+        userName: emailLower,
+        userDisplayName: emailLower,
+        attestationType: 'none',
+        excludeCredentials,
+        authenticatorSelection: {
+          residentKey: 'preferred',
+          userVerification: 'preferred',
+        },
+      });
+
+      setChallenge(`reg:${emailLower}`, options.challenge);
+      res.json(options);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /api/webauthn/register/complete
+  app.post('/api/webauthn/register/complete', async (req, res) => {
+    try {
+      const { email, credential } = req.body as { email: string; credential: any };
+      if (!email || !credential) return res.status(400).json({ error: 'email and credential required' });
+      const emailLower = email.toLowerCase();
+
+      const expectedChallenge = getChallenge(`reg:${emailLower}`);
+      if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired or not found' });
+
+      const verification = await verifyRegistrationResponse({
+        response: credential,
+        expectedChallenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+      });
+
+      if (!verification.verified || !verification.registrationInfo) {
+        return res.status(400).json({ error: 'Verification failed' });
+      }
+
+      const { credential: credInfo } = verification.registrationInfo;
+      await store.saveWebAuthnCredential({
+        id: crypto.randomUUID(),
+        email: emailLower,
+        credentialId: credInfo.id,
+        publicKey: Buffer.from(credInfo.publicKey).toString('base64'),
+        counter: credInfo.counter,
+        transports: (credential.response?.transports ?? []) as string[],
+        createdAt: Date.now(),
+      });
+
+      // Mark biometricEnabled on account
+      const account = await store.getAccount(emailLower);
+      if (account) await store.upsertAccount({ ...account, biometricEnabled: true });
+
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /api/webauthn/login/begin  — takes email, returns challenge
+  app.post('/api/webauthn/login/begin', async (req, res) => {
+    try {
+      const { email } = req.body as { email: string };
+      if (!email) return res.status(400).json({ error: 'email required' });
+      const emailLower = email.toLowerCase();
+
+      const creds = await store.getWebAuthnCredentials(emailLower);
+      if (creds.length === 0) return res.status(404).json({ error: 'no_credentials' });
+
+      const options = await generateAuthenticationOptions({
+        rpID: RP_ID,
+        allowCredentials: creds.map(c => ({
+          id: c.credentialId,
+          transports: c.transports as AuthenticatorTransportFuture[],
+        })),
+        userVerification: 'preferred',
+      });
+
+      setChallenge(`auth:${emailLower}`, options.challenge);
+      res.json(options);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /api/webauthn/login/complete
+  app.post('/api/webauthn/login/complete', async (req, res) => {
+    try {
+      const { email, credential } = req.body as { email: string; credential: any };
+      if (!email || !credential) return res.status(400).json({ error: 'email and credential required' });
+      const emailLower = email.toLowerCase();
+
+      const expectedChallenge = getChallenge(`auth:${emailLower}`);
+      if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired or not found' });
+
+      const storedCred = await store.getWebAuthnCredentialById(credential.id);
+      if (!storedCred || storedCred.email !== emailLower) {
+        return res.status(400).json({ error: 'Credential not found' });
+      }
+
+      const publicKeyBytes = Buffer.from(storedCred.publicKey, 'base64');
+
+      const verification = await verifyAuthenticationResponse({
+        response: credential,
+        expectedChallenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+        credential: {
+          id: storedCred.credentialId,
+          publicKey: publicKeyBytes,
+          counter: storedCred.counter,
+          transports: storedCred.transports as AuthenticatorTransportFuture[],
+        },
+      });
+
+      if (!verification.verified) return res.status(401).json({ error: 'Verification failed' });
+
+      await store.updateWebAuthnCounter(storedCred.credentialId, verification.authenticationInfo.newCounter);
+
+      const account = await store.getAccount(emailLower);
+      if (!account) return res.status(404).json({ error: 'Account not found' });
+      if (account.banned) return res.status(403).json({ error: 'Account banned' });
+
+      res.json({ ok: true, type: 'account', account });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   return httpServer;

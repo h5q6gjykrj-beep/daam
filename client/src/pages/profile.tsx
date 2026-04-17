@@ -161,7 +161,9 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Fingerprint,
+  CheckCircle2
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -231,7 +233,7 @@ const activeViewToShellTab = (view: string): ProfileTab => {
 };
 
 export default function Profile() {
-  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM, changePassword } = useDaamStore();
+  const { user, posts, lang, theme, getProfile, getAccount, updateAccount, updateProfile, toggleFollow, isFollowing, submitReport, moderators, canSendDM, changePassword, registerBiometric } = useDaamStore();
   const [, navigate] = useLocation();
   
   const isAdmin = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
@@ -349,7 +351,9 @@ export default function Profile() {
   const [cpShowNew, setCpShowNew] = useState(false);
   const [cpShowConfirm, setCpShowConfirm] = useState(false);
   const [cpSubmitted, setCpSubmitted] = useState(false);
-  
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricDone, setBiometricDone] = useState(false);
+
   useEffect(() => {
     if (profileEmail) {
       const p = getProfile(profileEmail);
@@ -2554,6 +2558,29 @@ export default function Profile() {
                       <KeyRound className="w-4 h-4" />
                       {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
                     </Button>
+                    <Button
+                      variant="outline"
+                      disabled={biometricLoading || !('PublicKeyCredential' in window)}
+                      onClick={async () => {
+                        if (!user?.email) return;
+                        setBiometricLoading(true);
+                        setBiometricDone(false);
+                        try {
+                          await registerBiometric(user.email);
+                          setBiometricDone(true);
+                        } catch (err: any) {
+                          if (err?.name !== 'NotAllowedError') alert(err?.message || 'Error');
+                        } finally {
+                          setBiometricLoading(false);
+                        }
+                      }}
+                      className="w-full gap-2 mt-2"
+                    >
+                      {biometricLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : biometricDone ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Fingerprint className="w-4 h-4" />}
+                      {biometricDone
+                        ? (lang === 'ar' ? 'تم تسجيل البصمة!' : 'Biometrics Registered!')
+                        : (lang === 'ar' ? 'تسجيل البصمة' : 'Register Biometrics')}
+                    </Button>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                     <Mail className="w-5 h-5 text-muted-foreground" />
@@ -4274,6 +4301,29 @@ export default function Profile() {
                   >
                     <KeyRound className="w-4 h-4" />
                     {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={biometricLoading || !('PublicKeyCredential' in window)}
+                    onClick={async () => {
+                      if (!user?.email) return;
+                      setBiometricLoading(true);
+                      setBiometricDone(false);
+                      try {
+                        await registerBiometric(user.email);
+                        setBiometricDone(true);
+                      } catch (err: any) {
+                        if (err?.name !== 'NotAllowedError') alert(err?.message || 'Error');
+                      } finally {
+                        setBiometricLoading(false);
+                      }
+                    }}
+                    className="w-full gap-2 mt-2"
+                  >
+                    {biometricLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : biometricDone ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Fingerprint className="w-4 h-4" />}
+                    {biometricDone
+                      ? (lang === 'ar' ? 'تم تسجيل البصمة!' : 'Biometrics Registered!')
+                      : (lang === 'ar' ? 'تسجيل البصمة' : 'Register Biometrics')}
                   </Button>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">

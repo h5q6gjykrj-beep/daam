@@ -6,6 +6,7 @@ import type {
   UserAccount, UserProfile, LocalPost, LocalReply, Report, ModeratorAccount,
   LocalAuthUser, AuditEvent, MuteRecord, BanRecord, Conversation, DirectMessage,
   DaamPermission, AuditAction, PostType, PostStatus, ReportStatus, DaamRole,
+  WebAuthnCredential,
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -30,6 +31,7 @@ export async function upsertAccount(acc: UserAccount): Promise<void> {
     phone: acc.phone || '', region: acc.region || { governorate: '', wilayat: '' },
     role: acc.role || 'student', verified: acc.verified ?? false,
     verificationToken: acc.verificationToken, verificationExpiry: acc.verificationExpiry,
+    resetToken: acc.resetToken, resetTokenExpiry: acc.resetTokenExpiry,
     rememberMe: acc.rememberMe ?? false, biometricEnabled: acc.biometricEnabled ?? false,
     banned: acc.banned ?? false, bannedReason: acc.bannedReason,
     isDemo: acc.isDemo ?? false, allowDM: acc.allowDM || 'everyone', createdAt: acc.createdAt,
@@ -39,7 +41,9 @@ export async function upsertAccount(acc: UserAccount): Promise<void> {
       passwordHash: sql`excluded.password_hash`, phone: sql`excluded.phone`,
       region: sql`excluded.region`, role: sql`excluded.role`,
       verified: sql`excluded.verified`, verificationToken: sql`excluded.verification_token`,
-      verificationExpiry: sql`excluded.verification_expiry`, rememberMe: sql`excluded.remember_me`,
+      verificationExpiry: sql`excluded.verification_expiry`,
+      resetToken: sql`excluded.reset_token`, resetTokenExpiry: sql`excluded.reset_token_expiry`,
+      rememberMe: sql`excluded.remember_me`,
       biometricEnabled: sql`excluded.biometric_enabled`, banned: sql`excluded.banned`,
       bannedReason: sql`excluded.banned_reason`, isDemo: sql`excluded.is_demo`,
       allowDM: sql`excluded.allow_dm`,
@@ -53,6 +57,7 @@ function rowToAccount(row: typeof schema.accounts.$inferSelect): UserAccount {
     region: (row.region as any) || { governorate: '', wilayat: '' },
     role: (row.role as any) || 'student', verified: row.verified,
     verificationToken: row.verificationToken ?? undefined, verificationExpiry: row.verificationExpiry ?? undefined,
+    resetToken: row.resetToken ?? undefined, resetTokenExpiry: row.resetTokenExpiry ?? undefined,
     rememberMe: row.rememberMe ?? false, biometricEnabled: row.biometricEnabled ?? false,
     banned: row.banned ?? false, bannedReason: row.bannedReason ?? undefined,
     isDemo: row.isDemo ?? false, allowDM: (row.allowDM as any) ?? 'everyone', createdAt: row.createdAt,
@@ -475,6 +480,48 @@ export async function updateResearch(id: string, data: Partial<{ title: string; 
 
 export async function deleteResearch(id: string) {
   await db.delete(schema.profileResearch).where(eq(schema.profileResearch.id, id));
+}
+
+// ── WebAuthn ──────────────────────────────────────────────────────────────────
+
+export async function getWebAuthnCredentials(email: string): Promise<WebAuthnCredential[]> {
+  const rows = await db.select().from(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.email, email.toLowerCase()));
+  return rows.map(r => ({
+    id: r.id,
+    email: r.email,
+    credentialId: r.credentialId,
+    publicKey: r.publicKey,
+    counter: r.counter,
+    transports: (r.transports as string[]) ?? [],
+    createdAt: r.createdAt,
+  }));
+}
+
+export async function getWebAuthnCredentialById(credentialId: string): Promise<WebAuthnCredential | undefined> {
+  const rows = await db.select().from(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.credentialId, credentialId)).limit(1);
+  if (!rows[0]) return undefined;
+  const r = rows[0];
+  return { id: r.id, email: r.email, credentialId: r.credentialId, publicKey: r.publicKey, counter: r.counter, transports: (r.transports as string[]) ?? [], createdAt: r.createdAt };
+}
+
+export async function saveWebAuthnCredential(cred: WebAuthnCredential): Promise<void> {
+  await db.insert(schema.webauthnCredentials).values({
+    id: cred.id,
+    email: cred.email.toLowerCase(),
+    credentialId: cred.credentialId,
+    publicKey: cred.publicKey,
+    counter: cred.counter,
+    transports: cred.transports,
+    createdAt: cred.createdAt,
+  });
+}
+
+export async function updateWebAuthnCounter(credentialId: string, counter: number): Promise<void> {
+  await db.update(schema.webauthnCredentials).set({ counter }).where(eq(schema.webauthnCredentials.credentialId, credentialId));
+}
+
+export async function deleteWebAuthnCredential(credentialId: string): Promise<void> {
+  await db.delete(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.credentialId, credentialId));
 }
 
 export const storage = { db };

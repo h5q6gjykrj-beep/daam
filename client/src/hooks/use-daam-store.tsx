@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from "react";
 import { type LocalPost, type LocalReply, type PostType, type PostStatus, type UserProfile, type Attachment, type UserAccount, type UserRole, type Region } from "@shared/schema";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Language = 'ar' | 'en';
@@ -229,6 +230,8 @@ interface DaamStoreContextType {
   refreshMessages: () => Promise<void>;
   refreshPosts: () => Promise<void>;
   setActiveConversationId: (id: string | null) => void;
+  biometricLogin: (email: string, rememberMe?: boolean) => Promise<void>;
+  registerBiometric: (email: string) => Promise<void>;
 }
 
 const DaamStoreContext = createContext<DaamStoreContextType | null>(null);
@@ -448,6 +451,83 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('daam_user');
     sessionStorage.removeItem('daam_user');
     setUser(null);
+  };
+
+  // ── Biometric (WebAuthn) ──────────────────────────────────────────────────
+  const biometricLogin = async (email: string, rememberMe: boolean = false) => {
+    const emailLower = email.toLowerCase();
+
+    const beginRes = await fetch('/api/webauthn/login/begin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLower }),
+    });
+    if (!beginRes.ok) {
+      const err = await beginRes.json().catch(() => ({}));
+      if (err.error === 'no_credentials') {
+        throw new Error(lang === 'ar'
+          ? 'يجب تسجيل البصمة أولاً من إعدادات الملف الشخصي'
+          : 'Please register biometrics first in your profile settings');
+      }
+      throw new Error(err.error || 'Failed to start biometric login');
+    }
+    const options = await beginRes.json();
+
+    const credential = await startAuthentication({ optionsJSON: options });
+
+    const completeRes = await fetch('/api/webauthn/login/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLower, credential }),
+    });
+    if (!completeRes.ok) {
+      const err = await completeRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Verification failed');
+    }
+    const data = await completeRes.json();
+    const account: UserAccount = data.account;
+
+    const isAdminEmail = ADMIN_EMAILS.includes(emailLower);
+    const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
+    if (rememberMe) { localStorage.setItem('daam_user', email); } else { sessionStorage.setItem('daam_user', email); }
+    setAccounts(prev => ({ ...prev, [emailLower]: account }));
+    setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, account, profile: profiles[email] });
+  };
+
+  const registerBiometric = async (email: string) => {
+    const emailLower = email.toLowerCase();
+
+    const beginRes = await fetch('/api/webauthn/register/begin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLower }),
+    });
+    if (!beginRes.ok) {
+      const err = await beginRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to start registration');
+    }
+    const options = await beginRes.json();
+
+    const credential = await startRegistration({ optionsJSON: options });
+
+    const completeRes = await fetch('/api/webauthn/register/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLower, credential }),
+    });
+    if (!completeRes.ok) {
+      const err = await completeRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Registration verification failed');
+    }
+    // Update local account state
+    setAccounts(prev => {
+      const acc = prev[emailLower];
+      if (!acc) return prev;
+      return { ...prev, [emailLower]: { ...acc, biometricEnabled: true } };
+    });
+    if (user?.email.toLowerCase() === emailLower) {
+      setUser(prev => prev ? { ...prev, account: { ...(prev.account as any), biometricEnabled: true } } : prev);
+    }
   };
 
   // ── Posts ─────────────────────────────────────────────────────────────────
@@ -969,6 +1049,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     conversations, directMessages, getOrCreateConversation, getConversationsForUser,
     getMessages, sendDirectMessage, markConversationRead, getUnreadConversationCount, canSendDM,
     refreshMessages, refreshPosts, setActiveConversationId,
+    biometricLogin, registerBiometric,
   };
 
   return <DaamStoreContext.Provider value={value}>{children}</DaamStoreContext.Provider>;

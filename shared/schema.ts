@@ -80,6 +80,8 @@ export interface UserAccount {
   verified: boolean;
   verificationToken?: string;
   verificationExpiry?: string;
+  resetToken?: string;
+  resetTokenExpiry?: string;
   createdAt: string;
   rememberMe?: boolean;
   biometricEnabled?: boolean;
@@ -177,6 +179,8 @@ export const accounts = pgTable("accounts", {
   verified: boolean("verified").notNull().default(false),
   verificationToken: text("verification_token"),
   verificationExpiry: text("verification_expiry"),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: text("reset_token_expiry"),
   rememberMe: boolean("remember_me").default(false),
   biometricEnabled: boolean("biometric_enabled").default(false),
   banned: boolean("banned").default(false),
@@ -340,6 +344,26 @@ export const campaigns = pgTable("campaigns", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const webauthnCredentials = pgTable("webauthn_credentials", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  counter: bigint("counter", { mode: 'number' }).notNull().default(0),
+  transports: jsonb("transports").$type<string[]>().default([]),
+  createdAt: bigint("created_at", { mode: 'number' }).notNull(),
+});
+
+export interface WebAuthnCredential {
+  id: string;
+  email: string;
+  credentialId: string;
+  publicKey: string;
+  counter: number;
+  transports: string[];
+  createdAt: number;
+}
 
 // ─── Insert Schemas ──────────────────────────────────────────────────────────
 export const insertAccountSchema = createInsertSchema(accounts);

@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint, KeyRound } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint, KeyRound, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
+import { startAuthentication } from "@simplewebauthn/browser";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -22,7 +23,7 @@ export default function Login() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
-  const { login, lang, toggleLang, theme, toggleTheme } = useDaamStore();
+  const { login, biometricLogin, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -69,20 +70,36 @@ export default function Login() {
     }
   };
 
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
   const handleBiometricLogin = async () => {
-    if (!('credentials' in navigator) || !('PublicKeyCredential' in window)) {
+    if (!('PublicKeyCredential' in window)) {
       toast({
         title: lang === 'ar' ? 'غير مدعوم' : 'Not Supported',
         description: lang === 'ar' ? 'المتصفح لا يدعم الدخول بالبصمة' : 'Browser does not support biometric login',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       return;
     }
-    
-    toast({
-      title: lang === 'ar' ? 'قريباً' : 'Coming Soon',
-      description: lang === 'ar' ? 'سيتم دعم الدخول بالبصمة قريباً' : 'Biometric login will be available soon',
-    });
+    if (!email) {
+      toast({
+        title: lang === 'ar' ? 'أدخل البريد الإلكتروني أولاً' : 'Enter your email first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setBiometricLoading(true);
+    try {
+      await biometricLogin(email, rememberMe);
+      setLocation('/dashboard');
+      toast({ title: lang === 'ar' ? 'أهلاً بك!' : 'Welcome back!', description: lang === 'ar' ? 'تم الدخول بالبصمة بنجاح' : 'Biometric login successful' });
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError' || err?.message === 'CANCELLED') return;
+      toast({ title: lang === 'ar' ? 'فشل الدخول بالبصمة' : 'Biometric login failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setBiometricLoading(false);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -241,9 +258,10 @@ export default function Login() {
                 variant="outline"
                 className="w-full h-12 text-base gap-2"
                 onClick={handleBiometricLogin}
+                disabled={biometricLoading}
                 data-testid="button-biometric"
               >
-                <Fingerprint className="w-5 h-5" />
+                {biometricLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Fingerprint className="w-5 h-5" />}
                 {tr.biometric}
               </Button>
             </form>
