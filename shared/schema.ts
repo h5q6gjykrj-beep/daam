@@ -345,6 +345,12 @@ export const campaigns = pgTable("campaigns", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  key: text("key").primaryKey(),
+  challenge: text("challenge").notNull(),
+  expiresAt: bigint("expires_at", { mode: 'number' }).notNull(),
+});
+
 export const webauthnCredentials = pgTable("webauthn_credentials", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

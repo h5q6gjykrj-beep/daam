@@ -20,18 +20,6 @@ import type { AuthenticatorTransportFuture } from "@simplewebauthn/types";
 const RP_NAME = "منصة دام";
 const RP_ID = process.env.WEBAUTHN_RP_ID || "localhost";
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || `http://localhost:5000`;
-// Temporary in-memory challenge store (TTL ~5 min)
-const webAuthnChallenges = new Map<string, { challenge: string; expiresAt: number }>();
-function setChallenge(key: string, challenge: string) {
-  webAuthnChallenges.set(key, { challenge, expiresAt: Date.now() + 5 * 60 * 1000 });
-}
-function getChallenge(key: string): string | undefined {
-  const entry = webAuthnChallenges.get(key);
-  if (!entry) return undefined;
-  if (Date.now() > entry.expiresAt) { webAuthnChallenges.delete(key); return undefined; }
-  webAuthnChallenges.delete(key);
-  return entry.challenge;
-}
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -855,7 +843,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         },
       });
 
-      setChallenge(`reg:${emailLower}`, options.challenge);
+      await store.setWebAuthnChallenge(`reg:${emailLower}`, options.challenge);
       res.json(options);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -867,7 +855,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!email || !credential) return res.status(400).json({ error: 'email and credential required' });
       const emailLower = email.toLowerCase();
 
-      const expectedChallenge = getChallenge(`reg:${emailLower}`);
+      const expectedChallenge = await store.getAndDeleteWebAuthnChallenge(`reg:${emailLower}`);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired or not found' });
 
       const verification = await verifyRegistrationResponse({
@@ -919,7 +907,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         userVerification: 'preferred',
       });
 
-      setChallenge(`auth:${emailLower}`, options.challenge);
+      await store.setWebAuthnChallenge(`auth:${emailLower}`, options.challenge);
       res.json(options);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -931,7 +919,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!email || !credential) return res.status(400).json({ error: 'email and credential required' });
       const emailLower = email.toLowerCase();
 
-      const expectedChallenge = getChallenge(`auth:${emailLower}`);
+      const expectedChallenge = await store.getAndDeleteWebAuthnChallenge(`auth:${emailLower}`);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired or not found' });
 
       const storedCred = await store.getWebAuthnCredentialById(credential.id);

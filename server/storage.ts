@@ -482,6 +482,23 @@ export async function deleteResearch(id: string) {
   await db.delete(schema.profileResearch).where(eq(schema.profileResearch.id, id));
 }
 
+// ── WebAuthn Challenges (DB-backed, TTL 5 min) ────────────────────────────────
+
+export async function setWebAuthnChallenge(key: string, challenge: string): Promise<void> {
+  const expiresAt = Date.now() + 5 * 60 * 1000;
+  await db.insert(schema.webauthnChallenges)
+    .values({ key, challenge, expiresAt })
+    .onConflictDoUpdate({ target: schema.webauthnChallenges.key, set: { challenge, expiresAt } });
+}
+
+export async function getAndDeleteWebAuthnChallenge(key: string): Promise<string | undefined> {
+  const rows = await db.select().from(schema.webauthnChallenges).where(eq(schema.webauthnChallenges.key, key)).limit(1);
+  if (!rows[0]) return undefined;
+  await db.delete(schema.webauthnChallenges).where(eq(schema.webauthnChallenges.key, key));
+  if (Date.now() > rows[0].expiresAt) return undefined; // expired
+  return rows[0].challenge;
+}
+
 // ── WebAuthn ──────────────────────────────────────────────────────────────────
 
 export async function getWebAuthnCredentials(email: string): Promise<WebAuthnCredential[]> {
