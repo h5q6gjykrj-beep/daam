@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, ExternalLink, Mail } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -135,7 +136,8 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+
   const { register, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
@@ -213,13 +215,7 @@ export default function Register() {
     
     try {
       await register(formData);
-      toast({
-        title: lang === 'ar' ? 'تم إنشاء حسابك!' : 'Account Created!',
-        description: lang === 'ar'
-          ? 'تم إرسال رابط التفعيل إلى بريدك الإلكتروني، يرجى التحقق منه قبل تسجيل الدخول'
-          : 'A verification link has been sent to your email. Please verify before logging in.',
-      });
-      setLocation('/login');
+      setShowVerifyModal(true);
     } catch (error: any) {
       toast({
         title: lang === 'ar' ? 'خطأ في التسجيل' : 'Registration Error',
@@ -231,6 +227,40 @@ export default function Register() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/20 via-background to-background">
+
+      {/* Email Verification Modal */}
+      <Dialog
+        open={showVerifyModal}
+        onOpenChange={(open) => { if (!open) { setShowVerifyModal(false); setLocation('/login'); } }}
+      >
+        <DialogContent
+          className="max-w-sm text-center p-0 overflow-hidden"
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          <div className="bg-gradient-to-b from-primary/20 to-transparent pt-8 pb-4 px-6">
+            <div className="w-20 h-20 mx-auto bg-primary/15 border border-primary/30 rounded-full flex items-center justify-center mb-5">
+              <Mail className="w-10 h-10 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold mb-3">
+              {isRTL ? 'تحقق من بريدك الإلكتروني' : 'Check Your Email'}
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {isRTL
+                ? 'تم إرسال رابط تفعيل الحساب إلى بريدك الإلكتروني. يرجى فتح صندوق الوارد والنقر على رابط التأكيد لتفعيل حسابك.'
+                : 'An account activation link has been sent to your email. Please open your inbox and click the confirmation link to activate your account.'}
+            </p>
+          </div>
+          <div className="px-6 pb-6 pt-4">
+            <Button
+              className="w-full"
+              onClick={() => { setShowVerifyModal(false); setLocation('/login'); }}
+              data-testid="button-verify-modal-ok"
+            >
+              {isRTL ? 'حسناً، فهمت' : 'Got it'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="absolute top-4 left-4 rtl:left-auto rtl:right-4">
         <Button 
           variant="ghost" 
