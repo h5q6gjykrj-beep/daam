@@ -19,11 +19,10 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  
-  const { login, resetPassword, lang, toggleLang, theme, toggleTheme } = useDaamStore();
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const { login, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -43,13 +42,12 @@ export default function Login() {
     home: lang === 'ar' ? 'الرئيسية' : 'Home',
     onlyUniversity: lang === 'ar' ? 'متاح فقط لحسابات @utas.edu.om' : 'Only @utas.edu.om accounts supported',
     forgotPassword: lang === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot password?',
-    resetPassword: lang === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password',
-    resetPasswordDesc: lang === 'ar' ? 'متاح فقط لحسابات المشرفين' : 'Available only for moderator accounts',
-    newPassword: lang === 'ar' ? 'كلمة المرور الجديدة' : 'New Password',
-    confirmPassword: lang === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password',
-    passwordMismatch: lang === 'ar' ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
-    resetBtn: lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password',
-    passwordResetSuccess: lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully',
+    forgotTitle: lang === 'ar' ? 'استعادة كلمة المرور' : 'Reset Password',
+    forgotDesc: lang === 'ar' ? 'أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين' : 'Enter your email and we\'ll send you a reset link',
+    sendLink: lang === 'ar' ? 'إرسال رابط الاستعادة' : 'Send Reset Link',
+    sentTitle: lang === 'ar' ? 'تم الإرسال!' : 'Email Sent!',
+    sentDesc: lang === 'ar' ? 'إذا كان البريد مسجلاً، ستصله رسالة تحتوي على رابط إعادة تعيين كلمة المرور. تحقق من صندوق الوارد.' : 'If this email is registered, you\'ll receive a password reset link. Check your inbox.',
+    backToLogin: lang === 'ar' ? 'العودة لتسجيل الدخول' : 'Back to Login',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,36 +85,21 @@ export default function Login() {
     });
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (newPassword !== confirmNewPassword) {
-      toast({
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        description: tr.passwordMismatch,
-        variant: 'destructive'
-      });
-      return;
-    }
-    
+    setResetLoading(true);
     try {
-      resetPassword(resetEmail, newPassword);
-      toast({
-        title: lang === 'ar' ? 'تم بنجاح' : 'Success',
-        description: tr.passwordResetSuccess,
+      await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail }),
       });
-      setShowForgotPassword(false);
-      setResetEmail("");
-      setNewPassword("");
-      setConfirmNewPassword("");
-      // Pre-fill login email
-      setEmail(resetEmail);
-    } catch (error: any) {
-      toast({
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        description: error.message,
-        variant: 'destructive'
-      });
+      setResetSent(true);
+    } catch {
+      // show sent state anyway to avoid email enumeration
+      setResetSent(true);
+    } finally {
+      setResetLoading(false);
     }
   };
   
@@ -285,73 +268,50 @@ export default function Login() {
         </Card>
       </motion.div>
 
-      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
-        <DialogContent className="sm:max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="w-5 h-5" />
-              {tr.resetPassword}
-            </DialogTitle>
-            <DialogDescription>
-              {tr.resetPasswordDesc}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reset-email">{tr.email}</Label>
-              <Input
-                id="reset-email"
-                type="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="w.qq89@hotmail.com"
-                dir="ltr"
-                required
-                data-testid="input-reset-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">{tr.newPassword}</Label>
-              <div className="relative">
-                <Input
-                  id="new-password"
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  style={{ paddingRight: '2.75rem' }}
-                  dir="ltr"
-                  required
-                  minLength={6}
-                  data-testid="input-new-password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-10 w-10 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                >
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      <Dialog open={showForgotPassword} onOpenChange={(open) => {
+        if (!open) { setShowForgotPassword(false); setResetEmail(""); setResetSent(false); }
+      }}>
+        <DialogContent className="sm:max-w-sm" dir={isRTL ? 'rtl' : 'ltr'}>
+          {!resetSent ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <KeyRound className="w-5 h-5" />
+                  {tr.forgotTitle}
+                </DialogTitle>
+                <DialogDescription>{tr.forgotDesc}</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleForgotPassword} className="space-y-4 mt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">{tr.email}</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="example@utas.edu.om"
+                    dir="ltr"
+                    required
+                    data-testid="input-reset-email"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={resetLoading} data-testid="button-send-reset">
+                  {resetLoading ? (isRTL ? 'جاري الإرسال...' : 'Sending...') : tr.sendLink}
                 </Button>
+              </form>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 mx-auto bg-green-500/15 border border-green-500/30 rounded-full flex items-center justify-center mb-4">
+                <KeyRound className="w-8 h-8 text-green-500" />
               </div>
+              <h3 className="text-lg font-semibold mb-2">{tr.sentTitle}</h3>
+              <p className="text-sm text-muted-foreground mb-5">{tr.sentDesc}</p>
+              <Button className="w-full" onClick={() => { setShowForgotPassword(false); setResetEmail(""); setResetSent(false); }} data-testid="button-back-to-login">
+                {tr.backToLogin}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">{tr.confirmPassword}</Label>
-              <Input
-                id="confirm-password"
-                type={showNewPassword ? 'text' : 'password'}
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                dir="ltr"
-                required
-                minLength={6}
-                data-testid="input-confirm-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" data-testid="button-reset-password">
-              {tr.resetBtn}
-            </Button>
-          </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
