@@ -328,7 +328,7 @@ export default function Register() {
                           type={showPassword ? 'text' : 'password'}
                           value={formData.password}
                           onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setErrors(prev => ({ ...prev, password: '' })); }}
-                          className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 pe-10 ${errors.password ? 'border-destructive' : ''}`}
+                          className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 pe-12 ${errors.password ? 'border-destructive' : ''}`}
                           dir="ltr"
                           data-testid="input-password"
                         />

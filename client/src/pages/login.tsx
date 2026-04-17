@@ -199,7 +199,7 @@ export default function Login() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors px-12"
+                    className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors ps-4 pe-12"
                     dir="ltr"
                     data-testid="input-password"
                   />
@@ -207,7 +207,7 @@ export default function Login() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute left-0 top-0 h-12 w-12 hover:bg-transparent"
+                    className="absolute end-0 top-0 h-12 w-12 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
