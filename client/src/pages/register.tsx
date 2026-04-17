@@ -328,7 +328,8 @@ export default function Register() {
                           type={showPassword ? 'text' : 'password'}
                           value={formData.password}
                           onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setErrors(prev => ({ ...prev, password: '' })); }}
-                          className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 pe-12 ${errors.password ? 'border-destructive' : ''}`}
+                          className={`bg-black/20 border-white/10 h-11 focus:border-primary/50 ${errors.password ? 'border-destructive' : ''}`}
+                          style={{ paddingRight: '2.75rem' }}
                           dir="ltr"
                           data-testid="input-password"
                         />
@@ -336,7 +337,7 @@ export default function Register() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="absolute end-0 top-0 h-11 w-11 hover:bg-transparent"
+                          className="absolute right-0 top-0 h-11 w-11 hover:bg-transparent"
                           onClick={() => setShowPassword(!showPassword)}
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

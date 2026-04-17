@@ -199,7 +199,8 @@ export default function Login() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors ps-4 pe-12"
+                    className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors"
+                    style={{ paddingLeft: '1rem', paddingRight: '3rem' }}
                     dir="ltr"
                     data-testid="input-password"
                   />
@@ -207,7 +208,7 @@ export default function Login() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute end-0 top-0 h-12 w-12 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-12 w-12 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -317,7 +318,7 @@ export default function Login() {
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="pe-12"
+                  style={{ paddingRight: '2.75rem' }}
                   dir="ltr"
                   required
                   minLength={6}
@@ -327,7 +328,7 @@ export default function Login() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute end-0 top-0 h-10 w-10 hover:bg-transparent"
+                  className="absolute right-0 top-0 h-10 w-10 hover:bg-transparent"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                 >
                   {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
