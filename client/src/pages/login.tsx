@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useDaamStore } from "@/hooks/use-daam-store";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint, KeyRound, Loader2 } from "lucide-react";
+import { Globe, ArrowRight, ArrowLeft, ArrowUpLeft, Sun, Moon, Eye, EyeOff, Fingerprint, KeyRound, Loader2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import daamLogo from "@assets/لوجو_خلفية_1768385143943.png";
-import { startAuthentication } from "@simplewebauthn/browser";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -22,6 +21,19 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Biometric quick-login state
+  const [biometricInfo, setBiometricInfo] = useState<{ email: string; name: string } | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('daam_biometric');
+      if (stored && 'PublicKeyCredential' in window) {
+        setBiometricInfo(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
 
   const { login, biometricLogin, lang, toggleLang, theme, toggleTheme } = useDaamStore();
   const [_, setLocation] = useLocation();
@@ -49,6 +61,9 @@ export default function Login() {
     sentTitle: lang === 'ar' ? 'تم الإرسال!' : 'Email Sent!',
     sentDesc: lang === 'ar' ? 'إذا كان البريد مسجلاً، ستصله رسالة تحتوي على رابط إعادة تعيين كلمة المرور. تحقق من صندوق الوارد.' : 'If this email is registered, you\'ll receive a password reset link. Check your inbox.',
     backToLogin: lang === 'ar' ? 'العودة لتسجيل الدخول' : 'Back to Login',
+    tapBiometric: lang === 'ar' ? 'اضغط للدخول بالبصمة' : 'Tap to sign in with biometrics',
+    usePassword: lang === 'ar' ? 'تسجيل الدخول بكلمة المرور' : 'Sign in with password',
+    notYou: lang === 'ar' ? 'ليس أنت؟' : 'Not you?',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,30 +87,25 @@ export default function Login() {
 
   const [biometricLoading, setBiometricLoading] = useState(false);
 
-  const handleBiometricLogin = async () => {
-    if (!('PublicKeyCredential' in window)) {
-      toast({
-        title: lang === 'ar' ? 'غير مدعوم' : 'Not Supported',
-        description: lang === 'ar' ? 'المتصفح لا يدعم الدخول بالبصمة' : 'Browser does not support biometric login',
-        variant: 'destructive',
-      });
+  // Called from biometric screen (no email required — uses stored email)
+  const handleBiometricLogin = async (targetEmail?: string) => {
+    const loginEmail = targetEmail ?? biometricInfo?.email ?? email;
+    if (!loginEmail) {
+      toast({ title: lang === 'ar' ? 'أدخل البريد الإلكتروني أولاً' : 'Enter your email first', variant: 'destructive' });
       return;
     }
-    if (!email) {
-      toast({
-        title: lang === 'ar' ? 'أدخل البريد الإلكتروني أولاً' : 'Enter your email first',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setBiometricLoading(true);
     try {
-      await biometricLogin(email, rememberMe);
+      await biometricLogin(loginEmail, rememberMe);
       setLocation('/dashboard');
       toast({ title: lang === 'ar' ? 'أهلاً بك!' : 'Welcome back!', description: lang === 'ar' ? 'تم الدخول بالبصمة بنجاح' : 'Biometric login successful' });
     } catch (err: any) {
-      if (err?.name === 'NotAllowedError' || err?.message === 'CANCELLED') return;
+      if (err?.name === 'NotAllowedError') return;
+      // If no credentials found on server, clear localStorage and show password form
+      if (err?.message?.includes('يجب تسجيل البصمة') || err?.message?.includes('register biometrics')) {
+        localStorage.removeItem('daam_biometric');
+        setBiometricInfo(null);
+      }
       toast({ title: lang === 'ar' ? 'فشل الدخول بالبصمة' : 'Biometric login failed', description: err?.message, variant: 'destructive' });
     } finally {
       setBiometricLoading(false);
@@ -153,19 +163,93 @@ export default function Login() {
         </Button>
       </div>
 
+      <AnimatePresence mode="wait">
+      {biometricInfo && !showPasswordForm ? (
+        /* ── Biometric quick-login screen ── */
+        <motion.div
+          key="biometric-screen"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full max-w-md"
+        >
+          <Card className="glass-panel border-0 overflow-hidden shadow-2xl shadow-black/50">
+            <div className="h-2 bg-gradient-to-r from-primary to-gray-500 w-full" />
+            <CardContent className="p-8 flex flex-col items-center text-center gap-6">
+              <img src={daamLogo} alt="DAAM Logo" className="h-16 mx-auto" />
+
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {lang === 'ar' ? `مرحباً ${biometricInfo.name}!` : `Welcome back, ${biometricInfo.name}!`}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">{biometricInfo.email}</p>
+              </div>
+
+              {/* Fingerprint icon button */}
+              <button
+                onClick={() => handleBiometricLogin()}
+                disabled={biometricLoading}
+                className="group relative flex items-center justify-center w-32 h-32 rounded-full border-2 border-primary/30 bg-primary/10 hover:bg-primary/20 hover:border-primary/60 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+                aria-label={tr.tapBiometric}
+              >
+                {biometricLoading
+                  ? <Loader2 className="w-14 h-14 text-primary animate-spin" />
+                  : <Fingerprint className="w-14 h-14 text-primary group-hover:text-primary/80 transition-colors" />
+                }
+                {/* Pulse ring */}
+                {!biometricLoading && (
+                  <span className="absolute inset-0 rounded-full border border-primary/20 animate-ping" />
+                )}
+              </button>
+
+              <p className="text-sm text-muted-foreground">{tr.tapBiometric}</p>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">{lang === 'ar' ? 'أو' : 'or'}</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => setShowPasswordForm(true)}
+              >
+                <Lock className="w-4 h-4" />
+                {tr.usePassword}
+              </Button>
+
+              <button
+                className="text-xs text-muted-foreground/60 hover:text-muted-foreground underline transition-colors"
+                onClick={() => {
+                  localStorage.removeItem('daam_biometric');
+                  setBiometricInfo(null);
+                }}
+              >
+                {tr.notYou}
+              </button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+      /* ── Normal login screen ── */
       <motion.div
+        key="password-screen"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="w-full max-w-md"
       >
         <Card className="glass-panel border-0 overflow-hidden shadow-2xl shadow-black/50">
           <div className="h-2 bg-gradient-to-r from-primary to-gray-500 w-full" />
-          
+
           <CardHeader className="text-center pt-8 pb-2 space-y-3">
-            <img 
-              src={daamLogo} 
-              alt="DAAM Logo" 
+            <img
+              src={daamLogo}
+              alt="DAAM Logo"
               className="h-20 mx-auto mb-2"
               data-testid="img-logo-login"
             />
@@ -257,7 +341,7 @@ export default function Login() {
                 type="button"
                 variant="outline"
                 className="w-full h-12 text-base gap-2"
-                onClick={handleBiometricLogin}
+                onClick={() => handleBiometricLogin(email || undefined)}
                 disabled={biometricLoading}
                 data-testid="button-biometric"
               >
@@ -285,6 +369,8 @@ export default function Login() {
           </CardContent>
         </Card>
       </motion.div>
+      )}
+      </AnimatePresence>
 
       <Dialog open={showForgotPassword} onOpenChange={(open) => {
         if (!open) { setShowForgotPassword(false); setResetEmail(""); setResetSent(false); }

@@ -528,6 +528,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (user?.email.toLowerCase() === emailLower) {
       setUser(prev => prev ? { ...prev, account: { ...(prev.account as any), biometricEnabled: true } } : prev);
     }
+    // Save biometric identity to localStorage for password-less login screen
+    const displayName = profiles[emailLower]?.name || profiles[email]?.name || emailLower;
+    localStorage.setItem('daam_biometric', JSON.stringify({ email: emailLower, name: displayName }));
   };
 
   // ── Posts ─────────────────────────────────────────────────────────────────
