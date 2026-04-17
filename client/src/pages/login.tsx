@@ -101,12 +101,20 @@ export default function Login() {
       toast({ title: lang === 'ar' ? 'أهلاً بك!' : 'Welcome back!', description: lang === 'ar' ? 'تم الدخول بالبصمة بنجاح' : 'Biometric login successful' });
     } catch (err: any) {
       if (err?.name === 'NotAllowedError') return;
-      // If no credentials found on server, clear localStorage and show password form
-      if (err?.message?.includes('يجب تسجيل البصمة') || err?.message?.includes('register biometrics')) {
+      const isNoCredentials = err?.message?.includes('يجب تسجيل البصمة') || err?.message?.includes('register biometrics');
+      if (isNoCredentials) {
         localStorage.removeItem('daam_biometric');
         setBiometricInfo(null);
+        toast({
+          title: lang === 'ar' ? 'البصمة غير مفعّلة' : 'Biometrics not set up',
+          description: lang === 'ar'
+            ? 'لم تقم بتسجيل البصمة بعد. سجّل دخولك بكلمة المرور أولاً، ثم فعّل البصمة من الملف الشخصي.'
+            : 'You haven\'t registered biometrics yet. Sign in with your password first, then enable biometrics from your profile.',
+          variant: 'default',
+        });
+      } else {
+        toast({ title: lang === 'ar' ? 'فشل الدخول بالبصمة' : 'Biometric login failed', description: err?.message, variant: 'destructive' });
       }
-      toast({ title: lang === 'ar' ? 'فشل الدخول بالبصمة' : 'Biometric login failed', description: err?.message, variant: 'destructive' });
     } finally {
       setBiometricLoading(false);
     }
