@@ -34,6 +34,7 @@ import Messages from "@/pages/messages";
 import CampaignPage from "@/pages/campaign";
 import PostPage from "@/pages/post";
 import NotFound from "@/pages/not-found";
+import ResetPassword from "@/pages/reset-password";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useDaamStore();
@@ -109,6 +110,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
           <Route path="/verify" component={Verify} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/terms" component={Terms} />
           <Route path="/c/:id" component={CampaignPage} />
           <Route>
