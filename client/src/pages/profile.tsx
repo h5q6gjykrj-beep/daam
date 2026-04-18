@@ -2841,7 +2841,7 @@ export default function Profile() {
                     {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
                   <Button
-                    onClick={() => {
+                    onClick={async () => {
                       const errors: Record<string, string> = {};
                       if (!cpForm.current.trim()) {
                         errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
@@ -2857,10 +2857,14 @@ export default function Profile() {
                         return;
                       }
                       try {
-                        changePassword(cpForm.current, cpForm.newPw);
+                        await changePassword(cpForm.current, cpForm.newPw);
                         setCpSubmitted(true);
                       } catch (err: any) {
-                        setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                        if (err?.message?.includes('غير صحيحة') || err?.message?.includes('incorrect')) {
+                          setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                        } else {
+                          setCpErrors({ current: err?.message || (lang === 'ar' ? 'حدث خطأ' : 'An error occurred') });
+                        }
                       }
                     }}
                     className="flex-1"
@@ -4586,7 +4590,7 @@ export default function Profile() {
                   {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     const errors: Record<string, string> = {};
                     if (!cpForm.current.trim()) {
                       errors.current = lang === 'ar' ? 'أدخل كلمة المرور الحالية' : 'Enter current password';
@@ -4602,10 +4606,14 @@ export default function Profile() {
                       return;
                     }
                     try {
-                      changePassword(cpForm.current, cpForm.newPw);
+                      await changePassword(cpForm.current, cpForm.newPw);
                       setCpSubmitted(true);
                     } catch (err: any) {
-                      setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                      if (err?.message?.includes('غير صحيحة') || err?.message?.includes('incorrect')) {
+                        setCpErrors({ current: lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect' });
+                      } else {
+                        setCpErrors({ current: err?.message || (lang === 'ar' ? 'حدث خطأ' : 'An error occurred') });
+                      }
                     }
                   }}
                   className="flex-1"

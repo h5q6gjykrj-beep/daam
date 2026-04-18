@@ -171,7 +171,7 @@ interface DaamStoreContextType {
   logout: () => void;
   register: (data: RegistrationData) => Promise<PendingVerification>;
   resetPassword: (email: string, newPassword: string) => void;
-  changePassword: (currentPassword: string, newPassword: string) => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<boolean>;
   createPost: (content: string, postType?: PostType, subject?: string, imageUrl?: string, attachments?: Attachment[]) => void;
   deletePost: (postId: string) => void;
@@ -405,22 +405,31 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     return { email: data.email.toLowerCase(), token: '', expiry: '' };
   };
 
-  const changePassword = (currentPassword: string, newPassword: string) => {
+  const changePassword = async (currentPassword: string, newPassword: string) => {
     if (!user) throw new Error(lang === 'ar' ? 'يجب تسجيل الدخول أولاً' : 'Must be logged in');
     const emailLower = user.email.toLowerCase();
-    const account = accounts[emailLower];
-    if (!account) throw new Error(lang === 'ar' ? 'الحساب غير موجود' : 'Account not found');
-    if (account.passwordHash !== simpleHash(currentPassword)) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
+
+    const res = await fetch('/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLower, currentPassword, newPassword }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (body.error === 'current_password_wrong') {
+        throw new Error(lang === 'ar' ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
+      }
+      throw new Error(body.error || (lang === 'ar' ? 'فشل تغيير كلمة المرور' : 'Failed to change password'));
     }
-    if (newPassword.length < 8) {
-      throw new Error(lang === 'ar' ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters');
-    }
+
+    // Update local state so re-checks in same session work
     const newHash = simpleHash(newPassword);
-    const updatedAccount = { ...account, passwordHash: newHash };
-    setAccounts(prev => ({ ...prev, [emailLower]: updatedAccount }));
-    setUser(prev => prev ? { ...prev, account: updatedAccount } : prev);
-    api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { passwordHash: newHash }).catch(() => {});
+    const account = accounts[emailLower];
+    if (account) {
+      const updated = { ...account, passwordHash: newHash };
+      setAccounts(prev => ({ ...prev, [emailLower]: updated }));
+      setUser(prev => prev ? { ...prev, account: updated } : prev);
+    }
   };
 
   const resetPassword = (email: string, newPassword: string) => {

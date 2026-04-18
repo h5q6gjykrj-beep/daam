@@ -278,6 +278,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Change Password (authenticated) ──────────────────────────────────────
+  app.post('/api/change-password', async (req, res) => {
+    try {
+      const { email, currentPassword, newPassword } = req.body;
+      if (!email || !currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      if ((newPassword as string).length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      const emailLower = (email as string).toLowerCase();
+      const account = await store.getAccount(emailLower);
+      if (!account) return res.status(404).json({ error: 'Account not found' });
+
+      if (account.passwordHash !== simpleHash(currentPassword as string)) {
+        return res.status(401).json({ error: 'current_password_wrong' });
+      }
+
+      await store.upsertAccount({ ...account, passwordHash: simpleHash(newPassword as string) });
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Reset Password ────────────────────────────────────────────────────────
   app.post('/api/reset-password', async (req, res) => {
     try {
