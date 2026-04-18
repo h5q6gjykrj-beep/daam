@@ -125,8 +125,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Send verification email
       const verifyUrl = `https://daamtaaleem.com/verify?token=${token}`;
       try {
+        console.log('[register] Sending email to:', emailLower);
+        console.log('[register] RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
         const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        const resendResult = await resend.emails.send({
           from: 'noreply@daamtaaleem.com',
           to: emailLower,
           subject: 'تأكيد حسابك في منصة دام | Verify your DAAM account',
@@ -171,9 +173,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   </table>
 </body></html>`,
         });
+        console.log('[register] Resend result:', JSON.stringify(resendResult));
       } catch (emailErr: any) {
-        console.error('Failed to send verification email:', emailErr.message);
-        // Don't fail the registration if email fails — token is in DB
+        console.error('[register] Resend error:', emailErr.message, emailErr);
       }
 
       return res.json({ ok: true, email: emailLower });
@@ -222,8 +224,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const resetUrl = `https://daamtaaleem.com/reset-password?token=${token}`;
       try {
+        console.log('[forgot-password] Sending email to:', emailLower);
+        console.log('[forgot-password] RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
         const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        const resendResult = await resend.emails.send({
           from: 'noreply@daamtaaleem.com',
           to: emailLower,
           subject: 'إعادة تعيين كلمة المرور | Reset your DAAM password',
@@ -271,8 +275,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   </table>
 </body></html>`,
         });
+        console.log('[forgot-password] Resend result:', JSON.stringify(resendResult));
       } catch (emailErr: any) {
-        console.error('Failed to send reset email:', emailErr.message);
+        console.error('[forgot-password] Resend error:', emailErr.message, emailErr);
       }
 
       return res.json({ ok: true });
