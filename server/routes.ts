@@ -132,6 +132,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           from: 'noreply@daamtaaleem.com',
           to: emailLower,
           subject: 'تأكيد حسابك في منصة دام | Verify your DAAM account',
+          headers: { 'X-Priority': '1', 'Importance': 'high' },
           html: `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -231,6 +232,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           from: 'noreply@daamtaaleem.com',
           to: emailLower,
           subject: 'إعادة تعيين كلمة المرور | Reset your DAAM password',
+          headers: { 'X-Priority': '1', 'Importance': 'high' },
           html: `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

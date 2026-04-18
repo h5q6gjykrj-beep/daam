@@ -95,6 +95,7 @@ function Router() {
             <Route path="/terms" component={Terms} />
             <Route path="/c/:id" component={CampaignPage} />
             <Route path="/post/:id" component={PostPage} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>
