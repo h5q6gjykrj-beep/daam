@@ -25,6 +25,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/ping', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   app.get('/api/stats/users-count', async (_req, res) => {
