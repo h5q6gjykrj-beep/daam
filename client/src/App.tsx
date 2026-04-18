@@ -87,6 +87,7 @@ function Router() {
         <LayoutShell>
           <Switch>
             <Route path="/dashboard" component={Dashboard} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/feed" component={Feed} />
             <Route path="/tutor" component={Tutor} />
             <Route path="/profile/:email?" component={Profile} />
@@ -95,7 +96,6 @@ function Router() {
             <Route path="/terms" component={Terms} />
             <Route path="/c/:id" component={CampaignPage} />
             <Route path="/post/:id" component={PostPage} />
-            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/login">
               <Redirect to="/dashboard" />
             </Route>
