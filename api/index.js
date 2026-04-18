@@ -1041,6 +1041,7 @@ async function registerRoutes(httpServer2, app2) {
           from: "noreply@daamtaaleem.com",
           to: emailLower,
           subject: "\u062A\u0623\u0643\u064A\u062F \u062D\u0633\u0627\u0628\u0643 \u0641\u064A \u0645\u0646\u0635\u0629 \u062F\u0627\u0645 | Verify your DAAM account",
+          headers: { "X-Priority": "1", "Importance": "high" },
           html: `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -1132,6 +1133,7 @@ async function registerRoutes(httpServer2, app2) {
           from: "noreply@daamtaaleem.com",
           to: emailLower,
           subject: "\u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 | Reset your DAAM password",
+          headers: { "X-Priority": "1", "Importance": "high" },
           html: `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
