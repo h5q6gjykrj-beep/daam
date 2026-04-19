@@ -195,7 +195,13 @@ function BannedScreen({ reason, expiresAt }: { reason?: string; expiresAt?: numb
 
 function AppContent() {
   const { isLoading, user, isUserBanned } = useDaamStore();
-  
+  const [location] = useLocation();
+
+  // Render auth-independent pages before any loading/auth checks
+  if (location.startsWith('/reset-password')) {
+    return <ResetPassword />;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-primary">
@@ -203,7 +209,7 @@ function AppContent() {
       </div>
     );
   }
-  
+
   // Check if current user is banned
   if (user) {
     const banStatus = isUserBanned(user.email);
@@ -211,7 +217,7 @@ function AppContent() {
       return <BannedScreen reason={banStatus.reason} expiresAt={banStatus.expiresAt} />;
     }
   }
-  
+
   return (
     <>
       <ScrollToTop />
