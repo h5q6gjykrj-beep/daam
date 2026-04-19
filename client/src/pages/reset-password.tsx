@@ -67,7 +67,7 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast({ title: lang === 'ar' ? 'خطأ' : 'Error', description: data.message ?? tr.invalidToken, variant: 'destructive' });
+        toast({ title: lang === 'ar' ? 'خطأ' : 'Error', description: data.error ?? data.message ?? tr.invalidToken, variant: 'destructive' });
         return;
       }
       toast({ title: tr.successTitle, description: tr.successDesc });

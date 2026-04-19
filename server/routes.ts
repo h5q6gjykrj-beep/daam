@@ -328,8 +328,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await store.upsertAccount({
         ...account,
         passwordHash: simpleHash(password as string),
-        resetToken: undefined,
-        resetTokenExpiry: undefined,
+        resetToken: null as any,
+        resetTokenExpiry: null as any,
       });
 
       return res.json({ ok: true });
