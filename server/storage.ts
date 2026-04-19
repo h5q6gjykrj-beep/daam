@@ -25,6 +25,12 @@ export async function getAllAccounts(): Promise<Record<string, UserAccount>> {
   return result;
 }
 
+export async function updateAccountPassword(email: string, passwordHash: string): Promise<void> {
+  await db.update(schema.accounts)
+    .set({ passwordHash, resetToken: null, resetTokenExpiry: null })
+    .where(eq(schema.accounts.email, email.toLowerCase()));
+}
+
 export async function upsertAccount(acc: UserAccount): Promise<void> {
   await db.insert(schema.accounts).values({
     email: acc.email.toLowerCase(), passwordHash: acc.passwordHash,
