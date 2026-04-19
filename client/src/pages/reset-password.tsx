@@ -36,10 +36,24 @@ export default function ResetPassword() {
     mismatch: lang === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match',
     tooShort: lang === 'ar' ? 'كلمة المرور قصيرة جداً (٦ أحرف على الأقل)' : 'Password too short (min 6 characters)',
     invalidToken: lang === 'ar' ? 'الرابط غير صالح أو منتهي الصلاحية' : 'Invalid or expired reset link',
+    expiredToken: lang === 'ar' ? 'انتهت صلاحية الرابط' : 'Reset link has expired',
+    missingFields: lang === 'ar' ? 'البيانات غير مكتملة' : 'Token and password required',
+    serverError: lang === 'ar' ? 'حدث خطأ في الخادم' : 'Server error',
+    connectionError: lang === 'ar' ? 'خطأ في الاتصال' : 'Connection error',
+    errorTitle: lang === 'ar' ? 'خطأ' : 'Error',
     successTitle: lang === 'ar' ? 'تم التغيير!' : 'Password Changed!',
     successDesc: lang === 'ar' ? 'تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.' : 'Your password has been changed. You can now log in.',
     backToLogin: lang === 'ar' ? 'العودة لتسجيل الدخول' : 'Back to Login',
     noToken: lang === 'ar' ? 'لا يوجد رمز إعادة تعيين في الرابط' : 'No reset token found in link',
+  };
+
+  const localizeServerError = (error?: string) => {
+    if (!error) return tr.invalidToken;
+    if (error.includes('expired')) return tr.expiredToken;
+    if (error.includes('Invalid') || error.includes('invalid')) return tr.invalidToken;
+    if (error.includes('Token and password') || error.includes('required')) return tr.missingFields;
+    if (error.includes('characters') || error.includes('6')) return tr.tooShort;
+    return lang === 'ar' ? tr.serverError : error;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,13 +81,13 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast({ title: lang === 'ar' ? 'خطأ' : 'Error', description: data.error ?? data.message ?? tr.invalidToken, variant: 'destructive' });
+        toast({ title: tr.errorTitle, description: localizeServerError(data.error ?? data.message), variant: 'destructive' });
         return;
       }
       toast({ title: tr.successTitle, description: tr.successDesc });
       setLocation('/login');
     } catch {
-      toast({ title: lang === 'ar' ? 'خطأ في الاتصال' : 'Connection error', variant: 'destructive' });
+      toast({ title: tr.connectionError, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
