@@ -313,22 +313,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post('/api/reset-password', async (req, res) => {
     try {
       const { token, password } = req.body;
+      console.log('[reset-password] token present:', !!token, '| password length:', (password as string)?.length);
       if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
       if ((password as string).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
       const allAccounts = await store.getAllAccounts();
       const entry = Object.entries(allAccounts).find(([, acc]) => acc.resetToken === token);
+      console.log('[reset-password] account found:', !!entry);
       if (!entry) return res.status(400).json({ error: 'Invalid or expired reset link' });
 
       const [, account] = entry;
+      console.log('[reset-password] email:', account.email, '| expiry:', account.resetTokenExpiry);
       if (account.resetTokenExpiry && new Date(account.resetTokenExpiry) < new Date()) {
+        console.log('[reset-password] token expired');
         return res.status(400).json({ error: 'Reset link has expired' });
       }
 
-      await store.updateAccountPassword(account.email, simpleHash(password as string));
+      const newHash = simpleHash(password as string);
+      console.log('[reset-password] calling updateAccountPassword, newHash prefix:', newHash.slice(0, 8));
+      await store.updateAccountPassword(account.email, newHash);
+      console.log('[reset-password] updateAccountPassword done');
 
       return res.json({ ok: true });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) {
+      console.error('[reset-password] error:', e.message, e);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // ── Accounts ──────────────────────────────────────────────────────────────
