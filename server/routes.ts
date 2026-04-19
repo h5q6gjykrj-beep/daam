@@ -223,7 +223,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       await store.upsertAccount({ ...account, resetToken: token, resetTokenExpiry: expiry });
 
-      const resetUrl = `https://daamtaaleem.com/reset-password?token=${token}`;
+      const resetUrl = `https://www.daamtaaleem.com/reset-password?token=${token}`;
       try {
         console.log('[forgot-password] Sending email to:', emailLower);
         console.log('[forgot-password] RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
