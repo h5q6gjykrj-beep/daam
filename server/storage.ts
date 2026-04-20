@@ -12,6 +12,16 @@ import type {
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+}
+
 export async function getAccount(email: string): Promise<UserAccount | undefined> {
   const row = await db.select().from(schema.accounts).where(eq(schema.accounts.email, email.toLowerCase())).limit(1);
   if (!row[0]) return undefined;
@@ -25,12 +35,13 @@ export async function getAllAccounts(): Promise<Record<string, UserAccount>> {
   return result;
 }
 
-export async function updateAccountPassword(email: string, passwordHash: string): Promise<void> {
+export async function updateAccountPassword(email: string, plainPassword: string): Promise<void> {
+  const passwordHash = simpleHash(plainPassword);
   const result = await pool.query(
     'UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
     [passwordHash, email.toLowerCase()]
   );
-  console.log('[updateAccountPassword] email:', email.toLowerCase(), '| rowCount:', result.rowCount);
+  console.log('[updateAccountPassword] email:', email.toLowerCase(), '| rowCount:', result.rowCount, '| hash:', passwordHash);
 }
 
 export async function upsertAccount(acc: UserAccount): Promise<void> {

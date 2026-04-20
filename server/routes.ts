@@ -331,9 +331,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: 'Reset link has expired' });
       }
 
-      const newHash = simpleHash(password as string);
-      console.log('[reset-password] calling updateAccountPassword, newHash prefix:', newHash.slice(0, 8));
-      await store.updateAccountPassword(account.email, newHash);
+      console.log('[reset-password] calling updateAccountPassword for:', account.email);
+      await store.updateAccountPassword(account.email, password as string);
       console.log('[reset-password] updateAccountPassword done');
 
       return res.json({ ok: true });
