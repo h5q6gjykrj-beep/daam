@@ -26,9 +26,11 @@ export async function getAllAccounts(): Promise<Record<string, UserAccount>> {
 }
 
 export async function updateAccountPassword(email: string, passwordHash: string): Promise<void> {
-  await db.update(schema.accounts)
-    .set({ passwordHash, resetToken: null, resetTokenExpiry: null })
-    .where(eq(schema.accounts.email, email.toLowerCase()));
+  const result = await pool.query(
+    'UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
+    [passwordHash, email.toLowerCase()]
+  );
+  console.log('[updateAccountPassword] email:', email.toLowerCase(), '| rowCount:', result.rowCount);
 }
 
 export async function upsertAccount(acc: UserAccount): Promise<void> {
