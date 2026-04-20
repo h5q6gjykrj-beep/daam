@@ -75,7 +75,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!account) return res.status(404).json({ error: 'Account not registered' });
       if (!account.verified) return res.status(403).json({ error: 'Please verify your email first' });
       if (account.banned) return res.status(403).json({ error: 'Your account is banned: ' + (account.bannedReason || '') });
-      if (account.passwordHash !== simpleHash(password)) return res.status(401).json({ error: 'Incorrect password' });
+      const computed = simpleHash(password);
+      console.log('[login] storedHash:', account.passwordHash, '| computed:', computed, '| match:', account.passwordHash === computed);
+      if (account.passwordHash !== computed) return res.status(401).json({ error: 'Incorrect password' });
 
       return res.json({ type: 'account', account });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
