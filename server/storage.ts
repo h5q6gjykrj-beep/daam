@@ -37,11 +37,16 @@ export async function getAllAccounts(): Promise<Record<string, UserAccount>> {
 
 export async function updateAccountPassword(email: string, plainPassword: string): Promise<void> {
   const passwordHash = simpleHash(plainPassword);
+  console.log('[updateAccountPassword] computing hash for password len:', plainPassword.length, '| hash:', passwordHash);
   const result = await pool.query(
     'UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
     [passwordHash, email.toLowerCase()]
   );
-  console.log('[updateAccountPassword] email:', email.toLowerCase(), '| rowCount:', result.rowCount, '| hash:', passwordHash);
+  console.log('[updateAccountPassword] rowCount:', result.rowCount);
+  // Verify the update actually persisted
+  const verify = await pool.query('SELECT password_hash FROM accounts WHERE email = $1', [email.toLowerCase()]);
+  const storedNow = verify.rows[0]?.password_hash;
+  console.log('[updateAccountPassword] verified DB hash:', storedNow, '| match:', storedNow === passwordHash);
 }
 
 export async function upsertAccount(acc: UserAccount): Promise<void> {
