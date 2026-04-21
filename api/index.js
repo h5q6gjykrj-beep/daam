@@ -263,6 +263,11 @@ async function updateAccountPassword(email, plainPassword) {
     [plainPassword, emailLower]
   );
 }
+async function deleteAccount(email) {
+  const emailLower = email.toLowerCase();
+  await pool.query("DELETE FROM accounts WHERE email = $1", [emailLower]);
+  await db.delete(profiles).where(eq(profiles.email, emailLower));
+}
 async function upsertAccount(acc) {
   await db.insert(accounts).values({
     email: acc.email.toLowerCase(),
@@ -1281,6 +1286,25 @@ async function registerRoutes(httpServer2, app2) {
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+  app2.delete("/api/accounts/:email", async (req, res) => {
+    try {
+      await deleteAccount(req.params.email);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.get("/api/session/verify", async (req, res) => {
+    try {
+      const email = (req.query.email || "").toLowerCase();
+      if (!email) return res.status(400).json({ valid: false });
+      const account = await getAccount(email);
+      const authUser = await getAuthUserByEmail(email);
+      res.json({ valid: !!(account || authUser) });
+    } catch (e) {
+      res.status(500).json({ valid: true });
     }
   });
   app2.get("/api/profiles/:email", async (req, res) => {

@@ -367,6 +367,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.delete('/api/accounts/:email', async (req, res) => {
+    try {
+      await store.deleteAccount(req.params.email);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Lightweight endpoint for session validity check
+  app.get('/api/session/verify', async (req, res) => {
+    try {
+      const email = (req.query.email as string || '').toLowerCase();
+      if (!email) return res.status(400).json({ valid: false });
+      const account = await store.getAccount(email);
+      const authUser = await store.getAuthUserByEmail(email);
+      res.json({ valid: !!(account || authUser) });
+    } catch (e: any) { res.status(500).json({ valid: true }); } // fail-open on error
+  });
+
   // ── Profiles ──────────────────────────────────────────────────────────────
   app.get('/api/profiles/:email', async (req, res) => {
     try {

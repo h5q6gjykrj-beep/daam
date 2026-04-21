@@ -303,6 +303,7 @@ export default function Admin() {
     updateModeratorPermissions,
     toggleModeratorActive,
     deleteModerator,
+    deleteAccount,
     // Audit Log
     auditLog: storeAuditLog,
     addAuditEvent,
@@ -744,6 +745,8 @@ export default function Admin() {
     unban: lang === 'ar' ? 'إلغاء الحظر' : 'Unban',
     forceLogout: lang === 'ar' ? 'تسجيل خروج إجباري' : 'Force Logout',
     resetSettings: lang === 'ar' ? 'إعادة تعيين الإعدادات' : 'Reset Settings',
+    deleteAccountBtn: lang === 'ar' ? 'حذف الحساب نهائياً' : 'Delete Account',
+    confirmDeleteAccount: lang === 'ar' ? 'هل أنت متأكد من حذف هذا الحساب نهائياً؟ لا يمكن التراجع.' : 'Permanently delete this account? This cannot be undone.',
     recentPosts: lang === 'ar' ? 'المنشورات الأخيرة' : 'Recent Posts',
     recentComments: lang === 'ar' ? 'التعليقات الأخيرة' : 'Recent Comments',
     relatedReports: lang === 'ar' ? 'البلاغات المتعلقة' : 'Related Reports',
@@ -6030,14 +6033,27 @@ export default function Admin() {
                   </Button>
                   
                   {/* Reset Settings */}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => handleUserDetailAction(selectedUserDetail.id, 'resetSettings')}
                     className="text-purple-400 border-purple-500/30"
                     disabled={selectedUserDetail.settingsResetFlag}
                     data-testid="button-detail-reset-settings"
                   >
                     <RotateCcw className="w-4 h-4 me-2" /> {tr.resetSettings}
+                  </Button>
+
+                  {/* Delete Account */}
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!window.confirm(tr.confirmDeleteAccount)) return;
+                      await deleteAccount(selectedUserDetail.email);
+                      setSelectedUserDetail(null);
+                    }}
+                    data-testid="button-detail-delete-account"
+                  >
+                    <Trash2 className="w-4 h-4 me-2" /> {tr.deleteAccountBtn}
                   </Button>
                 </div>
               </div>

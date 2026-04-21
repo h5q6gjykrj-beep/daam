@@ -205,6 +205,7 @@ interface DaamStoreContextType {
   updateModeratorPermissions: (moderatorId: string, permissions: DaamPermission[]) => void;
   toggleModeratorActive: (moderatorId: string) => void;
   deleteModerator: (moderatorId: string) => void;
+  deleteAccount: (email: string) => Promise<void>;
   getModeratorByEmail: (email: string) => ModeratorAccount | undefined;
   canCurrentUser: (permission: DaamPermission) => boolean;
   auditLog: AuditEvent[];
@@ -300,10 +301,17 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
 
         if (storedUser) {
           const emailLower = storedUser.toLowerCase();
-          const isAdmin = ADMIN_EMAILS.includes(emailLower);
           const authUser = loadedAuthUsers.find((a: any) => a.email.toLowerCase() === emailLower);
-          const isMod = emailLower === MODERATOR_EMAIL.toLowerCase() || authUser?.role === 'moderator';
-          setUser({ email: storedUser, isAdmin, isModerator: isMod, profile: loadedProfiles[storedUser], account: loadedAccounts[emailLower] });
+          const accountExists = loadedAccounts[emailLower] || authUser;
+          if (!accountExists) {
+            // Account was deleted — clear stored credentials and treat as logged out
+            localStorage.removeItem('daam_user');
+            sessionStorage.removeItem('daam_user');
+          } else {
+            const isAdmin = ADMIN_EMAILS.includes(emailLower);
+            const isMod = emailLower === MODERATOR_EMAIL.toLowerCase() || authUser?.role === 'moderator';
+            setUser({ email: storedUser, isAdmin, isModerator: isMod, profile: loadedProfiles[storedUser], account: loadedAccounts[emailLower] });
+          }
         }
       } catch (e) {
         console.error('Failed to load data from API:', e);
@@ -319,7 +327,25 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  // ── Posts polling (every 30s) ─────────────────────────────────────────────
+  // ── Session validity check (every 30s) ───────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const storedEmail = sessionStorage.getItem('daam_user') || localStorage.getItem('daam_user');
+      if (!storedEmail) return;
+      try {
+        const res = await fetch(`/api/session/verify?email=${encodeURIComponent(storedEmail)}`);
+        const data = await res.json();
+        if (!data.valid) {
+          localStorage.removeItem('daam_user');
+          sessionStorage.removeItem('daam_user');
+          setUser(null);
+        }
+      } catch {}
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Posts polling (every 10s) ─────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -834,6 +860,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     api('DELETE', `/api/moderators/${moderatorId}`).catch(() => {});
   }, [moderators]);
 
+  const deleteAccount = useCallback(async (email: string): Promise<void> => {
+    const emailLower = email.toLowerCase();
+    await api('DELETE', `/api/accounts/${encodeURIComponent(emailLower)}`);
+    setAccounts(prev => { const next = { ...prev }; delete next[emailLower]; return next; });
+    setProfiles(prev => { const next = { ...prev }; delete next[emailLower]; delete next[email]; return next; });
+  }, []);
+
   const getModeratorByEmail = useCallback((email: string): ModeratorAccount | undefined => moderators.find(m => m.email.toLowerCase() === email.toLowerCase()), [moderators]);
 
   // ── Mutes ─────────────────────────────────────────────────────────────────
@@ -1055,7 +1088,7 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     deleteReply, editReply, reports, hasUserReported, submitReport, updateReportStatus,
     allowedDomains, addAllowedDomain, removeAllowedDomain, isEmailDomainAllowed,
     moderators, authUsers, currentUserPermissions, createModeratorAccount,
-    updateModeratorPermissions, toggleModeratorActive, deleteModerator, getModeratorByEmail, canCurrentUser,
+    updateModeratorPermissions, toggleModeratorActive, deleteModerator, deleteAccount, getModeratorByEmail, canCurrentUser,
     auditLog, addAuditEvent, mutes, muteUser, unmuteUser, isUserMuted, getMuteRecord,
     bans, banUserWithDuration, unbanUserRecord, isUserBanned, getBanRecord,
     conversations, directMessages, getOrCreateConversation, getConversationsForUser,

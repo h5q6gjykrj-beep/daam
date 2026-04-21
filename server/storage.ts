@@ -49,6 +49,12 @@ export async function updateAccountPassword(email: string, plainPassword: string
   );
 }
 
+export async function deleteAccount(email: string): Promise<void> {
+  const emailLower = email.toLowerCase();
+  await pool.query('DELETE FROM accounts WHERE email = $1', [emailLower]);
+  await db.delete(schema.profiles).where(eq(schema.profiles.email, emailLower));
+}
+
 export async function upsertAccount(acc: UserAccount): Promise<void> {
   await db.insert(schema.accounts).values({
     email: acc.email.toLowerCase(), passwordHash: acc.passwordHash,
