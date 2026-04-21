@@ -327,9 +327,9 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  // ── Session validity check (every 30s) ───────────────────────────────────
+  // ── Session validity check (on load + every 10s + on tab focus) ─────────
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const checkSession = async () => {
       const storedEmail = sessionStorage.getItem('daam_user') || localStorage.getItem('daam_user');
       if (!storedEmail) return;
       try {
@@ -341,8 +341,17 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
           setUser(null);
         }
       } catch {}
-    }, 30_000);
-    return () => clearInterval(interval);
+    };
+    // Run immediately when store first loads (catches deleted accounts on page refresh)
+    checkSession();
+    const interval = setInterval(checkSession, 10_000);
+    // Also check when tab becomes visible again
+    const onVisible = () => { if (document.visibilityState === 'visible') checkSession(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // ── Posts polling (every 10s) ─────────────────────────────────────────────
