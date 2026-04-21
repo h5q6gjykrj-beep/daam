@@ -231,6 +231,15 @@ var users = accounts;
 // server/storage.ts
 var pool = new Pool({ connectionString: process.env.DATABASE_URL });
 var db = drizzle(pool, { schema: schema_exports });
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+}
 async function getAccount(email) {
   const row = await db.select().from(accounts).where(eq(accounts.email, email.toLowerCase())).limit(1);
   if (!row[0]) return void 0;
@@ -241,6 +250,18 @@ async function getAllAccounts() {
   const result = {};
   for (const row of rows) result[row.email] = rowToAccount(row);
   return result;
+}
+async function updateAccountPassword(email, plainPassword) {
+  const passwordHash = simpleHash(plainPassword);
+  console.log("[updateAccountPassword] computing hash for password len:", plainPassword.length, "| hash:", passwordHash);
+  const result = await pool.query(
+    "UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2",
+    [passwordHash, email.toLowerCase()]
+  );
+  console.log("[updateAccountPassword] rowCount:", result.rowCount);
+  const verify = await pool.query("SELECT password_hash FROM accounts WHERE email = $1", [email.toLowerCase()]);
+  const storedNow = verify.rows[0]?.password_hash;
+  console.log("[updateAccountPassword] verified DB hash:", storedNow, "| match:", storedNow === passwordHash);
 }
 async function upsertAccount(acc) {
   await db.insert(accounts).values({
@@ -965,7 +986,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  const simpleHash = (str) => {
+  const simpleHash2 = (str) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
@@ -988,7 +1009,9 @@ async function registerRoutes(httpServer2, app2) {
       if (!account) return res.status(404).json({ error: "Account not registered" });
       if (!account.verified) return res.status(403).json({ error: "Please verify your email first" });
       if (account.banned) return res.status(403).json({ error: "Your account is banned: " + (account.bannedReason || "") });
-      if (account.passwordHash !== simpleHash(password)) return res.status(401).json({ error: "Incorrect password" });
+      const computed = simpleHash2(password);
+      console.log("[login] storedHash:", account.passwordHash, "| computed:", computed, "| match:", account.passwordHash === computed);
+      if (account.passwordHash !== computed) return res.status(401).json({ error: "Incorrect password" });
       return res.json({ type: "account", account });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -1014,7 +1037,7 @@ async function registerRoutes(httpServer2, app2) {
       const expiry = new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString();
       await upsertAccount({
         email: emailLower,
-        passwordHash: simpleHash(password),
+        passwordHash: simpleHash2(password),
         phone: phone || "",
         region: { governorate: governorate || "", wilayat: wilayat || "" },
         role: isModerator ? "moderator" : "student",
@@ -1124,7 +1147,7 @@ async function registerRoutes(httpServer2, app2) {
       const token = crypto2.randomBytes(32).toString("hex");
       const expiry = new Date(Date.now() + 60 * 60 * 1e3).toISOString();
       await upsertAccount({ ...account, resetToken: token, resetTokenExpiry: expiry });
-      const resetUrl = `https://daamtaaleem.com/reset-password?token=${token}`;
+      const resetUrl = `https://www.daamtaaleem.com/reset-password?token=${token}`;
       try {
         console.log("[forgot-password] Sending email to:", emailLower);
         console.log("[forgot-password] RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
@@ -1199,10 +1222,10 @@ async function registerRoutes(httpServer2, app2) {
       const emailLower = email.toLowerCase();
       const account = await getAccount(emailLower);
       if (!account) return res.status(404).json({ error: "Account not found" });
-      if (account.passwordHash !== simpleHash(currentPassword)) {
+      if (account.passwordHash !== simpleHash2(currentPassword)) {
         return res.status(401).json({ error: "current_password_wrong" });
       }
-      await upsertAccount({ ...account, passwordHash: simpleHash(newPassword) });
+      await upsertAccount({ ...account, passwordHash: simpleHash2(newPassword) });
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -1211,23 +1234,25 @@ async function registerRoutes(httpServer2, app2) {
   app2.post("/api/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
+      console.log("[reset-password] token present:", !!token, "| password length:", password?.length);
       if (!token || !password) return res.status(400).json({ error: "Token and password required" });
       if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
       const allAccounts = await getAllAccounts();
       const entry = Object.entries(allAccounts).find(([, acc]) => acc.resetToken === token);
+      console.log("[reset-password] account found:", !!entry);
       if (!entry) return res.status(400).json({ error: "Invalid or expired reset link" });
       const [, account] = entry;
+      console.log("[reset-password] email:", account.email, "| expiry:", account.resetTokenExpiry);
       if (account.resetTokenExpiry && new Date(account.resetTokenExpiry) < /* @__PURE__ */ new Date()) {
+        console.log("[reset-password] token expired");
         return res.status(400).json({ error: "Reset link has expired" });
       }
-      await upsertAccount({
-        ...account,
-        passwordHash: simpleHash(password),
-        resetToken: void 0,
-        resetTokenExpiry: void 0
-      });
+      console.log("[reset-password] calling updateAccountPassword for:", account.email);
+      await updateAccountPassword(account.email, password);
+      console.log("[reset-password] updateAccountPassword done");
       return res.json({ ok: true });
     } catch (e) {
+      console.error("[reset-password] error:", e.message, e);
       res.status(500).json({ error: e.message });
     }
   });

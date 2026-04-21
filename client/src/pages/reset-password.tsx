@@ -151,6 +151,7 @@ export default function ResetPassword() {
                     className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors"
                     style={{ paddingLeft: '1rem', paddingRight: '3rem' }}
                     dir="ltr"
+                    autoComplete="new-password"
                     required
                   />
                   <Button
@@ -176,6 +177,7 @@ export default function ResetPassword() {
                     className="bg-black/20 border-white/10 h-12 text-base focus:border-primary/50 transition-colors"
                     style={{ paddingLeft: '1rem', paddingRight: '3rem' }}
                     dir="ltr"
+                    autoComplete="new-password"
                     required
                   />
                   <Button
