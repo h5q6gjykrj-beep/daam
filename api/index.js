@@ -253,15 +253,15 @@ async function getAllAccounts() {
 }
 async function updateAccountPassword(email, plainPassword) {
   const passwordHash = simpleHash(plainPassword);
-  console.log("[updateAccountPassword] computing hash for password len:", plainPassword.length, "| hash:", passwordHash);
-  const result = await pool.query(
+  const emailLower = email.toLowerCase();
+  await pool.query(
     "UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2",
-    [passwordHash, email.toLowerCase()]
+    [passwordHash, emailLower]
   );
-  console.log("[updateAccountPassword] rowCount:", result.rowCount);
-  const verify = await pool.query("SELECT password_hash FROM accounts WHERE email = $1", [email.toLowerCase()]);
-  const storedNow = verify.rows[0]?.password_hash;
-  console.log("[updateAccountPassword] verified DB hash:", storedNow, "| match:", storedNow === passwordHash);
+  await pool.query(
+    "UPDATE auth_users SET password_hash = $1 WHERE email = $2",
+    [plainPassword, emailLower]
+  );
 }
 async function upsertAccount(acc) {
   await db.insert(accounts).values({
