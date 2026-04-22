@@ -266,6 +266,7 @@ async function updateAccountPassword(email, plainPassword) {
 async function deleteAccount(email) {
   const emailLower = email.toLowerCase();
   await pool.query("DELETE FROM accounts WHERE email = $1", [emailLower]);
+  await pool.query("DELETE FROM auth_users WHERE email = $1", [emailLower]);
   await db.delete(profiles).where(eq(profiles.email, emailLower));
 }
 async function upsertAccount(acc) {
