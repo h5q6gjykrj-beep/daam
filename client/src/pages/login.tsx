@@ -418,7 +418,15 @@ export default function Login() {
                 <KeyRound className="w-8 h-8 text-green-500" />
               </div>
               <h3 className="text-lg font-semibold mb-2">{tr.sentTitle}</h3>
-              <p className="text-sm text-muted-foreground mb-5">{tr.sentDesc}</p>
+              <p className="text-sm text-muted-foreground mb-4">{tr.sentDesc}</p>
+              <div className="flex items-start gap-2 bg-yellow-500/15 border border-yellow-500/40 rounded-lg px-3 py-2 mb-5 text-start">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  {lang === 'ar'
+                    ? 'إذا لم تجد الرسالة في صندوق الوارد، تحقق من مجلد البريد المزعج أو غير المهم'
+                    : "If you don't find the email in your inbox, check your spam or junk folder"}
+                </p>
+              </div>
               <Button className="w-full" onClick={() => { setShowForgotPassword(false); setResetEmail(""); setResetSent(false); }} data-testid="button-back-to-login">
                 {tr.backToLogin}
               </Button>
