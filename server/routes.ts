@@ -299,14 +299,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: 'Password must be at least 8 characters' });
       }
       const emailLower = (email as string).toLowerCase();
-      const account = await store.getAccount(emailLower);
-      if (!account) return res.status(404).json({ error: 'Account not found' });
 
-      if (account.passwordHash !== simpleHash(currentPassword as string)) {
+      // Verify current password against accounts (hashed) or auth_users (plain text)
+      const account = await store.getAccount(emailLower);
+      const authUser = await store.getAuthUserByEmail(emailLower);
+      const accountMatch = account && account.passwordHash === simpleHash(currentPassword as string);
+      const authUserMatch = authUser && authUser.passwordHash === currentPassword;
+      if (!accountMatch && !authUserMatch) {
         return res.status(401).json({ error: 'current_password_wrong' });
       }
 
-      await store.upsertAccount({ ...account, passwordHash: simpleHash(newPassword as string) });
+      // updateAccountPassword uses raw SQL and updates both accounts and auth_users
+      await store.updateAccountPassword(emailLower, newPassword as string);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

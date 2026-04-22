@@ -2768,7 +2768,7 @@ export default function Profile() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                      className="absolute top-0 right-0"
                       onClick={() => setCpShowCurrent(!cpShowCurrent)}
                       tabIndex={-1}
                     >
@@ -2795,7 +2795,7 @@ export default function Profile() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                      className="absolute top-0 right-0"
                       onClick={() => setCpShowNew(!cpShowNew)}
                       tabIndex={-1}
                     >
@@ -2822,7 +2822,7 @@ export default function Profile() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                      className="absolute top-0 right-0"
                       onClick={() => setCpShowConfirm(!cpShowConfirm)}
                       tabIndex={-1}
                     >
@@ -4517,7 +4517,7 @@ export default function Profile() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    className="absolute top-0 right-0"
                     onClick={() => setCpShowCurrent(!cpShowCurrent)}
                     tabIndex={-1}
                   >
@@ -4544,7 +4544,7 @@ export default function Profile() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    className="absolute top-0 right-0"
                     onClick={() => setCpShowNew(!cpShowNew)}
                     tabIndex={-1}
                   >
@@ -4571,7 +4571,7 @@ export default function Profile() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="absolute top-0 right-0 rtl:right-auto rtl:left-0"
+                    className="absolute top-0 right-0"
                     onClick={() => setCpShowConfirm(!cpShowConfirm)}
                     tabIndex={-1}
                   >

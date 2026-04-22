@@ -1227,11 +1227,13 @@ async function registerRoutes(httpServer2, app2) {
       }
       const emailLower = email.toLowerCase();
       const account = await getAccount(emailLower);
-      if (!account) return res.status(404).json({ error: "Account not found" });
-      if (account.passwordHash !== simpleHash2(currentPassword)) {
+      const authUser = await getAuthUserByEmail(emailLower);
+      const accountMatch = account && account.passwordHash === simpleHash2(currentPassword);
+      const authUserMatch = authUser && authUser.passwordHash === currentPassword;
+      if (!accountMatch && !authUserMatch) {
         return res.status(401).json({ error: "current_password_wrong" });
       }
-      await upsertAccount({ ...account, passwordHash: simpleHash2(newPassword) });
+      await updateAccountPassword(emailLower, newPassword);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
