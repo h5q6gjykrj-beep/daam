@@ -381,6 +381,7 @@ export default function Admin() {
         role,
         joinedAt: (account as any).createdAt || new Date().toISOString(),
         university: profile?.university,
+        phone: account.phone || undefined,
         postsCount: userPosts.length,
         commentsCount: userComments.length,
       } as AdminUser;
