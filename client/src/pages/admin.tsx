@@ -5939,7 +5939,7 @@ export default function Admin() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{tr.joinedAt}</p>
-                    <p className="font-medium">{selectedUserDetail.joinedAt}</p>
+                    <p className="font-medium">{new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(selectedUserDetail.joinedAt))}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{tr.lastActive}</p>
