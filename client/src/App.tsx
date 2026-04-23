@@ -1,16 +1,48 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, Component, type ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useDaamStore, DaamStoreProvider } from "@/hooks/use-daam-store";
 import { LayoutShell } from "@/components/layout-shell";
-import { Loader2, Ban } from "lucide-react";
+import { Loader2, Ban, RefreshCw } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 import { Forbidden } from "@/components/admin/Forbidden";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const isArabic = document.documentElement.lang === 'ar';
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4" dir={isArabic ? 'rtl' : 'ltr'}>
+        <Card className="max-w-md w-full text-center">
+          <CardHeader>
+            <CardTitle className="text-destructive">
+              {isArabic ? 'حدث خطأ غير متوقع' : 'Something went wrong'}
+            </CardTitle>
+            <CardDescription>
+              {isArabic ? 'يرجى تحديث الصفحة للمحاولة مجدداً' : 'Please refresh the page to try again'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              {isArabic ? 'تحديث الصفحة' : 'Refresh Page'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+}
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -228,14 +260,16 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <DaamStoreProvider>
-        <TooltipProvider>
-          <Toaster />
-          <AppContent />
-        </TooltipProvider>
-      </DaamStoreProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <DaamStoreProvider>
+          <TooltipProvider>
+            <Toaster />
+            <AppContent />
+          </TooltipProvider>
+        </DaamStoreProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
