@@ -230,7 +230,7 @@ export default function Dashboard() {
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">{profile?.name || email.split('@')[0]}</p>
-                              <p className="text-xs text-muted-foreground truncate">{profile?.major || email}</p>
+                              {profile?.major && <p className="text-xs text-muted-foreground truncate">{profile.major}</p>}
                             </div>
                           </div>
                         </Link>
