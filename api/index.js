@@ -10,6 +10,7 @@ import { createServer } from "http";
 
 // server/routes.ts
 import https from "https";
+import multer from "multer";
 import crypto2 from "crypto";
 
 // server/storage.ts
@@ -878,6 +879,9 @@ async function saveWebAuthnCredential(cred) {
 async function updateWebAuthnCounter(credentialId, counter) {
   await db.update(webauthnCredentials).set({ counter }).where(eq(webauthnCredentials.credentialId, credentialId));
 }
+async function keepAlive() {
+  await pool.query("SELECT 1");
+}
 
 // server/cloudinary.ts
 import { v2 as cloudinary } from "cloudinary";
@@ -975,6 +979,14 @@ var ORIGIN = process.env.WEBAUTHN_ORIGIN || `http://localhost:5000`;
 async function registerRoutes(httpServer2, app2) {
   app2.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app2.get("/api/ping", (_req, res) => res.json({ status: "ok", ts: Date.now() }));
+  app2.get("/api/keepalive", async (_req, res) => {
+    try {
+      await keepAlive();
+      res.json({ status: "ok" });
+    } catch {
+      res.status(500).json({ status: "error" });
+    }
+  });
   app2.get("/api/stats/users-count", async (_req, res) => {
     try {
       const accounts2 = await getAllAccounts();
@@ -1705,6 +1717,16 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
+  const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+  const pdfUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype !== "application/pdf") return cb(new Error("PDF only"));
+      cb(null, true);
+    }
+  });
+  const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
   app2.post("/api/upload/image", (req, res) => {
     imageUpload.single("file")(req, res, async (err) => {
       if (err) {

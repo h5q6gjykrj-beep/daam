@@ -26,6 +26,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
   app.get('/api/ping', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
+  app.get('/api/keepalive', async (_req, res) => {
+    try {
+      await store.keepAlive();
+      res.json({ status: 'ok' });
+    } catch { res.status(500).json({ status: 'error' }); }
+  });
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   app.get('/api/stats/users-count', async (_req, res) => {
@@ -748,6 +754,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
+
+  // ── Upload middleware ─────────────────────────────────────────────────────
+  const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+  const pdfUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype !== 'application/pdf') return cb(new Error('PDF only'));
+      cb(null, true);
+    },
+  });
+  const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
   // ── Image Upload (avatar / cover) ─────────────────────────────────────────
   app.post('/api/upload/image', (req, res) => {

@@ -572,4 +572,8 @@ export async function deleteWebAuthnCredential(credentialId: string): Promise<vo
   await db.delete(schema.webauthnCredentials).where(eq(schema.webauthnCredentials.credentialId, credentialId));
 }
 
+export async function keepAlive(): Promise<void> {
+  await pool.query('SELECT 1');
+}
+
 export const storage = { db };
