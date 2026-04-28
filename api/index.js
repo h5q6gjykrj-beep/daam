@@ -17,6 +17,7 @@ import crypto2 from "crypto";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, desc, sql as sql2 } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 // shared/schema.ts
 var schema_exports = {};
@@ -259,9 +260,10 @@ async function updateAccountPassword(email, plainPassword) {
     "UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2",
     [passwordHash, emailLower]
   );
+  const bcryptHash = await bcrypt.hash(plainPassword, 12);
   await pool.query(
     "UPDATE auth_users SET password_hash = $1 WHERE email = $2",
-    [plainPassword, emailLower]
+    [bcryptHash, emailLower]
   );
 }
 async function deleteAccount(email) {
@@ -566,10 +568,11 @@ async function getAllAuthUsers() {
   }));
 }
 async function createAuthUser(user) {
+  const passwordHash = user.passwordHash.startsWith("$2") ? user.passwordHash : await bcrypt.hash(user.passwordHash, 12);
   await db.insert(authUsers).values({
     id: user.id,
     email: user.email.toLowerCase(),
-    passwordHash: user.passwordHash,
+    passwordHash,
     role: user.role,
     linkedModeratorId: user.linkedModeratorId,
     createdAt: user.createdAt
@@ -577,6 +580,15 @@ async function createAuthUser(user) {
     target: authUsers.email,
     set: { passwordHash: sql2`excluded.password_hash` }
   });
+}
+async function verifyAuthUserPassword(storedHash, plainPassword) {
+  if (storedHash.startsWith("$2")) {
+    return bcrypt.compare(plainPassword, storedHash);
+  }
+  if (storedHash !== plainPassword) return false;
+  const newHash = await bcrypt.hash(plainPassword, 12);
+  await pool.query("UPDATE auth_users SET password_hash = $1 WHERE password_hash = $2", [newHash, storedHash]);
+  return true;
 }
 async function getAuditLog(limit = 200) {
   const rows = await db.select().from(auditLog).orderBy(desc(auditLog.at)).limit(limit);
@@ -883,6 +895,44 @@ async function keepAlive() {
   await pool.query("SELECT 1");
 }
 
+// server/auth-middleware.ts
+import jwt from "jsonwebtoken";
+var SECRET = process.env.SESSION_SECRET || "daam_secret_key_2026";
+function signToken(email, role) {
+  return jwt.sign({ email, role }, SECRET, { expiresIn: "30d" });
+}
+function getPayload(req) {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) return null;
+  try {
+    return jwt.verify(auth.slice(7), SECRET);
+  } catch {
+    return null;
+  }
+}
+function authMiddleware(req, res, next) {
+  const payload = getPayload(req);
+  if (!payload) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  req.authUser = payload;
+  next();
+}
+function adminMiddleware(req, res, next) {
+  const payload = getPayload(req);
+  if (!payload) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (payload.role !== "admin" && payload.role !== "moderator") {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  req.authUser = payload;
+  next();
+}
+
 // server/cloudinary.ts
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
@@ -999,7 +1049,13 @@ async function registerRoutes(httpServer2, app2) {
   app2.get("/api/data", async (_req, res) => {
     try {
       const data = await loadAllData();
-      res.json(data);
+      const safeAccounts = {};
+      for (const [email, acc] of Object.entries(data.accounts)) {
+        const { passwordHash: _ph, resetToken: _rt, verificationToken: _vt, verificationExpiry: _ve, ...safe } = acc;
+        safeAccounts[email] = safe;
+      }
+      const safeAuthUsers = data.authUsers.map(({ passwordHash: _ph, ...safe }) => safe);
+      res.json({ ...data, accounts: safeAccounts, authUsers: safeAuthUsers });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -1020,17 +1076,20 @@ async function registerRoutes(httpServer2, app2) {
       const emailLower = email.toLowerCase();
       const authUser = await getAuthUserByEmail(emailLower);
       if (authUser) {
-        if (authUser.passwordHash !== password) return res.status(401).json({ error: "Incorrect password" });
-        return res.json({ type: "authUser", authUser });
+        const passwordMatch = await verifyAuthUserPassword(authUser.passwordHash, password);
+        if (!passwordMatch) return res.status(401).json({ error: "Incorrect password" });
+        const token2 = signToken(emailLower, authUser.role);
+        const { passwordHash: _ph2, ...safeAuthUser } = authUser;
+        return res.json({ type: "authUser", authUser: safeAuthUser, token: token2 });
       }
       const account = await getAccount(emailLower);
       if (!account) return res.status(404).json({ error: "Account not registered" });
       if (!account.verified) return res.status(403).json({ error: "Please verify your email first" });
       if (account.banned) return res.status(403).json({ error: "Your account is banned: " + (account.bannedReason || "") });
-      const computed = simpleHash2(password);
-      console.log("[login] storedHash:", account.passwordHash, "| computed:", computed, "| match:", account.passwordHash === computed);
-      if (account.passwordHash !== computed) return res.status(401).json({ error: "Incorrect password" });
-      return res.json({ type: "account", account });
+      if (account.passwordHash !== simpleHash2(password)) return res.status(401).json({ error: "Incorrect password" });
+      const token = signToken(emailLower, account.role || "student");
+      const { passwordHash: _ph, resetToken: _rt, verificationToken: _vt, verificationExpiry: _ve, ...safeAccount } = account;
+      return res.json({ type: "account", account: safeAccount, token });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -1285,7 +1344,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/accounts", async (req, res) => {
+  app2.post("/api/accounts", adminMiddleware, async (req, res) => {
     try {
       await upsertAccount(req.body);
       res.json({ ok: true });
@@ -1293,17 +1352,22 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/accounts/:email", async (req, res) => {
+  app2.patch("/api/accounts/:email", authMiddleware, async (req, res) => {
     try {
-      const existing = await getAccount(req.params.email);
+      const caller = req.authUser;
+      const targetEmail = req.params.email.toLowerCase();
+      if (caller.email !== targetEmail && caller.role !== "admin" && caller.role !== "moderator") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const existing = await getAccount(targetEmail);
       if (!existing) return res.status(404).json({ error: "Not found" });
-      await upsertAccount({ ...existing, ...req.body, email: req.params.email });
+      await upsertAccount({ ...existing, ...req.body, email: targetEmail });
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/accounts/:email", async (req, res) => {
+  app2.delete("/api/accounts/:email", adminMiddleware, async (req, res) => {
     try {
       await deleteAccount(req.params.email);
       res.json({ ok: true });
@@ -1331,10 +1395,15 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/profiles/:email", async (req, res) => {
+  app2.patch("/api/profiles/:email", authMiddleware, async (req, res) => {
     try {
-      await upsertProfile(req.params.email, req.body);
-      const updated = await getProfile(req.params.email);
+      const caller = req.authUser;
+      const targetEmail = req.params.email.toLowerCase();
+      if (caller.email !== targetEmail && caller.role !== "admin" && caller.role !== "moderator") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      await upsertProfile(targetEmail, req.body);
+      const updated = await getProfile(targetEmail);
       res.json(updated);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -1381,7 +1450,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/posts", async (req, res) => {
+  app2.post("/api/posts", authMiddleware, async (req, res) => {
     try {
       await createPost(req.body);
       res.json({ ok: true });
@@ -1389,7 +1458,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/posts/:id", async (req, res) => {
+  app2.patch("/api/posts/:id", authMiddleware, async (req, res) => {
     try {
       await updatePost(req.params.id, req.body);
       res.json({ ok: true });
@@ -1397,7 +1466,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/posts/:id", async (req, res) => {
+  app2.delete("/api/posts/:id", authMiddleware, async (req, res) => {
     try {
       await deletePost(req.params.id);
       res.json({ ok: true });
@@ -1405,7 +1474,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/posts/:postId/replies", async (req, res) => {
+  app2.post("/api/posts/:postId/replies", authMiddleware, async (req, res) => {
     try {
       await addReply({ ...req.body, postId: req.params.postId });
       res.json({ ok: true });
@@ -1413,7 +1482,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/replies/:replyId", async (req, res) => {
+  app2.patch("/api/replies/:replyId", authMiddleware, async (req, res) => {
     try {
       await updateReply(req.params.replyId, req.body.content);
       res.json({ ok: true });
@@ -1421,7 +1490,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/replies/:replyId", async (req, res) => {
+  app2.delete("/api/replies/:replyId", authMiddleware, async (req, res) => {
     try {
       await deleteReply(req.params.replyId);
       res.json({ ok: true });
@@ -1452,14 +1521,14 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/api/moderators", async (_req, res) => {
+  app2.get("/api/moderators", adminMiddleware, async (_req, res) => {
     try {
       res.json(await getAllModerators());
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/moderators", async (req, res) => {
+  app2.post("/api/moderators", adminMiddleware, async (req, res) => {
     try {
       await createModerator(req.body.moderator);
       await createAuthUser(req.body.authUser);
@@ -1468,7 +1537,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/moderators/:id/permissions", async (req, res) => {
+  app2.patch("/api/moderators/:id/permissions", adminMiddleware, async (req, res) => {
     try {
       await updateModeratorPermissions(req.params.id, req.body.permissions);
       res.json({ ok: true });
@@ -1476,7 +1545,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/moderators/:id/toggle", async (req, res) => {
+  app2.patch("/api/moderators/:id/toggle", adminMiddleware, async (req, res) => {
     try {
       await toggleModeratorActive(req.params.id);
       res.json({ ok: true });
@@ -1484,7 +1553,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/moderators/:id", async (req, res) => {
+  app2.delete("/api/moderators/:id", adminMiddleware, async (req, res) => {
     try {
       await deleteModerator(req.params.id);
       res.json({ ok: true });
@@ -1492,14 +1561,15 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/api/auth-users", async (_req, res) => {
+  app2.get("/api/auth-users", adminMiddleware, async (_req, res) => {
     try {
-      res.json(await getAllAuthUsers());
+      const users2 = await getAllAuthUsers();
+      res.json(users2.map(({ passwordHash: _ph, ...safe }) => safe));
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/auth-users", async (req, res) => {
+  app2.post("/api/auth-users", adminMiddleware, async (req, res) => {
     try {
       await createAuthUser(req.body);
       res.json({ ok: true });
@@ -1507,14 +1577,14 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/api/audit-log", async (_req, res) => {
+  app2.get("/api/audit-log", adminMiddleware, async (_req, res) => {
     try {
       res.json(await getAuditLog());
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/audit-log", async (req, res) => {
+  app2.post("/api/audit-log", authMiddleware, async (req, res) => {
     try {
       await addAuditEvent(req.body);
       res.json({ ok: true });
@@ -1522,14 +1592,14 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/api/mutes", async (_req, res) => {
+  app2.get("/api/mutes", adminMiddleware, async (_req, res) => {
     try {
       res.json(await getAllMutes());
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/mutes", async (req, res) => {
+  app2.post("/api/mutes", adminMiddleware, async (req, res) => {
     try {
       await upsertMute(req.body);
       res.json({ ok: true });
@@ -1537,7 +1607,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/mutes/:email", async (req, res) => {
+  app2.delete("/api/mutes/:email", adminMiddleware, async (req, res) => {
     try {
       await deleteMute(req.params.email);
       res.json({ ok: true });
@@ -1545,14 +1615,14 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/api/bans", async (_req, res) => {
+  app2.get("/api/bans", adminMiddleware, async (_req, res) => {
     try {
       res.json(await getAllBans());
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/bans", async (req, res) => {
+  app2.post("/api/bans", adminMiddleware, async (req, res) => {
     try {
       await upsertBan(req.body);
       res.json({ ok: true });
@@ -1560,7 +1630,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/bans/:email", async (req, res) => {
+  app2.delete("/api/bans/:email", adminMiddleware, async (req, res) => {
     try {
       await deleteBan(req.params.email);
       res.json({ ok: true });
@@ -1575,7 +1645,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/conversations", async (req, res) => {
+  app2.post("/api/conversations", authMiddleware, async (req, res) => {
     try {
       await upsertConversation(req.body);
       res.json({ ok: true });
@@ -1583,7 +1653,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/conversations/:id", async (req, res) => {
+  app2.patch("/api/conversations/:id", authMiddleware, async (req, res) => {
     try {
       await upsertConversation(req.body);
       res.json({ ok: true });
@@ -1598,7 +1668,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/messages", async (req, res) => {
+  app2.post("/api/messages", authMiddleware, async (req, res) => {
     try {
       await createMessage(req.body);
       res.json({ ok: true });
@@ -1606,7 +1676,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/conversations/:id/read", async (req, res) => {
+  app2.post("/api/conversations/:id/read", authMiddleware, async (req, res) => {
     try {
       await markMessagesRead(req.params.id, req.body.userEmail);
       res.json({ ok: true });
@@ -1661,7 +1731,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/profile-materials", async (req, res) => {
+  app2.post("/api/profile-materials", authMiddleware, async (req, res) => {
     try {
       await addMaterial(req.body);
       res.json({ ok: true });
@@ -1669,7 +1739,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/profile-materials/:id", async (req, res) => {
+  app2.patch("/api/profile-materials/:id", authMiddleware, async (req, res) => {
     try {
       await updateMaterial(req.params.id, req.body);
       res.json({ ok: true });
@@ -1677,7 +1747,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/profile-materials/:id", async (req, res) => {
+  app2.delete("/api/profile-materials/:id", authMiddleware, async (req, res) => {
     try {
       await deleteMaterial(req.params.id);
       res.json({ ok: true });
@@ -1693,7 +1763,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.post("/api/profile-research", async (req, res) => {
+  app2.post("/api/profile-research", authMiddleware, async (req, res) => {
     try {
       await addResearch(req.body);
       res.json({ ok: true });
@@ -1701,7 +1771,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.patch("/api/profile-research/:id", async (req, res) => {
+  app2.patch("/api/profile-research/:id", authMiddleware, async (req, res) => {
     try {
       await updateResearch(req.params.id, req.body);
       res.json({ ok: true });
@@ -1709,7 +1779,7 @@ async function registerRoutes(httpServer2, app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.delete("/api/profile-research/:id", async (req, res) => {
+  app2.delete("/api/profile-research/:id", authMiddleware, async (req, res) => {
     try {
       await deleteResearch(req.params.id);
       res.json({ ok: true });

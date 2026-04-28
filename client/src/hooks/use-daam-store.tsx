@@ -104,9 +104,13 @@ export function getRolePermissions(role: DaamRole, moderatorPermissions: DaamPer
 
 // ─── API Helper ───────────────────────────────────────────────────────────────
 async function api(method: string, path: string, body?: unknown): Promise<any> {
+  const token = sessionStorage.getItem('daam_token') || localStorage.getItem('daam_token');
   const res = await fetch(path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -338,6 +342,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
         if (!data.valid) {
           localStorage.removeItem('daam_user');
           sessionStorage.removeItem('daam_user');
+          localStorage.removeItem('daam_token');
+          sessionStorage.removeItem('daam_token');
           setUser(null);
         }
       } catch {}
@@ -400,7 +406,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     if (result.type === 'authUser') {
       const authUser = result.authUser;
       const isMod = authUser.role === 'moderator' || emailLower === MODERATOR_EMAIL.toLowerCase();
-      if (rememberMe) { localStorage.setItem('daam_user', email); } else { sessionStorage.setItem('daam_user', email); }
+      if (rememberMe) {
+        localStorage.setItem('daam_user', email);
+        if (result.token) localStorage.setItem('daam_token', result.token);
+      } else {
+        sessionStorage.setItem('daam_user', email);
+        if (result.token) sessionStorage.setItem('daam_token', result.token);
+      }
       setAuthUsers(prev => prev.some(a => a.email.toLowerCase() === emailLower) ? prev : [...prev, authUser]);
       setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, profile: profiles[email] });
       return;
@@ -413,7 +425,13 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
     api('PATCH', `/api/accounts/${encodeURIComponent(emailLower)}`, { rememberMe }).catch(() => {});
 
     const isMod = emailLower === MODERATOR_EMAIL.toLowerCase();
-    if (rememberMe) { localStorage.setItem('daam_user', email); } else { sessionStorage.setItem('daam_user', email); }
+    if (rememberMe) {
+      localStorage.setItem('daam_user', email);
+      if (result.token) localStorage.setItem('daam_token', result.token);
+    } else {
+      sessionStorage.setItem('daam_user', email);
+      if (result.token) sessionStorage.setItem('daam_token', result.token);
+    }
     setUser({ email, isAdmin: isAdminEmail, isModerator: isMod, account: updatedAcc, profile: profiles[email] });
   };
 
@@ -494,6 +512,8 @@ export function DaamStoreProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('daam_user');
     sessionStorage.removeItem('daam_user');
+    localStorage.removeItem('daam_token');
+    sessionStorage.removeItem('daam_token');
     setUser(null);
   };
 

@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "path";
 import crypto from "crypto";
 import * as store from "./storage";
+import { signToken, authMiddleware, adminMiddleware } from "./auth-middleware";
 import { uploadImageBuffer, uploadPdfBuffer, uploadVideoBuffer, deleteCloudinaryFile, generateSignedUrl } from "./cloudinary";
 import { Resend } from "resend";
 import {
@@ -46,7 +47,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get('/api/data', async (_req, res) => {
     try {
       const data = await store.loadAllData();
-      res.json(data);
+      // Strip sensitive fields before sending to client
+      const safeAccounts: Record<string, any> = {};
+      for (const [email, acc] of Object.entries(data.accounts as Record<string, any>)) {
+        const { passwordHash: _ph, resetToken: _rt, verificationToken: _vt, verificationExpiry: _ve, ...safe } = acc;
+        safeAccounts[email] = safe;
+      }
+      const safeAuthUsers = (data.authUsers as any[]).map(({ passwordHash: _ph, ...safe }) => safe);
+      res.json({ ...data, accounts: safeAccounts, authUsers: safeAuthUsers });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -69,11 +77,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!email || password === undefined) return res.status(400).json({ error: 'Email and password required' });
       const emailLower = (email as string).toLowerCase();
 
-      // Check authUsers first (admins/moderators store password as-is)
+      // Check authUsers first (admins/moderators)
       const authUser = await store.getAuthUserByEmail(emailLower);
       if (authUser) {
-        if (authUser.passwordHash !== password) return res.status(401).json({ error: 'Incorrect password' });
-        return res.json({ type: 'authUser', authUser });
+        const passwordMatch = await store.verifyAuthUserPassword(authUser.passwordHash, password as string);
+        if (!passwordMatch) return res.status(401).json({ error: 'Incorrect password' });
+        const token = signToken(emailLower, authUser.role);
+        const { passwordHash: _ph, ...safeAuthUser } = authUser;
+        return res.json({ type: 'authUser', authUser: safeAuthUser, token });
       }
 
       // Check regular student accounts
@@ -81,11 +92,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!account) return res.status(404).json({ error: 'Account not registered' });
       if (!account.verified) return res.status(403).json({ error: 'Please verify your email first' });
       if (account.banned) return res.status(403).json({ error: 'Your account is banned: ' + (account.bannedReason || '') });
-      const computed = simpleHash(password);
-      console.log('[login] storedHash:', account.passwordHash, '| computed:', computed, '| match:', account.passwordHash === computed);
-      if (account.passwordHash !== computed) return res.status(401).json({ error: 'Incorrect password' });
-
-      return res.json({ type: 'account', account });
+      if (account.passwordHash !== simpleHash(password as string)) return res.status(401).json({ error: 'Incorrect password' });
+      const token = signToken(emailLower, account.role || 'student');
+      const { passwordHash: _ph, resetToken: _rt, verificationToken: _vt, verificationExpiry: _ve, ...safeAccount } = account;
+      return res.json({ type: 'account', account: safeAccount, token });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -361,23 +371,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/accounts', async (req, res) => {
+  app.post('/api/accounts', adminMiddleware, async (req, res) => {
     try {
       await store.upsertAccount(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/accounts/:email', async (req, res) => {
+  app.patch('/api/accounts/:email', authMiddleware, async (req, res) => {
     try {
-      const existing = await store.getAccount(req.params.email);
+      const caller = (req as any).authUser;
+      const targetEmail = req.params.email.toLowerCase();
+      // Only allow editing own account unless admin/moderator
+      if (caller.email !== targetEmail && caller.role !== 'admin' && caller.role !== 'moderator') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      const existing = await store.getAccount(targetEmail);
       if (!existing) return res.status(404).json({ error: 'Not found' });
-      await store.upsertAccount({ ...existing, ...req.body, email: req.params.email });
+      await store.upsertAccount({ ...existing, ...req.body, email: targetEmail });
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/accounts/:email', async (req, res) => {
+  app.delete('/api/accounts/:email', adminMiddleware, async (req, res) => {
     try {
       await store.deleteAccount(req.params.email);
       res.json({ ok: true });
@@ -404,10 +420,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/profiles/:email', async (req, res) => {
+  app.patch('/api/profiles/:email', authMiddleware, async (req, res) => {
     try {
-      await store.upsertProfile(req.params.email, req.body);
-      const updated = await store.getProfile(req.params.email);
+      const caller = (req as any).authUser;
+      const targetEmail = req.params.email.toLowerCase();
+      if (caller.email !== targetEmail && caller.role !== 'admin' && caller.role !== 'moderator') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      await store.upsertProfile(targetEmail, req.body);
+      const updated = await store.getProfile(targetEmail);
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -449,21 +470,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/posts', async (req, res) => {
+  app.post('/api/posts', authMiddleware, async (req, res) => {
     try {
       await store.createPost(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/posts/:id', async (req, res) => {
+  app.patch('/api/posts/:id', authMiddleware, async (req, res) => {
     try {
       await store.updatePost(req.params.id, req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/posts/:id', async (req, res) => {
+  app.delete('/api/posts/:id', authMiddleware, async (req, res) => {
     try {
       await store.deletePost(req.params.id);
       res.json({ ok: true });
@@ -471,21 +492,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Replies ───────────────────────────────────────────────────────────────
-  app.post('/api/posts/:postId/replies', async (req, res) => {
+  app.post('/api/posts/:postId/replies', authMiddleware, async (req, res) => {
     try {
       await store.addReply({ ...req.body, postId: req.params.postId });
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/replies/:replyId', async (req, res) => {
+  app.patch('/api/replies/:replyId', authMiddleware, async (req, res) => {
     try {
       await store.updateReply(req.params.replyId, req.body.content);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/replies/:replyId', async (req, res) => {
+  app.delete('/api/replies/:replyId', authMiddleware, async (req, res) => {
     try {
       await store.deleteReply(req.params.replyId);
       res.json({ ok: true });
@@ -514,13 +535,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Moderators ────────────────────────────────────────────────────────────
-  app.get('/api/moderators', async (_req, res) => {
+  app.get('/api/moderators', adminMiddleware, async (_req, res) => {
     try {
       res.json(await store.getAllModerators());
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/moderators', async (req, res) => {
+  app.post('/api/moderators', adminMiddleware, async (req, res) => {
     try {
       await store.createModerator(req.body.moderator);
       await store.createAuthUser(req.body.authUser);
@@ -528,21 +549,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/moderators/:id/permissions', async (req, res) => {
+  app.patch('/api/moderators/:id/permissions', adminMiddleware, async (req, res) => {
     try {
       await store.updateModeratorPermissions(req.params.id, req.body.permissions);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/moderators/:id/toggle', async (req, res) => {
+  app.patch('/api/moderators/:id/toggle', adminMiddleware, async (req, res) => {
     try {
       await store.toggleModeratorActive(req.params.id);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/moderators/:id', async (req, res) => {
+  app.delete('/api/moderators/:id', adminMiddleware, async (req, res) => {
     try {
       await store.deleteModerator(req.params.id);
       res.json({ ok: true });
@@ -550,13 +571,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Auth Users ────────────────────────────────────────────────────────────
-  app.get('/api/auth-users', async (_req, res) => {
+  app.get('/api/auth-users', adminMiddleware, async (_req, res) => {
     try {
-      res.json(await store.getAllAuthUsers());
+      const users = await store.getAllAuthUsers();
+      // Never expose passwordHash
+      res.json(users.map(({ passwordHash: _ph, ...safe }: any) => safe));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/auth-users', async (req, res) => {
+  app.post('/api/auth-users', adminMiddleware, async (req, res) => {
     try {
       await store.createAuthUser(req.body);
       res.json({ ok: true });
@@ -564,13 +587,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Audit Log ─────────────────────────────────────────────────────────────
-  app.get('/api/audit-log', async (_req, res) => {
+  app.get('/api/audit-log', adminMiddleware, async (_req, res) => {
     try {
       res.json(await store.getAuditLog());
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/audit-log', async (req, res) => {
+  app.post('/api/audit-log', authMiddleware, async (req, res) => {
     try {
       await store.addAuditEvent(req.body);
       res.json({ ok: true });
@@ -578,20 +601,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Mutes ─────────────────────────────────────────────────────────────────
-  app.get('/api/mutes', async (_req, res) => {
+  app.get('/api/mutes', adminMiddleware, async (_req, res) => {
     try {
       res.json(await store.getAllMutes());
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/mutes', async (req, res) => {
+  app.post('/api/mutes', adminMiddleware, async (req, res) => {
     try {
       await store.upsertMute(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/mutes/:email', async (req, res) => {
+  app.delete('/api/mutes/:email', adminMiddleware, async (req, res) => {
     try {
       await store.deleteMute(req.params.email);
       res.json({ ok: true });
@@ -599,20 +622,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Bans ──────────────────────────────────────────────────────────────────
-  app.get('/api/bans', async (_req, res) => {
+  app.get('/api/bans', adminMiddleware, async (_req, res) => {
     try {
       res.json(await store.getAllBans());
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/bans', async (req, res) => {
+  app.post('/api/bans', adminMiddleware, async (req, res) => {
     try {
       await store.upsertBan(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/bans/:email', async (req, res) => {
+  app.delete('/api/bans/:email', adminMiddleware, async (req, res) => {
     try {
       await store.deleteBan(req.params.email);
       res.json({ ok: true });
@@ -626,14 +649,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/conversations', async (req, res) => {
+  app.post('/api/conversations', authMiddleware, async (req, res) => {
     try {
       await store.upsertConversation(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/conversations/:id', async (req, res) => {
+  app.patch('/api/conversations/:id', authMiddleware, async (req, res) => {
     try {
       await store.upsertConversation(req.body);
       res.json({ ok: true });
@@ -647,14 +670,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/messages', async (req, res) => {
+  app.post('/api/messages', authMiddleware, async (req, res) => {
     try {
       await store.createMessage(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/conversations/:id/read', async (req, res) => {
+  app.post('/api/conversations/:id/read', authMiddleware, async (req, res) => {
     try {
       await store.markMessagesRead(req.params.id, req.body.userEmail);
       res.json({ ok: true });
@@ -705,21 +728,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/profile-materials', async (req, res) => {
+  app.post('/api/profile-materials', authMiddleware, async (req, res) => {
     try {
       await store.addMaterial(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/profile-materials/:id', async (req, res) => {
+  app.patch('/api/profile-materials/:id', authMiddleware, async (req, res) => {
     try {
       await store.updateMaterial(req.params.id, req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/profile-materials/:id', async (req, res) => {
+  app.delete('/api/profile-materials/:id', authMiddleware, async (req, res) => {
     try {
       await store.deleteMaterial(req.params.id);
       res.json({ ok: true });
@@ -734,21 +757,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/profile-research', async (req, res) => {
+  app.post('/api/profile-research', authMiddleware, async (req, res) => {
     try {
       await store.addResearch(req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch('/api/profile-research/:id', async (req, res) => {
+  app.patch('/api/profile-research/:id', authMiddleware, async (req, res) => {
     try {
       await store.updateResearch(req.params.id, req.body);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete('/api/profile-research/:id', async (req, res) => {
+  app.delete('/api/profile-research/:id', authMiddleware, async (req, res) => {
     try {
       await store.deleteResearch(req.params.id);
       res.json({ ok: true });

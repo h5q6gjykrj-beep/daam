@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, desc, sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import * as schema from "@shared/schema";
 import type {
   UserAccount, UserProfile, LocalPost, LocalReply, Report, ModeratorAccount,
@@ -42,10 +43,11 @@ export async function updateAccountPassword(email: string, plainPassword: string
     'UPDATE accounts SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
     [passwordHash, emailLower]
   );
-  // Also update auth_users if this email is an admin/moderator (auth_users stores passwords as plain text)
+  // Also update auth_users if this email is an admin/moderator — now stored as bcrypt
+  const bcryptHash = await bcrypt.hash(plainPassword, 12);
   await pool.query(
     'UPDATE auth_users SET password_hash = $1 WHERE email = $2',
-    [plainPassword, emailLower]
+    [bcryptHash, emailLower]
   );
 }
 
@@ -282,13 +284,29 @@ export async function getAllAuthUsers(): Promise<LocalAuthUser[]> {
 }
 
 export async function createAuthUser(user: LocalAuthUser): Promise<void> {
+  // Hash password with bcrypt if not already hashed
+  const passwordHash = user.passwordHash.startsWith('$2')
+    ? user.passwordHash
+    : await bcrypt.hash(user.passwordHash, 12);
   await db.insert(schema.authUsers).values({
-    id: user.id, email: user.email.toLowerCase(), passwordHash: user.passwordHash,
+    id: user.id, email: user.email.toLowerCase(), passwordHash,
     role: user.role, linkedModeratorId: user.linkedModeratorId, createdAt: user.createdAt,
   }).onConflictDoUpdate({
     target: schema.authUsers.email,
     set: { passwordHash: sql`excluded.password_hash` }
   });
+}
+
+// Verifies an auth user password — handles both bcrypt hashes and legacy plain text (lazy migration)
+export async function verifyAuthUserPassword(storedHash: string, plainPassword: string): Promise<boolean> {
+  if (storedHash.startsWith('$2')) {
+    return bcrypt.compare(plainPassword, storedHash);
+  }
+  // Legacy plain text — verify, then migrate to bcrypt
+  if (storedHash !== plainPassword) return false;
+  const newHash = await bcrypt.hash(plainPassword, 12);
+  await pool.query('UPDATE auth_users SET password_hash = $1 WHERE password_hash = $2', [newHash, storedHash]);
+  return true;
 }
 
 export async function getAuditLog(limit = 200): Promise<AuditEvent[]> {
